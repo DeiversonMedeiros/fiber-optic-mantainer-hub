@@ -16,12 +16,39 @@ import {
   Settings,
   User
 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const Dashboard = () => {
   const { signOut, user } = useAuth();
+  const { toast } = useToast();
 
   const handleLogout = async () => {
     await signOut();
+  };
+
+  const handleQuickAction = (action: string) => {
+    switch (action) {
+      case 'create-os':
+        toast({
+          title: "Criar OS",
+          description: "Funcionalidade em desenvolvimento",
+        });
+        break;
+      case 'validate-reports':
+        toast({
+          title: "Validar Relatórios",
+          description: "Funcionalidade em desenvolvimento",
+        });
+        break;
+      case 'new-user':
+        toast({
+          title: "Novo Usuário",
+          description: "Funcionalidade em desenvolvimento",
+        });
+        break;
+      default:
+        break;
+    }
   };
 
   return (
@@ -129,7 +156,7 @@ const Dashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <QuickActions />
+        <QuickActions onAction={handleQuickAction} />
       </main>
     </div>
   );
