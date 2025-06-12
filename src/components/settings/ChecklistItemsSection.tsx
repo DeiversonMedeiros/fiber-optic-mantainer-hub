@@ -7,109 +7,100 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { Trash2, Plus, Search } from 'lucide-react';
+import { Trash2, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-const CATEGORIES = {
-  acessorios: 'Acessórios',
-  cabos: 'Cabos',
-  caixas: 'Caixas',
-  servicos: 'Serviços',
-  outros: 'Outros'
-};
+type ChecklistCategory = 'acessorios' | 'cabos' | 'caixas' | 'servicos' | 'outros';
 
 const ChecklistItemsSection = () => {
   const [newItemName, setNewItemName] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [newItemCategory, setNewItemCategory] = useState<ChecklistCategory>('acessorios');
   const [selectedClass, setSelectedClass] = useState('');
-  const [activeTab, setActiveTab] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: userClasses } = useQuery({
-    queryKey: ['user-classes-for-checklist'],
+  const categories = [
+    { value: 'acessorios', label: 'Acessórios' },
+    { value: 'cabos', label: 'Cabos' },
+    { value: 'caixas', label: 'Caixas' },
+    { value: 'servicos', label: 'Serviços' },
+    { value: 'outros', label: 'Outros' }
+  ];
+
+  const { data: userClasses = [] } = useQuery({
+    queryKey: ['user-classes'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('user_classes')
-        .select('id, name')
+        .select('*')
         .eq('is_active', true)
         .order('name');
-      
       if (error) throw error;
       return data;
     }
   });
 
-  const { data: checklistItems } = useQuery({
+  const { data: checklistItems = [] } = useQuery({
     queryKey: ['checklist-items'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('checklist_items')
         .select(`
           *,
-          user_classes (
-            id,
-            name
-          )
+          user_classes!inner(name)
         `)
         .eq('is_active', true)
-        .order('name');
-      
+        .order('category', { ascending: true })
+        .order('name', { ascending: true });
       if (error) throw error;
       return data;
     }
   });
 
-  const createItemMutation = useMutation({
-    mutationFn: async (data: { name: string; category: string; user_class_id: string }) => {
+  const createMutation = useMutation({
+    mutationFn: async (items: Array<{ name: string; category: ChecklistCategory; user_class_id: string }>) => {
       const { error } = await supabase
         .from('checklist_items')
-        .insert([data]);
-      
+        .insert(items);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-items'] });
-      setNewItemName('');
-      setSelectedCategory('');
-      setSelectedClass('');
       toast({
         title: "Item criado",
-        description: "O item do checklist foi criado com sucesso.",
+        description: "O item foi adicionado com sucesso.",
       });
+      setNewItemName('');
     },
-    onError: (error) => {
+    onError: () => {
       toast({
-        title: "Erro ao criar item",
-        description: "Não foi possível criar o item do checklist.",
+        title: "Erro",
+        description: "Não foi possível criar o item.",
         variant: "destructive",
       });
     }
   });
 
-  const deleteItemMutation = useMutation({
+  const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('checklist_items')
         .update({ is_active: false })
         .eq('id', id);
-      
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-items'] });
       toast({
         title: "Item excluído",
-        description: "O item do checklist foi excluído com sucesso.",
+        description: "O item foi removido com sucesso.",
       });
     },
-    onError: (error) => {
+    onError: () => {
       toast({
-        title: "Erro ao excluir",
-        description: "Não foi possível excluir o item do checklist.",
+        title: "Erro",
+        description: "Não foi possível excluir o item.",
         variant: "destructive",
       });
     }
@@ -117,46 +108,32 @@ const ChecklistItemsSection = () => {
 
   const handleCreateItem = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newItemName.trim() || !selectedCategory || !selectedClass) return;
-    
-    createItemMutation.mutate({
+    if (!newItemName.trim() || !selectedClass) return;
+
+    createMutation.mutate([{
       name: newItemName.trim(),
-      category: selectedCategory,
+      category: newItemCategory,
       user_class_id: selectedClass
-    });
+    }]);
   };
 
-  const handleDeleteItem = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este item?')) {
-      deleteItemMutation.mutate(id);
+  const groupedItems = checklistItems.reduce((acc, item) => {
+    const className = item.user_classes?.name || 'Sem Classe';
+    if (!acc[className]) {
+      acc[className] = {};
     }
-  };
-
-  const filteredItems = checklistItems?.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesTab = !activeTab || item.user_class_id === activeTab;
-    return matchesSearch && matchesTab;
-  });
-
-  const groupedItems = filteredItems?.reduce((acc, item) => {
-    if (!acc[item.category]) {
-      acc[item.category] = [];
+    if (!acc[className][item.category]) {
+      acc[className][item.category] = [];
     }
-    acc[item.category].push(item);
+    acc[className][item.category].push(item);
     return acc;
-  }, {} as Record<string, any[]>);
+  }, {} as Record<string, Record<string, any[]>>);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Checklist de Itens</h2>
-        <p className="text-gray-600">Gerencie os itens do checklist organizados por classe e categoria</p>
-      </div>
-
-      {/* Formulário de criação */}
       <Card>
         <CardHeader>
-          <CardTitle>Cadastrar Novo Item</CardTitle>
+          <CardTitle>Adicionar Novo Item</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreateItem} className="space-y-4">
@@ -172,28 +149,28 @@ const ChecklistItemsSection = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="category">Categoria</Label>
-                <Select value={selectedCategory} onValueChange={setSelectedCategory} required>
+                <Label htmlFor="item-category">Categoria</Label>
+                <Select value={newItemCategory} onValueChange={(value: ChecklistCategory) => setNewItemCategory(value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma categoria" />
+                    <SelectValue placeholder="Selecione a categoria" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(CATEGORIES).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>
-                        {label}
+                    {categories.map(category => (
+                      <SelectItem key={category.value} value={category.value}>
+                        {category.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="class">Classe</Label>
-                <Select value={selectedClass} onValueChange={setSelectedClass} required>
+                <Label htmlFor="item-class">Classe</Label>
+                <Select value={selectedClass} onValueChange={setSelectedClass}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma classe" />
+                    <SelectValue placeholder="Selecione a classe" />
                   </SelectTrigger>
                   <SelectContent>
-                    {userClasses?.map((userClass) => (
+                    {userClasses.map(userClass => (
                       <SelectItem key={userClass.id} value={userClass.id}>
                         {userClass.name}
                       </SelectItem>
@@ -202,79 +179,66 @@ const ChecklistItemsSection = () => {
                 </Select>
               </div>
             </div>
-            <Button type="submit" disabled={createItemMutation.isPending}>
+            <Button type="submit" disabled={createMutation.isPending}>
               <Plus className="w-4 h-4 mr-2" />
-              {createItemMutation.isPending ? 'Criando...' : 'Criar Item'}
+              Adicionar Item
             </Button>
           </form>
         </CardContent>
       </Card>
 
-      {/* Filtros e visualização */}
-      <div className="space-y-4">
-        <div className="flex items-center space-x-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder="Buscar itens..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Itens do Checklist</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue={Object.keys(groupedItems)[0]} className="space-y-4">
+            <TabsList className="grid w-full grid-cols-auto">
+              {Object.keys(groupedItems).map(className => (
+                <TabsTrigger key={className} value={className}>
+                  {className}
+                </TabsTrigger>
+              ))}
+            </TabsList>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-auto">
-            <TabsTrigger value="">Todas as Classes</TabsTrigger>
-            {userClasses?.map((userClass) => (
-              <TabsTrigger key={userClass.id} value={userClass.id}>
-                {userClass.name}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          <TabsContent value={activeTab} className="mt-6">
-            {Object.entries(CATEGORIES).map(([categoryKey, categoryLabel]) => {
-              const categoryItems = groupedItems?.[categoryKey] || [];
-              
-              if (categoryItems.length === 0) return null;
-
-              return (
-                <Card key={categoryKey} className="mb-4">
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      {categoryLabel}
-                      <Badge variant="secondary">{categoryItems.length} itens</Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {categoryItems.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div>
-                            <p className="font-medium">{item.name}</p>
-                            <p className="text-sm text-gray-600">
-                              Classe: {item.user_classes?.name}
-                            </p>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteItem(item.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+            {Object.entries(groupedItems).map(([className, categories]) => (
+              <TabsContent key={className} value={className} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {Object.entries(categories).map(([category, items]) => (
+                    <Card key={category}>
+                      <CardHeader>
+                        <CardTitle className="text-lg">
+                          {categories.find(cat => cat.value === category)?.label || category}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {items.map(item => (
+                            <div key={item.id} className="flex items-center justify-between p-2 border rounded">
+                              <span>{item.name}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteMutation.mutate(item.id)}
+                                disabled={deleteMutation.isPending}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))}
+                          {items.length === 0 && (
+                            <p className="text-gray-500 text-sm">Nenhum item nesta categoria</p>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </TabsContent>
-        </Tabs>
-      </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 };
