@@ -9,6 +9,36 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      access_profiles: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          permissions: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          permissions?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          permissions?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       activities: {
         Row: {
           action: string
@@ -49,6 +79,44 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_items: {
+        Row: {
+          category: Database["public"]["Enums"]["checklist_category"]
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+          user_class_id: string | null
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["checklist_category"]
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+          user_class_id?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["checklist_category"]
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          user_class_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_items_user_class_id_fkey"
+            columns: ["user_class_id"]
+            isOneToOne: false
+            referencedRelation: "user_classes"
             referencedColumns: ["id"]
           },
         ]
@@ -182,6 +250,60 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      report_templates: {
+        Row: {
+          checklist_class_id: string | null
+          checklist_enabled: boolean
+          created_at: string
+          description: string | null
+          fields: Json
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+          user_class_id: string | null
+        }
+        Insert: {
+          checklist_class_id?: string | null
+          checklist_enabled?: boolean
+          created_at?: string
+          description?: string | null
+          fields?: Json
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+          user_class_id?: string | null
+        }
+        Update: {
+          checklist_class_id?: string | null
+          checklist_enabled?: boolean
+          created_at?: string
+          description?: string | null
+          fields?: Json
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          user_class_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_templates_checklist_class_id_fkey"
+            columns: ["checklist_class_id"]
+            isOneToOne: false
+            referencedRelation: "user_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_templates_user_class_id_fkey"
+            columns: ["user_class_id"]
+            isOneToOne: false
+            referencedRelation: "user_classes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reports: {
         Row: {
@@ -370,6 +492,44 @@ export type Database = {
           },
         ]
       }
+      user_classes: {
+        Row: {
+          access_profile_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          access_profile_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          access_profile_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_classes_access_profile_id_fkey"
+            columns: ["access_profile_id"]
+            isOneToOne: false
+            referencedRelation: "access_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -388,8 +548,23 @@ export type Database = {
       }
     }
     Enums: {
+      checklist_category:
+        | "acessorios"
+        | "cabos"
+        | "caixas"
+        | "servicos"
+        | "outros"
       maintenance_type: "preventiva" | "corretiva" | "emergencial"
       os_status: "pendente" | "em_andamento" | "concluida" | "cancelada"
+      report_field_type:
+        | "texto_curto"
+        | "texto_longo"
+        | "data"
+        | "radio"
+        | "checkbox"
+        | "dropdown"
+        | "upload"
+        | "checklist"
       report_status: "pendente" | "validado" | "rejeitado"
       user_role: "admin" | "tecnico" | "supervisor" | "gestor"
     }
@@ -507,8 +682,25 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      checklist_category: [
+        "acessorios",
+        "cabos",
+        "caixas",
+        "servicos",
+        "outros",
+      ],
       maintenance_type: ["preventiva", "corretiva", "emergencial"],
       os_status: ["pendente", "em_andamento", "concluida", "cancelada"],
+      report_field_type: [
+        "texto_curto",
+        "texto_longo",
+        "data",
+        "radio",
+        "checkbox",
+        "dropdown",
+        "upload",
+        "checklist",
+      ],
       report_status: ["pendente", "validado", "rejeitado"],
       user_role: ["admin", "tecnico", "supervisor", "gestor"],
     },

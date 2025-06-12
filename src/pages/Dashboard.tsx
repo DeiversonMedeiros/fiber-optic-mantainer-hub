@@ -17,13 +17,19 @@ import {
   User
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const { signOut, user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
     await signOut();
+  };
+
+  const handleSettings = () => {
+    navigate('/settings');
   };
 
   const handleQuickAction = (action: string) => {
@@ -75,7 +81,7 @@ const Dashboard = () => {
                 <User className="w-4 h-4 mr-2" />
                 Perfil
               </Button>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handleSettings}>
                 <Settings className="w-4 h-4 mr-2" />
                 Configurações
               </Button>
