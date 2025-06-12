@@ -40,9 +40,9 @@ const Profile = () => {
         .from('profiles')
         .select(`
           *,
-          user_class:user_classes(name),
-          access_profile:access_profiles(name),
-          manager:profiles!manager_id(name)
+          user_class:user_class_id(name),
+          access_profile:access_profile_id(name),
+          manager:manager_id(name)
         `)
         .eq('id', user.id)
         .single();

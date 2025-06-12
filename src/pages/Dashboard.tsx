@@ -27,6 +27,22 @@ const Dashboard = () => {
     await signOut();
   };
 
+  const handleQuickAction = (actionId: string) => {
+    switch (actionId) {
+      case 'create-os':
+        console.log('Criar OS');
+        break;
+      case 'validate-reports':
+        console.log('Validar Relatórios');
+        break;
+      case 'new-user':
+        navigate('/users');
+        break;
+      default:
+        console.log('Ação não encontrada:', actionId);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
@@ -119,25 +135,25 @@ const Dashboard = () => {
             title="Ordens Pendentes"
             value="24"
             description="+12% em relação ao mês anterior"
-            icon={<CheckSquare className="h-4 w-4" />}
+            icon={CheckSquare}
           />
           <StatCard
             title="Ordens Concluídas"
             value="156"
             description="+8% em relação ao mês anterior"
-            icon={<FileText className="h-4 w-4" />}
+            icon={FileText}
           />
           <StatCard
             title="Alertas Ativos"
             value="7"
             description="3 críticos, 4 moderados"
-            icon={<AlertTriangle className="h-4 w-4" />}
+            icon={AlertTriangle}
           />
           <StatCard
             title="Eficiência"
             value="94.2%"
             description="+2.1% em relação ao mês anterior"
-            icon={<TrendingUp className="h-4 w-4" />}
+            icon={TrendingUp}
           />
         </div>
 
@@ -148,7 +164,7 @@ const Dashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <QuickActions />
+        <QuickActions onAction={handleQuickAction} />
       </main>
     </div>
   );

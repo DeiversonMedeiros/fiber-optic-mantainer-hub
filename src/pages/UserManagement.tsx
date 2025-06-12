@@ -13,9 +13,29 @@ import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import UserModal from '@/components/users/UserModal';
 
+interface User {
+  id: string;
+  name: string;
+  phone?: string;
+  is_active: boolean;
+  user_class?: { name: string } | null;
+  access_profile?: { name: string } | null;
+  manager?: { name: string } | null;
+}
+
+interface UserClass {
+  id: string;
+  name: string;
+}
+
+interface AccessProfile {
+  id: string;
+  name: string;
+}
+
 const UserManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [filters, setFilters] = useState({
     name: '',
     userClass: '',
@@ -28,16 +48,16 @@ const UserManagement = () => {
   const queryClient = useQueryClient();
 
   // Buscar usuários
-  const { data: users = [], isLoading } = useQuery({
+  const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ['users', filters],
     queryFn: async () => {
       let query = supabase
         .from('profiles')
         .select(`
           *,
-          user_class:user_classes(id, name),
-          access_profile:access_profiles(id, name),
-          manager:profiles!manager_id(id, name)
+          user_class:user_class_id(name),
+          access_profile:access_profile_id(name),
+          manager:manager_id(name)
         `)
         .order('name');
 
@@ -56,12 +76,12 @@ const UserManagement = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return data as User[];
     }
   });
 
   // Buscar classes de usuário para filtros
-  const { data: userClasses = [] } = useQuery({
+  const { data: userClasses = [] } = useQuery<UserClass[]>({
     queryKey: ['user-classes-filter'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -71,12 +91,12 @@ const UserManagement = () => {
         .order('name');
       
       if (error) throw error;
-      return data;
+      return data as UserClass[];
     }
   });
 
   // Buscar perfis de acesso para filtros
-  const { data: accessProfiles = [] } = useQuery({
+  const { data: accessProfiles = [] } = useQuery<AccessProfile[]>({
     queryKey: ['access-profiles-filter'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -86,7 +106,7 @@ const UserManagement = () => {
         .order('name');
       
       if (error) throw error;
-      return data;
+      return data as AccessProfile[];
     }
   });
 
@@ -121,12 +141,12 @@ const UserManagement = () => {
     setIsModalOpen(true);
   };
 
-  const handleEdit = (user: any) => {
+  const handleEdit = (user: User) => {
     setSelectedUser(user);
     setIsModalOpen(true);
   };
 
-  const handleToggleStatus = (user: any) => {
+  const handleToggleStatus = (user: User) => {
     const action = user.is_active ? 'desativar' : 'reativar';
     if (window.confirm(`Tem certeza que deseja ${action} este usuário?`)) {
       toggleUserStatusMutation.mutate({ id: user.id, isActive: user.is_active });

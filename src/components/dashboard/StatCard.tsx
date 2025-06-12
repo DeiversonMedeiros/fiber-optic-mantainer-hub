@@ -6,7 +6,7 @@ import { LucideIcon } from 'lucide-react';
 interface StatCardProps {
   title: string;
   value: string | number;
-  subtitle?: string;
+  description?: string;
   icon: LucideIcon;
   trend?: {
     value: number;
@@ -15,7 +15,7 @@ interface StatCardProps {
   color?: 'primary' | 'secondary' | 'warning' | 'danger';
 }
 
-const StatCard = ({ title, value, subtitle, icon: Icon, trend, color = 'primary' }: StatCardProps) => {
+const StatCard = ({ title, value, description, icon: Icon, trend, color = 'primary' }: StatCardProps) => {
   const colorClasses = {
     primary: 'bg-primary text-primary-foreground',
     secondary: 'bg-secondary text-secondary-foreground',
@@ -35,9 +35,9 @@ const StatCard = ({ title, value, subtitle, icon: Icon, trend, color = 'primary'
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>
-        {subtitle && (
+        {description && (
           <p className="text-xs text-muted-foreground mt-1">
-            {subtitle}
+            {description}
           </p>
         )}
         {trend && (
