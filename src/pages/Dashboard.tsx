@@ -1,60 +1,30 @@
 
 import React from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import StatCard from '@/components/dashboard/StatCard';
-import MaintenanceChart from '@/components/dashboard/MaintenanceChart';
-import ActivityFeed from '@/components/dashboard/ActivityFeed';
-import QuickActions from '@/components/dashboard/QuickActions';
+import { Button } from '@/components/ui/button';
 import { 
-  ClipboardList, 
+  Settings, 
   Users, 
+  FileText, 
   AlertTriangle, 
-  FileText,
+  CheckSquare, 
+  TrendingUp,
   LogOut,
-  Settings,
   User
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import StatCard from '@/components/dashboard/StatCard';
+import QuickActions from '@/components/dashboard/QuickActions';
+import ActivityFeed from '@/components/dashboard/ActivityFeed';
+import MaintenanceChart from '@/components/dashboard/MaintenanceChart';
 
 const Dashboard = () => {
   const { signOut, user } = useAuth();
-  const { toast } = useToast();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     await signOut();
-  };
-
-  const handleSettings = () => {
-    navigate('/settings');
-  };
-
-  const handleQuickAction = (action: string) => {
-    switch (action) {
-      case 'create-os':
-        toast({
-          title: "Criar OS",
-          description: "Funcionalidade em desenvolvimento",
-        });
-        break;
-      case 'validate-reports':
-        toast({
-          title: "Validar Relatórios",
-          description: "Funcionalidade em desenvolvimento",
-        });
-        break;
-      case 'new-user':
-        toast({
-          title: "Novo Usuário",
-          description: "Funcionalidade em desenvolvimento",
-        });
-        break;
-      default:
-        break;
-    }
   };
 
   return (
@@ -65,11 +35,11 @@ const Dashboard = () => {
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
               <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                <div className="w-6 h-6 bg-white rounded-full"></div>
+                <TrendingUp className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">SGM</h1>
-                <p className="text-sm text-gray-600">Sistema de Gestão de Manutenção</p>
+                <h1 className="text-2xl font-bold text-gray-900">SGM - Sistema de Gestão de Manutenção</h1>
+                <p className="text-sm text-gray-600">Painel de controle e monitoramento</p>
               </div>
             </div>
             
@@ -77,13 +47,9 @@ const Dashboard = () => {
               <span className="text-sm text-gray-600">
                 Bem-vindo, {user?.email}
               </span>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={() => navigate('/profile')}>
                 <User className="w-4 h-4 mr-2" />
-                Perfil
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleSettings}>
-                <Settings className="w-4 h-4 mr-2" />
-                Configurações
+                Meu Perfil
               </Button>
               <Button variant="outline" size="sm" onClick={handleLogout}>
                 <LogOut className="w-4 h-4 mr-2" />
@@ -96,73 +62,93 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Dashboard Operacional</h2>
-          <p className="text-gray-600">Visão geral das operações e indicadores do sistema</p>
+        {/* Quick Access Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/users')}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Gerenciar Usuários</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                Administrar usuários do sistema
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/settings')}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Configurações</CardTitle>
+              <Settings className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                Configurar sistema e permissões
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Relatórios</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                Visualizar e gerar relatórios
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Ordens de Serviço</CardTitle>
+              <CheckSquare className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                Gerenciar ordens de manutenção
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Stats Cards */}
+        {/* Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
-            title="Ordens de Serviço (Semana)"
+            title="Ordens Pendentes"
             value="24"
-            subtitle="3 em andamento"
-            icon={ClipboardList}
-            trend={{ value: 12, label: "vs semana anterior" }}
-            color="primary"
+            description="+12% em relação ao mês anterior"
+            icon={<CheckSquare className="h-4 w-4" />}
           />
           <StatCard
-            title="Relatórios Pendentes"
-            value="8"
-            subtitle="2 aguardando validação"
-            icon={FileText}
-            trend={{ value: -5, label: "vs ontem" }}
-            color="warning"
+            title="Ordens Concluídas"
+            value="156"
+            description="+8% em relação ao mês anterior"
+            icon={<FileText className="h-4 w-4" />}
           />
           <StatCard
-            title="Técnicos em Campo"
-            value="12"
-            subtitle="de 18 disponíveis"
-            icon={Users}
-            color="secondary"
+            title="Alertas Ativos"
+            value="7"
+            description="3 críticos, 4 moderados"
+            icon={<AlertTriangle className="h-4 w-4" />}
           />
           <StatCard
-            title="Riscos Reportados"
-            value="3"
-            subtitle="1 crítico"
-            icon={AlertTriangle}
-            trend={{ value: 2, label: "novos hoje" }}
-            color="danger"
+            title="Eficiência"
+            value="94.2%"
+            description="+2.1% em relação ao mês anterior"
+            icon={<TrendingUp className="h-4 w-4" />}
           />
         </div>
 
-        {/* Charts and Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Manutenções por Tipo (últimos 7 dias)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <MaintenanceChart />
-              </CardContent>
-            </Card>
-          </div>
-          
-          <div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Atividades Recentes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ActivityFeed />
-              </CardContent>
-            </Card>
-          </div>
+        {/* Charts and Activities */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <MaintenanceChart />
+          <ActivityFeed />
         </div>
 
         {/* Quick Actions */}
-        <QuickActions onAction={handleQuickAction} />
+        <QuickActions />
       </main>
     </div>
   );
