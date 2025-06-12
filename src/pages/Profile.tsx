@@ -38,12 +38,7 @@ const Profile = () => {
       
       const { data, error } = await supabase
         .from('profiles')
-        .select(`
-          *,
-          user_class:user_class_id(name),
-          access_profile:access_profile_id(name),
-          manager:manager_id(name)
-        `)
+        .select('*')
         .eq('id', user.id)
         .single();
       
@@ -51,6 +46,41 @@ const Profile = () => {
       return data;
     },
     enabled: !!user?.id
+  });
+
+  // Buscar dados relacionados separadamente
+  const { data: userClass } = useQuery({
+    queryKey: ['user-class', profile?.user_class_id],
+    queryFn: async () => {
+      if (!profile?.user_class_id) return null;
+      
+      const { data, error } = await supabase
+        .from('user_classes')
+        .select('name')
+        .eq('id', profile.user_class_id)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.user_class_id
+  });
+
+  const { data: accessProfile } = useQuery({
+    queryKey: ['access-profile', profile?.access_profile_id],
+    queryFn: async () => {
+      if (!profile?.access_profile_id) return null;
+      
+      const { data, error } = await supabase
+        .from('access_profiles')
+        .select('name')
+        .eq('id', profile.access_profile_id)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.access_profile_id
   });
 
   React.useEffect(() => {
@@ -230,14 +260,14 @@ const Profile = () => {
                     <div className="space-y-2">
                       <Label>Perfil de Acesso</Label>
                       <div className="p-2 bg-gray-50 rounded border">
-                        {profile?.access_profile?.name || 'Não definido'}
+                        {accessProfile?.name || 'Não definido'}
                       </div>
                     </div>
                     
                     <div className="space-y-2">
                       <Label>Classe</Label>
                       <div className="p-2 bg-gray-50 rounded border">
-                        {profile?.user_class?.name || 'Não definida'}
+                        {userClass?.name || 'Não definida'}
                       </div>
                     </div>
                   </div>

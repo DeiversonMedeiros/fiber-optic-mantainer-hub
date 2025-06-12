@@ -18,9 +18,9 @@ interface User {
   name: string;
   phone?: string;
   is_active: boolean;
-  user_class?: { name: string } | null;
-  access_profile?: { name: string } | null;
-  manager?: { name: string } | null;
+  user_class_id?: string;
+  access_profile_id?: string;
+  manager_id?: string;
 }
 
 interface UserClass {
@@ -33,9 +33,15 @@ interface AccessProfile {
   name: string;
 }
 
+interface UserWithRelations extends User {
+  user_class_name?: string;
+  access_profile_name?: string;
+  manager_name?: string;
+}
+
 const UserManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserWithRelations | null>(null);
   const [filters, setFilters] = useState({
     name: '',
     userClass: '',
@@ -47,18 +53,13 @@ const UserManagement = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Buscar usuários
-  const { data: users = [], isLoading } = useQuery<User[]>({
+  // Buscar usuários com informações relacionadas
+  const { data: users = [], isLoading } = useQuery<UserWithRelations[]>({
     queryKey: ['users', filters],
     queryFn: async () => {
       let query = supabase
         .from('profiles')
-        .select(`
-          *,
-          user_class:user_class_id(name),
-          access_profile:access_profile_id(name),
-          manager:manager_id(name)
-        `)
+        .select('*')
         .order('name');
 
       if (filters.name) {
@@ -74,9 +75,55 @@ const UserManagement = () => {
         query = query.eq('is_active', filters.status === 'ativo');
       }
 
-      const { data, error } = await query;
+      const { data: profiles, error } = await query;
       if (error) throw error;
-      return data as User[];
+
+      // Buscar dados relacionados
+      const usersWithRelations = await Promise.all(
+        profiles.map(async (profile) => {
+          const userWithRelations: UserWithRelations = { ...profile };
+
+          // Buscar classe do usuário
+          if (profile.user_class_id) {
+            const { data: userClass } = await supabase
+              .from('user_classes')
+              .select('name')
+              .eq('id', profile.user_class_id)
+              .single();
+            if (userClass) {
+              userWithRelations.user_class_name = userClass.name;
+            }
+          }
+
+          // Buscar perfil de acesso
+          if (profile.access_profile_id) {
+            const { data: accessProfile } = await supabase
+              .from('access_profiles')
+              .select('name')
+              .eq('id', profile.access_profile_id)
+              .single();
+            if (accessProfile) {
+              userWithRelations.access_profile_name = accessProfile.name;
+            }
+          }
+
+          // Buscar gestor
+          if (profile.manager_id) {
+            const { data: manager } = await supabase
+              .from('profiles')
+              .select('name')
+              .eq('id', profile.manager_id)
+              .single();
+            if (manager) {
+              userWithRelations.manager_name = manager.name;
+            }
+          }
+
+          return userWithRelations;
+        })
+      );
+
+      return usersWithRelations;
     }
   });
 
@@ -91,7 +138,7 @@ const UserManagement = () => {
         .order('name');
       
       if (error) throw error;
-      return data as UserClass[];
+      return data;
     }
   });
 
@@ -106,7 +153,7 @@ const UserManagement = () => {
         .order('name');
       
       if (error) throw error;
-      return data as AccessProfile[];
+      return data;
     }
   });
 
@@ -141,12 +188,12 @@ const UserManagement = () => {
     setIsModalOpen(true);
   };
 
-  const handleEdit = (user: User) => {
+  const handleEdit = (user: UserWithRelations) => {
     setSelectedUser(user);
     setIsModalOpen(true);
   };
 
-  const handleToggleStatus = (user: User) => {
+  const handleToggleStatus = (user: UserWithRelations) => {
     const action = user.is_active ? 'desativar' : 'reativar';
     if (window.confirm(`Tem certeza que deseja ${action} este usuário?`)) {
       toggleUserStatusMutation.mutate({ id: user.id, isActive: user.is_active });
@@ -288,9 +335,9 @@ const UserManagement = () => {
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.name}</TableCell>
                     <TableCell>{user.phone || '-'}</TableCell>
-                    <TableCell>{user.user_class?.name || '-'}</TableCell>
-                    <TableCell>{user.access_profile?.name || '-'}</TableCell>
-                    <TableCell>{user.manager?.name || '-'}</TableCell>
+                    <TableCell>{user.user_class_name || '-'}</TableCell>
+                    <TableCell>{user.access_profile_name || '-'}</TableCell>
+                    <TableCell>{user.manager_name || '-'}</TableCell>
                     <TableCell>
                       <Badge variant={user.is_active ? "default" : "secondary"}>
                         {user.is_active ? "Ativo" : "Inativo"}
