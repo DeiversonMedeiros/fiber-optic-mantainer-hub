@@ -22,7 +22,7 @@ const ReportTemplatesSection = () => {
         .from('report_templates')
         .select(`
           *,
-          user_classes(name),
+          user_class:user_classes!user_class_id(name),
           checklist_class:user_classes!checklist_class_id(name)
         `)
         .eq('is_active', true)
@@ -104,7 +104,7 @@ const ReportTemplatesSection = () => {
                 <TableRow key={template.id}>
                   <TableCell className="font-medium">{template.name}</TableCell>
                   <TableCell>{template.description || '-'}</TableCell>
-                  <TableCell>{template.user_classes?.name || 'Todas as classes'}</TableCell>
+                  <TableCell>{template.user_class?.name || 'Todas as classes'}</TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 rounded text-xs ${
                       template.checklist_enabled 

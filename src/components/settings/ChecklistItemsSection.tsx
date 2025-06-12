@@ -201,10 +201,10 @@ const ChecklistItemsSection = () => {
               ))}
             </TabsList>
 
-            {Object.entries(groupedItems).map(([className, categories]) => (
+            {Object.entries(groupedItems).map(([className, categoriesData]) => (
               <TabsContent key={className} value={className} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {Object.entries(categories).map(([category, items]) => (
+                  {Object.entries(categoriesData).map(([category, items]) => (
                     <Card key={category}>
                       <CardHeader>
                         <CardTitle className="text-lg">
