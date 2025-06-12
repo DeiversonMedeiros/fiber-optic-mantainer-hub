@@ -217,39 +217,70 @@ export type Database = {
       }
       profiles: {
         Row: {
+          access_profile_id: string | null
           avatar_url: string | null
           created_at: string
           email: string
           id: string
           is_active: boolean
+          manager_id: string | null
           name: string
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
+          user_class_id: string | null
         }
         Insert: {
+          access_profile_id?: string | null
           avatar_url?: string | null
           created_at?: string
           email: string
           id: string
           is_active?: boolean
+          manager_id?: string | null
           name: string
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
+          user_class_id?: string | null
         }
         Update: {
+          access_profile_id?: string | null
           avatar_url?: string | null
           created_at?: string
           email?: string
           id?: string
           is_active?: boolean
+          manager_id?: string | null
           name?: string
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
+          user_class_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_access_profile_id_fkey"
+            columns: ["access_profile_id"]
+            isOneToOne: false
+            referencedRelation: "access_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_user_class_id_fkey"
+            columns: ["user_class_id"]
+            isOneToOne: false
+            referencedRelation: "user_classes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       report_templates: {
         Row: {

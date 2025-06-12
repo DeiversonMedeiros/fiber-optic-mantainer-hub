@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -54,7 +53,7 @@ const UserManagement = () => {
   const queryClient = useQueryClient();
 
   // Buscar usuários com informações relacionadas
-  const { data: users = [], isLoading } = useQuery<UserWithRelations[]>({
+  const { data: users = [], isLoading } = useQuery({
     queryKey: ['users', filters],
     queryFn: async () => {
       let query = supabase
@@ -79,7 +78,7 @@ const UserManagement = () => {
       if (error) throw error;
 
       // Buscar dados relacionados
-      const usersWithRelations = await Promise.all(
+      const usersWithRelations: UserWithRelations[] = await Promise.all(
         profiles.map(async (profile) => {
           const userWithRelations: UserWithRelations = { ...profile };
 
