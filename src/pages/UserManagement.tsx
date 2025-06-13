@@ -64,10 +64,10 @@ const UserManagement = () => {
       if (filters.name) {
         query = query.ilike('name', `%${filters.name}%`);
       }
-      if (filters.userClass) {
+      if (filters.userClass && filters.userClass !== 'all') {
         query = query.eq('user_class_id', filters.userClass);
       }
-      if (filters.accessProfile) {
+      if (filters.accessProfile && filters.accessProfile !== 'all') {
         query = query.eq('access_profile_id', filters.accessProfile);
       }
       if (filters.status) {
@@ -202,9 +202,9 @@ const UserManagement = () => {
   const clearFilters = () => {
     setFilters({
       name: '',
-      userClass: '',
-      accessProfile: '',
-      status: ''
+      userClass: 'all',
+      accessProfile: 'all',
+      status: 'all'
     });
   };
 
@@ -266,7 +266,7 @@ const UserManagement = () => {
                     <SelectValue placeholder="Classe" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas as classes</SelectItem>
+                    <SelectItem value="all">Todas as classes</SelectItem>
                     {userClasses.map((userClass) => (
                       <SelectItem key={userClass.id} value={userClass.id}>
                         {userClass.name}
@@ -282,7 +282,7 @@ const UserManagement = () => {
                     <SelectValue placeholder="Perfil de Acesso" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos os perfis</SelectItem>
+                    <SelectItem value="all">Todos os perfis</SelectItem>
                     {accessProfiles.map((profile) => (
                       <SelectItem key={profile.id} value={profile.id}>
                         {profile.name}
@@ -298,7 +298,7 @@ const UserManagement = () => {
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos</SelectItem>
+                    <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="ativo">Ativo</SelectItem>
                     <SelectItem value="inativo">Inativo</SelectItem>
                   </SelectContent>
