@@ -10,6 +10,9 @@ import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import UserManagement from "./pages/UserManagement";
+import MyReports from "./pages/MyReports";
+import ReportValidation from "./pages/ReportValidation";
+import MyAdjustments from "./pages/MyAdjustments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -79,6 +82,21 @@ const AppRoutes = () => {
       <Route path="/users" element={
         <ProtectedRoute>
           <UserManagement />
+        </ProtectedRoute>
+      } />
+      <Route path="/my-reports" element={
+        <ProtectedRoute>
+          <MyReports />
+        </ProtectedRoute>
+      } />
+      <Route path="/report-validation" element={
+        <ProtectedRoute>
+          <ReportValidation />
+        </ProtectedRoute>
+      } />
+      <Route path="/my-adjustments" element={
+        <ProtectedRoute>
+          <MyAdjustments />
         </ProtectedRoute>
       } />
       <Route path="*" element={<NotFound />} />
