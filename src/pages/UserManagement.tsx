@@ -53,78 +53,110 @@ const UserManagement = () => {
   const queryClient = useQueryClient();
 
   // Buscar usuários com informações relacionadas
-  const { data: users = [], isLoading } = useQuery({
+  const { data: users = [], isLoading, error: usersError } = useQuery({
     queryKey: ['users', filters],
     queryFn: async () => {
-      let query = supabase
-        .from('profiles')
-        .select('*')
-        .order('name');
+      console.log('Fetching users with filters:', filters);
+      
+      try {
+        // Query principal - usar select simples primeiro
+        let query = supabase
+          .from('profiles')
+          .select('*')
+          .order('name');
 
-      if (filters.name) {
-        query = query.ilike('name', `%${filters.name}%`);
-      }
-      if (filters.userClass && filters.userClass !== 'all') {
-        query = query.eq('user_class_id', filters.userClass);
-      }
-      if (filters.accessProfile && filters.accessProfile !== 'all') {
-        query = query.eq('access_profile_id', filters.accessProfile);
-      }
-      if (filters.status) {
-        query = query.eq('is_active', filters.status === 'ativo');
-      }
+        // Aplicar filtros
+        if (filters.name) {
+          query = query.ilike('name', `%${filters.name}%`);
+        }
+        if (filters.userClass && filters.userClass !== 'all') {
+          query = query.eq('user_class_id', filters.userClass);
+        }
+        if (filters.accessProfile && filters.accessProfile !== 'all') {
+          query = query.eq('access_profile_id', filters.accessProfile);
+        }
+        if (filters.status && filters.status !== 'all') {
+          query = query.eq('is_active', filters.status === 'ativo');
+        }
 
-      const { data: profiles, error } = await query;
-      if (error) throw error;
+        const { data: profiles, error } = await query;
+        
+        if (error) {
+          console.error('Error fetching users:', error);
+          throw error;
+        }
 
-      // Buscar dados relacionados
-      const usersWithRelations: UserWithRelations[] = await Promise.all(
-        profiles.map(async (profile) => {
-          const userWithRelations: UserWithRelations = { ...profile };
+        console.log('Fetched profiles:', profiles?.length || 0);
 
-          // Buscar classe do usuário
-          if (profile.user_class_id) {
-            const { data: userClass } = await supabase
-              .from('user_classes')
-              .select('name')
-              .eq('id', profile.user_class_id)
-              .single();
-            if (userClass) {
-              userWithRelations.user_class_name = userClass.name;
+        // Buscar dados relacionados para cada usuário
+        const usersWithRelations: UserWithRelations[] = await Promise.all(
+          (profiles || []).map(async (profile: any) => {
+            const userWithRelations: UserWithRelations = { ...profile };
+
+            // Buscar classe do usuário
+            if (profile.user_class_id) {
+              try {
+                const { data: userClass } = await supabase
+                  .from('user_classes')
+                  .select('name')
+                  .eq('id', profile.user_class_id)
+                  .maybeSingle();
+                if (userClass) {
+                  userWithRelations.user_class_name = userClass.name;
+                }
+              } catch (error) {
+                console.error('Error fetching user class:', error);
+              }
             }
-          }
 
-          // Buscar perfil de acesso
-          if (profile.access_profile_id) {
-            const { data: accessProfile } = await supabase
-              .from('access_profiles')
-              .select('name')
-              .eq('id', profile.access_profile_id)
-              .single();
-            if (accessProfile) {
-              userWithRelations.access_profile_name = accessProfile.name;
+            // Buscar perfil de acesso
+            if (profile.access_profile_id) {
+              try {
+                const { data: accessProfile } = await supabase
+                  .from('access_profiles')
+                  .select('name')
+                  .eq('id', profile.access_profile_id)
+                  .maybeSingle();
+                if (accessProfile) {
+                  userWithRelations.access_profile_name = accessProfile.name;
+                }
+              } catch (error) {
+                console.error('Error fetching access profile:', error);
+              }
             }
-          }
 
-          // Buscar gestor
-          if (profile.manager_id) {
-            const { data: manager } = await supabase
-              .from('profiles')
-              .select('name')
-              .eq('id', profile.manager_id)
-              .single();
-            if (manager) {
-              userWithRelations.manager_name = manager.name;
+            // Buscar gestor
+            if (profile.manager_id) {
+              try {
+                const { data: manager } = await supabase
+                  .from('profiles')
+                  .select('name')
+                  .eq('id', profile.manager_id)
+                  .maybeSingle();
+                if (manager) {
+                  userWithRelations.manager_name = manager.name;
+                }
+              } catch (error) {
+                console.error('Error fetching manager:', error);
+              }
             }
-          }
 
-          return userWithRelations;
-        })
-      );
+            return userWithRelations;
+          })
+        );
 
-      return usersWithRelations;
+        return usersWithRelations;
+      } catch (error) {
+        console.error('Error in users query:', error);
+        throw error;
+      }
     }
   });
+
+  // Log de erro para debug
+  if (usersError) {
+    console.error('Users query error:', usersError);
+  }
 
   // Buscar classes de usuário para filtros
   const { data: userClasses = [] } = useQuery<UserClass[]>({

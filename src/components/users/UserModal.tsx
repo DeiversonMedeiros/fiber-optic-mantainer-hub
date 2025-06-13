@@ -116,32 +116,27 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
         
         if (error) throw error;
       } else {
-        // Criar novo usuário
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-          email: data.email,
-          password: data.password,
-          email_confirm: true,
-          user_metadata: {
-            name: data.name
+        // Criar novo usuário usando Edge Function
+        const { data: result, error: createError } = await supabase.functions.invoke('create-user', {
+          body: {
+            email: data.email,
+            password: data.password,
+            name: data.name,
+            phone: data.phone,
+            userClassId: data.userClassId,
+            accessProfileId: data.accessProfileId,
+            managerId: data.managerId
           }
         });
         
-        if (authError) throw authError;
+        if (createError) {
+          console.error('Create user error:', createError);
+          throw createError;
+        }
         
-        // Atualizar o perfil com dados adicionais
-        if (authData.user) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .update({
-              name: data.name,
-              phone: data.phone,
-              user_class_id: data.userClassId || null,
-              access_profile_id: data.accessProfileId || null,
-              manager_id: data.managerId || null
-            })
-            .eq('id', authData.user.id);
-          
-          if (profileError) throw profileError;
+        if (result?.error) {
+          console.error('Create user function error:', result.error);
+          throw new Error(result.error);
         }
       }
     },
