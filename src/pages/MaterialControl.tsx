@@ -60,7 +60,7 @@ interface UserMaterials {
 const MaterialControl = () => {
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   const [technicianFilter, setTechnicianFilter] = useState('');
-  const [userClassFilter, setUserClassFilter] = useState('');
+  const [userClassFilter, setUserClassFilter] = useState('all');
   const [serviceNumberFilter, setServiceNumberFilter] = useState('');
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [selectedMaterial, setSelectedMaterial] = useState<string | null>(null);
@@ -88,7 +88,7 @@ const MaterialControl = () => {
         query = query.ilike('used_by.name', `%${technicianFilter}%`);
       }
 
-      if (userClassFilter) {
+      if (userClassFilter && userClassFilter !== 'all') {
         query = query.eq('used_by.user_class.name', userClassFilter);
       }
 
@@ -263,7 +263,7 @@ const MaterialControl = () => {
                   <SelectValue placeholder="Todas as classes" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas as classes</SelectItem>
+                  <SelectItem value="all">Todas as classes</SelectItem>
                   {userClasses.map((userClass) => (
                     <SelectItem key={userClass.name} value={userClass.name}>
                       {userClass.name}
