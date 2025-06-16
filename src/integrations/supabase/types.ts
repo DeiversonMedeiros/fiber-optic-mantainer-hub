@@ -121,6 +121,61 @@ export type Database = {
           },
         ]
       }
+      material_adjustments: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          material_id: string
+          quantity_reduced: number
+          reason: string | null
+          sa_code: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          material_id: string
+          quantity_reduced: number
+          reason?: string | null
+          sa_code: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          material_id?: string
+          quantity_reduced?: number
+          reason?: string | null
+          sa_code?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_adjustments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_adjustments_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_adjustments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       material_consumption: {
         Row: {
           created_at: string
@@ -128,6 +183,7 @@ export type Database = {
           material_id: string
           notes: string | null
           quantity: number
+          sa_code: string | null
           service_order_id: string | null
           used_by: string
         }
@@ -137,6 +193,7 @@ export type Database = {
           material_id: string
           notes?: string | null
           quantity: number
+          sa_code?: string | null
           service_order_id?: string | null
           used_by: string
         }
@@ -146,6 +203,7 @@ export type Database = {
           material_id?: string
           notes?: string | null
           quantity?: number
+          sa_code?: string | null
           service_order_id?: string | null
           used_by?: string
         }

@@ -13,6 +13,7 @@ import UserManagement from "./pages/UserManagement";
 import MyReports from "./pages/MyReports";
 import ReportValidation from "./pages/ReportValidation";
 import MyAdjustments from "./pages/MyAdjustments";
+import MaterialControl from "./pages/MaterialControl";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -97,6 +98,11 @@ const AppRoutes = () => {
       <Route path="/my-adjustments" element={
         <ProtectedRoute>
           <MyAdjustments />
+        </ProtectedRoute>
+      } />
+      <Route path="/material-control" element={
+        <ProtectedRoute>
+          <MaterialControl />
         </ProtectedRoute>
       } />
       <Route path="*" element={<NotFound />} />
