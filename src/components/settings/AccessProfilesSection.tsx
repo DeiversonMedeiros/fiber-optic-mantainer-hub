@@ -11,10 +11,19 @@ import { useToast } from '@/hooks/use-toast';
 import AccessProfileModal from './AccessProfileModal';
 import AccessProfilePermissionsModal from './AccessProfilePermissionsModal';
 
+interface AccessProfile {
+  id: string;
+  name: string;
+  description?: string;
+  permissions: Record<string, string[]>;
+  is_active: boolean;
+  created_at: string;
+}
+
 const AccessProfilesSection = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
-  const [selectedProfile, setSelectedProfile] = useState<any>(null);
+  const [selectedProfile, setSelectedProfile] = useState<AccessProfile | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -57,12 +66,12 @@ const AccessProfilesSection = () => {
     }
   });
 
-  const handleEdit = (profile: any) => {
+  const handleEdit = (profile: AccessProfile) => {
     setSelectedProfile(profile);
     setIsModalOpen(true);
   };
 
-  const handleEditPermissions = (profile: any) => {
+  const handleEditPermissions = (profile: AccessProfile) => {
     setSelectedProfile(profile);
     setIsPermissionsModalOpen(true);
   };
