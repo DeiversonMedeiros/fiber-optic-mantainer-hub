@@ -10,15 +10,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import AccessProfileModal from './AccessProfileModal';
 import AccessProfilePermissionsModal from './AccessProfilePermissionsModal';
+import type { Tables } from '@/integrations/supabase/types';
 
-interface AccessProfile {
-  id: string;
-  name: string;
-  description?: string;
-  permissions: Record<string, string[]>;
-  is_active: boolean;
-  created_at: string;
-}
+type AccessProfile = Tables<'access_profiles'>;
 
 const AccessProfilesSection = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -89,8 +83,12 @@ const AccessProfilesSection = () => {
 
   const getPermissionCount = (permissions: any): number => {
     if (!permissions || typeof permissions !== 'object') return 0;
+    
     return Object.values(permissions).reduce((total: number, pagePermissions: unknown) => {
-      return total + (Array.isArray(pagePermissions) ? pagePermissions.length : 0);
+      if (Array.isArray(pagePermissions)) {
+        return total + pagePermissions.length;
+      }
+      return total;
     }, 0);
   };
 
