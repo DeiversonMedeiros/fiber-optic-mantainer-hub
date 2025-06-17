@@ -14,7 +14,7 @@ import AccessProfilePermissionsModal from './AccessProfilePermissionsModal';
 const AccessProfilesSection = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
-  const [selectedProfile, setSelectedProfile] = useState(null);
+  const [selectedProfile, setSelectedProfile] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -78,7 +78,7 @@ const AccessProfilesSection = () => {
     }
   };
 
-  const getPermissionCount = (permissions: any) => {
+  const getPermissionCount = (permissions: any): number => {
     if (!permissions || typeof permissions !== 'object') return 0;
     return Object.values(permissions).reduce((total: number, pagePermissions: any) => {
       return total + (Array.isArray(pagePermissions) ? pagePermissions.length : 0);
