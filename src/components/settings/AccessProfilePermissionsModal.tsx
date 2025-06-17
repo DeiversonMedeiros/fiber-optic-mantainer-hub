@@ -134,7 +134,8 @@ const AccessProfilePermissionsModal = ({ isOpen, onClose, profile }: AccessProfi
   };
 
   const hasPermission = (pageId: string, permissionType: string) => {
-    return permissions[pageId]?.includes(permissionType) || false;
+    const pagePermissions = permissions[pageId];
+    return Array.isArray(pagePermissions) && pagePermissions.includes(permissionType);
   };
 
   const handleSubmit = () => {
@@ -170,9 +171,9 @@ const AccessProfilePermissionsModal = ({ isOpen, onClose, profile }: AccessProfi
                         <p className="text-sm text-gray-600">{page.description}</p>
                       </div>
                       <div className="flex gap-2">
-                        {(permissions[page.id] || []).length > 0 && (
+                        {Array.isArray(permissions[page.id]) && permissions[page.id].length > 0 && (
                           <Badge variant="secondary">
-                            {(permissions[page.id] || []).length} permissão(ões)
+                            {permissions[page.id].length} permissão(ões)
                           </Badge>
                         )}
                       </div>
