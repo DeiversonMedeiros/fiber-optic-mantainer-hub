@@ -33,7 +33,7 @@ const Dashboard = () => {
         console.log('Criar OS');
         break;
       case 'validate-reports':
-        console.log('Validar Relatórios');
+        navigate('/report-validation');
         break;
       case 'new-user':
         navigate('/users');
@@ -44,128 +44,94 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">SGM - Sistema de Gestão de Manutenção</h1>
-                <p className="text-sm text-gray-600">Painel de controle e monitoramento</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                Bem-vindo, {user?.email}
-              </span>
-              <Button variant="outline" size="sm" onClick={() => navigate('/profile')}>
-                <User className="w-4 h-4 mr-2" />
-                Meu Perfil
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Sair
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="p-8">
+      {/* Quick Access Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/users')}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Gerenciar Usuários</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">
+              Administrar usuários do sistema
+            </p>
+          </CardContent>
+        </Card>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Quick Access Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/users')}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Gerenciar Usuários</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">
-                Administrar usuários do sistema
-              </p>
-            </CardContent>
-          </Card>
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/settings')}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Configurações</CardTitle>
+            <Settings className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">
+              Configurar sistema e permissões
+            </p>
+          </CardContent>
+        </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/settings')}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Configurações</CardTitle>
-              <Settings className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">
-                Configurar sistema e permissões
-              </p>
-            </CardContent>
-          </Card>
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/my-reports')}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Relatórios</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">
+              Visualizar e gerar relatórios
+            </p>
+          </CardContent>
+        </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Relatórios</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">
-                Visualizar e gerar relatórios
-              </p>
-            </CardContent>
-          </Card>
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/report-validation')}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Validação</CardTitle>
+            <CheckSquare className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">
+              Validação de Relatórios Técnicos
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ordens de Serviço</CardTitle>
-              <CheckSquare className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">
-                Gerenciar ordens de manutenção
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+      {/* Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <StatCard
+          title="Ordens Pendentes"
+          value="24"
+          description="+12% em relação ao mês anterior"
+          icon={CheckSquare}
+        />
+        <StatCard
+          title="Ordens Concluídas"
+          value="156"
+          description="+8% em relação ao mês anterior"
+          icon={FileText}
+        />
+        <StatCard
+          title="Alertas Ativos"
+          value="7"
+          description="3 críticos, 4 moderados"
+          icon={AlertTriangle}
+        />
+        <StatCard
+          title="Eficiência"
+          value="94.2%"
+          description="+2.1% em relação ao mês anterior"
+          icon={TrendingUp}
+        />
+      </div>
 
-        {/* Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            title="Ordens Pendentes"
-            value="24"
-            description="+12% em relação ao mês anterior"
-            icon={CheckSquare}
-          />
-          <StatCard
-            title="Ordens Concluídas"
-            value="156"
-            description="+8% em relação ao mês anterior"
-            icon={FileText}
-          />
-          <StatCard
-            title="Alertas Ativos"
-            value="7"
-            description="3 críticos, 4 moderados"
-            icon={AlertTriangle}
-          />
-          <StatCard
-            title="Eficiência"
-            value="94.2%"
-            description="+2.1% em relação ao mês anterior"
-            icon={TrendingUp}
-          />
-        </div>
+      {/* Charts and Activities */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <MaintenanceChart />
+        <ActivityFeed />
+      </div>
 
-        {/* Charts and Activities */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <MaintenanceChart />
-          <ActivityFeed />
-        </div>
-
-        {/* Quick Actions */}
-        <QuickActions onAction={handleQuickAction} />
-      </main>
+      {/* Quick Actions */}
+      <QuickActions onAction={handleQuickAction} />
     </div>
   );
 };

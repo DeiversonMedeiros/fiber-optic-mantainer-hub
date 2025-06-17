@@ -28,7 +28,11 @@ const MyReports = () => {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('*, user_class:user_classes(*), access_profile:access_profiles(*)')
+        .select(`
+          *,
+          user_class:user_classes(*),
+          access_profile:access_profiles(*)
+        `)
         .eq('id', user.id)
         .single();
       if (error) throw error;
@@ -41,19 +45,25 @@ const MyReports = () => {
   const { data: availableTemplates = [] } = useQuery({
     queryKey: ['available-templates', userProfile?.user_class_id],
     queryFn: async () => {
+      if (!userProfile) return [];
+      
       let query = supabase
         .from('report_templates')
         .select('*')
         .eq('is_active', true);
 
-      // Admins e gestores veem todos os templates
-      if (userProfile?.role !== 'admin' && userProfile?.role !== 'gestor') {
-        query = query.or(`user_class_id.eq.${userProfile?.user_class_id},user_class_id.is.null`);
+      // Se o usuário não é admin/gestor, filtrar apenas templates da sua classe ou sem classe definida
+      if (userProfile.role !== 'admin' && userProfile.role !== 'gestor') {
+        if (userProfile.user_class_id) {
+          query = query.or(`user_class_id.eq.${userProfile.user_class_id},user_class_id.is.null`);
+        } else {
+          query = query.is('user_class_id', null);
+        }
       }
 
       const { data, error } = await query.order('name');
       if (error) throw error;
-      return data;
+      return data || [];
     },
     enabled: !!userProfile
   });
@@ -141,40 +151,21 @@ const MyReports = () => {
   };
 
   if (isLoading) {
-    return <div>Carregando...</div>;
+    return <div className="p-8">Carregando...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                <FileText className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Meus Relatórios</h1>
-                <p className="text-sm text-gray-600">Visualize e gerencie seus relatórios técnicos</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        
-        {/* Templates Disponíveis */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Plus className="w-5 h-5" />
-              <span>Novo Relatório</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+    <div className="p-8 space-y-6">
+      {/* Templates Disponíveis */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Plus className="w-5 h-5" />
+            <span>Novo Relatório</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {availableTemplates.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {availableTemplates.map((template) => (
                 <Card key={template.id} className="cursor-pointer hover:shadow-md transition-shadow">
@@ -192,158 +183,169 @@ const MyReports = () => {
                 </Card>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+              <h3 className="text-lg font-medium mb-2">Nenhum template disponível</h3>
+              <p className="text-sm">
+                Não há templates de relatório disponíveis para sua classe de usuário.
+                {userProfile?.role === 'admin' || userProfile?.role === 'gestor' ? 
+                  ' Crie novos templates na seção de Configurações.' : 
+                  ' Entre em contato com o administrador.'}
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        {/* Indicadores */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <div className="w-8 h-8 bg-green-500 rounded"></div>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Aprovados</p>
-                  <p className="text-2xl font-bold text-green-600">{statusCounts.approved}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <div className="w-8 h-8 bg-yellow-500 rounded"></div>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Pendentes</p>
-                  <p className="text-2xl font-bold text-yellow-600">{statusCounts.pending}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <div className="w-8 h-8 bg-red-500 rounded"></div>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Rejeitados</p>
-                  <p className="text-2xl font-bold text-red-600">{statusCounts.rejected}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filtros */}
+      {/* Indicadores */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Filter className="w-5 h-5" />
-              <span>Filtros</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Status</label>
-                <Select 
-                  value={filters.status} 
-                  onValueChange={(value) => setFilters(prev => ({...prev, status: value}))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="pendente">Pendente</SelectItem>
-                    <SelectItem value="validado">Validado</SelectItem>
-                    <SelectItem value="rejeitado">Rejeitado</SelectItem>
-                  </SelectContent>
-                </Select>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <div className="w-8 h-8 bg-green-500 rounded"></div>
               </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Data Inicial</label>
-                <Input
-                  type="date"
-                  value={filters.startDate}
-                  onChange={(e) => setFilters(prev => ({...prev, startDate: e.target.value}))}
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Data Final</label>
-                <Input
-                  type="date"
-                  value={filters.endDate}
-                  onChange={(e) => setFilters(prev => ({...prev, endDate: e.target.value}))}
-                />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Aprovados</p>
+                <p className="text-2xl font-bold text-green-600">{statusCounts.approved}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Tabela de Relatórios */}
         <Card>
-          <CardHeader>
-            <CardTitle>Relatórios Enviados</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Número do Serviço</TableHead>
-                  <TableHead>Técnico Responsável</TableHead>
-                  <TableHead>Data de Criação</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {reports.map((report) => (
-                  <TableRow key={report.id}>
-                    <TableCell className="font-medium">
-                      {report.service_order?.number || 'N/A'}
-                    </TableCell>
-                    <TableCell>{report.technician?.name}</TableCell>
-                    <TableCell>
-                      {new Date(report.created_at).toLocaleDateString('pt-BR')}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(report.status)}>
-                        {getStatusLabel(report.status)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewReport(report.id)}
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Visualizar
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {reports.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-4">
-                      Nenhum relatório encontrado
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <div className="w-8 h-8 bg-yellow-500 rounded"></div>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Pendentes</p>
+                <p className="text-2xl font-bold text-yellow-600">{statusCounts.pending}</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
-      </main>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <div className="w-8 h-8 bg-red-500 rounded"></div>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Rejeitados</p>
+                <p className="text-2xl font-bold text-red-600">{statusCounts.rejected}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filtros */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Filter className="w-5 h-5" />
+            <span>Filtros</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">Status</label>
+              <Select 
+                value={filters.status} 
+                onValueChange={(value) => setFilters(prev => ({...prev, status: value}))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="validado">Validado</SelectItem>
+                  <SelectItem value="rejeitado">Rejeitado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">Data Inicial</label>
+              <Input
+                type="date"
+                value={filters.startDate}
+                onChange={(e) => setFilters(prev => ({...prev, startDate: e.target.value}))}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">Data Final</label>
+              <Input
+                type="date"
+                value={filters.endDate}
+                onChange={(e) => setFilters(prev => ({...prev, endDate: e.target.value}))}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tabela de Relatórios */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Relatórios Enviados</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Número do Serviço</TableHead>
+                <TableHead>Técnico Responsável</TableHead>
+                <TableHead>Data de Criação</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {reports.map((report) => (
+                <TableRow key={report.id}>
+                  <TableCell className="font-medium">
+                    {report.service_order?.number || 'N/A'}
+                  </TableCell>
+                  <TableCell>{report.technician?.name}</TableCell>
+                  <TableCell>
+                    {new Date(report.created_at).toLocaleDateString('pt-BR')}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColor(report.status)}>
+                      {getStatusLabel(report.status)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleViewReport(report.id)}
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Visualizar
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {reports.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-4">
+                    Nenhum relatório encontrado
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 };

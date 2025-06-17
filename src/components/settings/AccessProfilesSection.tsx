@@ -9,7 +9,7 @@ import { Edit, Trash2, Plus, Settings } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import AccessProfileModal from './AccessProfileModal';
-import PermissionsModal from './PermissionsModal';
+import AccessProfilePermissionsModal from './AccessProfilePermissionsModal';
 
 const AccessProfilesSection = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -78,6 +78,13 @@ const AccessProfilesSection = () => {
     }
   };
 
+  const getPermissionCount = (permissions: any) => {
+    if (!permissions || typeof permissions !== 'object') return 0;
+    return Object.values(permissions).reduce((total: number, pagePermissions: any) => {
+      return total + (Array.isArray(pagePermissions) ? pagePermissions.length : 0);
+    }, 0);
+  };
+
   if (isLoading) {
     return <div className="flex justify-center py-8">Carregando perfis de acesso...</div>;
   }
@@ -102,6 +109,7 @@ const AccessProfilesSection = () => {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>Descrição</TableHead>
+                <TableHead>Permissões</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Criado em</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
@@ -112,6 +120,11 @@ const AccessProfilesSection = () => {
                 <TableRow key={profile.id}>
                   <TableCell className="font-medium">{profile.name}</TableCell>
                   <TableCell className="text-gray-600">{profile.description}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">
+                      {getPermissionCount(profile.permissions)} permissão(ões)
+                    </Badge>
+                  </TableCell>
                   <TableCell>
                     <Badge variant={profile.is_active ? "default" : "secondary"}>
                       {profile.is_active ? "Ativo" : "Inativo"}
@@ -124,6 +137,7 @@ const AccessProfilesSection = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handleEditPermissions(profile)}
+                        title="Configurar Permissões"
                       >
                         <Settings className="w-4 h-4" />
                       </Button>
@@ -131,6 +145,7 @@ const AccessProfilesSection = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(profile)}
+                        title="Editar Perfil"
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
@@ -138,6 +153,7 @@ const AccessProfilesSection = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(profile.id)}
+                        title="Excluir Perfil"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -156,7 +172,7 @@ const AccessProfilesSection = () => {
         profile={selectedProfile}
       />
 
-      <PermissionsModal
+      <AccessProfilePermissionsModal
         isOpen={isPermissionsModalOpen}
         onClose={() => setIsPermissionsModalOpen(false)}
         profile={selectedProfile}

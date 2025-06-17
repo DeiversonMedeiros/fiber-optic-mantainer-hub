@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -124,6 +124,31 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
 
   const removeField = (index: number) => {
     setFields(fields.filter((_, i) => i !== index));
+  };
+
+  const addOption = (fieldIndex: number) => {
+    const newFields = [...fields];
+    if (!newFields[fieldIndex].options) {
+      newFields[fieldIndex].options = [];
+    }
+    newFields[fieldIndex].options.push('');
+    setFields(newFields);
+  };
+
+  const updateOption = (fieldIndex: number, optionIndex: number, value: string) => {
+    const newFields = [...fields];
+    newFields[fieldIndex].options[optionIndex] = value;
+    setFields(newFields);
+  };
+
+  const removeOption = (fieldIndex: number, optionIndex: number) => {
+    const newFields = [...fields];
+    newFields[fieldIndex].options.splice(optionIndex, 1);
+    setFields(newFields);
+  };
+
+  const needsOptions = (fieldType: string) => {
+    return ['radio', 'dropdown', 'checkbox'].includes(fieldType);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -280,6 +305,44 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
                       </Select>
                     </div>
                   </div>
+
+                  {/* Opções para campos que precisam */}
+                  {needsOptions(field.type) && (
+                    <div className="mt-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <Label>Opções</Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addOption(index)}
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Adicionar Opção
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {(field.options || []).map((option: string, optionIndex: number) => (
+                          <div key={optionIndex} className="flex gap-2">
+                            <Input
+                              value={option}
+                              onChange={(e) => updateOption(index, optionIndex, e.target.value)}
+                              placeholder={`Opção ${optionIndex + 1}`}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => removeOption(index, optionIndex)}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-center mt-4">
                     <div className="flex items-center space-x-2">
                       <Checkbox
