@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,20 +53,31 @@ const UserManagement = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Buscar usuários com informações relacionadas
+  // Simplified users query with direct joins
   const { data: users = [], isLoading, error: usersError } = useQuery({
     queryKey: ['users', filters],
     queryFn: async () => {
-      console.log('Fetching users with filters:', filters);
+      console.log('Fetching users with simplified query');
       
       try {
-        // Query principal - usar select simples primeiro
+        // Use a single query with LEFT JOINs to get all related data
         let query = supabase
           .from('profiles')
-          .select('*')
+          .select(`
+            id,
+            name,
+            phone,
+            is_active,
+            user_class_id,
+            access_profile_id,
+            manager_id,
+            user_classes!profiles_user_class_id_fkey(name),
+            access_profiles!profiles_access_profile_id_fkey(name),
+            manager:profiles!profiles_manager_id_fkey(name)
+          `)
           .order('name');
 
-        // Aplicar filtros
+        // Apply filters
         if (filters.name) {
           query = query.ilike('name', `%${filters.name}%`);
         }
@@ -86,64 +98,21 @@ const UserManagement = () => {
           throw error;
         }
 
-        console.log('Fetched profiles:', profiles?.length || 0);
+        console.log('Fetched profiles successfully:', profiles?.length || 0);
 
-        // Buscar dados relacionados para cada usuário
-        const usersWithRelations: UserWithRelations[] = await Promise.all(
-          (profiles || []).map(async (profile: any) => {
-            const userWithRelations: UserWithRelations = { ...profile };
-
-            // Buscar classe do usuário
-            if (profile.user_class_id) {
-              try {
-                const { data: userClass } = await supabase
-                  .from('user_classes')
-                  .select('name')
-                  .eq('id', profile.user_class_id)
-                  .maybeSingle();
-                if (userClass) {
-                  userWithRelations.user_class_name = userClass.name;
-                }
-              } catch (error) {
-                console.error('Error fetching user class:', error);
-              }
-            }
-
-            // Buscar perfil de acesso
-            if (profile.access_profile_id) {
-              try {
-                const { data: accessProfile } = await supabase
-                  .from('access_profiles')
-                  .select('name')
-                  .eq('id', profile.access_profile_id)
-                  .maybeSingle();
-                if (accessProfile) {
-                  userWithRelations.access_profile_name = accessProfile.name;
-                }
-              } catch (error) {
-                console.error('Error fetching access profile:', error);
-              }
-            }
-
-            // Buscar gestor
-            if (profile.manager_id) {
-              try {
-                const { data: manager } = await supabase
-                  .from('profiles')
-                  .select('name')
-                  .eq('id', profile.manager_id)
-                  .maybeSingle();
-                if (manager) {
-                  userWithRelations.manager_name = manager.name;
-                }
-              } catch (error) {
-                console.error('Error fetching manager:', error);
-              }
-            }
-
-            return userWithRelations;
-          })
-        );
+        // Transform the data to match the expected format
+        const usersWithRelations: UserWithRelations[] = (profiles || []).map((profile: any) => ({
+          id: profile.id,
+          name: profile.name,
+          phone: profile.phone,
+          is_active: profile.is_active,
+          user_class_id: profile.user_class_id,
+          access_profile_id: profile.access_profile_id,
+          manager_id: profile.manager_id,
+          user_class_name: profile.user_classes?.name,
+          access_profile_name: profile.access_profiles?.name,
+          manager_name: profile.manager?.name
+        }));
 
         return usersWithRelations;
       } catch (error) {
