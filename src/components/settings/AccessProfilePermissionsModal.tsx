@@ -115,7 +115,9 @@ const AccessProfilePermissionsModal = ({ isOpen, onClose, profile }: AccessProfi
   const togglePermission = (pageId: string, permissionType: string) => {
     setPermissions(prev => {
       const newPermissions = { ...prev };
-      if (!newPermissions[pageId]) {
+      
+      // Ensure we always have an array for the pageId
+      if (!Array.isArray(newPermissions[pageId])) {
         newPermissions[pageId] = [];
       }
       
