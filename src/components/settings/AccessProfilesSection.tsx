@@ -80,7 +80,7 @@ const AccessProfilesSection = () => {
 
   const getPermissionCount = (permissions: any): number => {
     if (!permissions || typeof permissions !== 'object') return 0;
-    return Object.values(permissions).reduce((total: number, pagePermissions: any) => {
+    return Object.values(permissions).reduce((total: number, pagePermissions: unknown) => {
       return total + (Array.isArray(pagePermissions) ? pagePermissions.length : 0);
     }, 0);
   };
