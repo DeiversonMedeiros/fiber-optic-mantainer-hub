@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -84,7 +83,7 @@ const AccessProfilesSection = () => {
   const getPermissionCount = (permissions: any): number => {
     if (!permissions || typeof permissions !== 'object') return 0;
     
-    return Object.values(permissions).reduce((total: number, pagePermissions: unknown) => {
+    return Object.values(permissions).reduce<number>((total, pagePermissions) => {
       if (Array.isArray(pagePermissions)) {
         return total + pagePermissions.length;
       }
