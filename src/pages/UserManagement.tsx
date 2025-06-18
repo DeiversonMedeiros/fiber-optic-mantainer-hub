@@ -53,31 +53,20 @@ const UserManagement = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Simplified users query with direct joins
+  // Consulta simplificada de usuários sem JOINs problemáticos
   const { data: users = [], isLoading, error: usersError } = useQuery({
     queryKey: ['users', filters],
     queryFn: async () => {
-      console.log('Fetching users with simplified query');
+      console.log('Fetching users with basic query');
       
       try {
-        // Use a single query with LEFT JOINs to get all related data
+        // Buscar usuários básicos primeiro
         let query = supabase
           .from('profiles')
-          .select(`
-            id,
-            name,
-            phone,
-            is_active,
-            user_class_id,
-            access_profile_id,
-            manager_id,
-            user_classes!profiles_user_class_id_fkey(name),
-            access_profiles!profiles_access_profile_id_fkey(name),
-            manager:profiles!profiles_manager_id_fkey(name)
-          `)
+          .select('id, name, phone, is_active, user_class_id, access_profile_id, manager_id')
           .order('name');
 
-        // Apply filters
+        // Aplicar filtros
         if (filters.name) {
           query = query.ilike('name', `%${filters.name}%`);
         }
@@ -100,8 +89,41 @@ const UserManagement = () => {
 
         console.log('Fetched profiles successfully:', profiles?.length || 0);
 
-        // Transform the data to match the expected format
-        const usersWithRelations: UserWithRelations[] = (profiles || []).map((profile: any) => ({
+        if (!profiles || profiles.length === 0) {
+          return [];
+        }
+
+        // Buscar nomes das classes de usuário
+        const userClassIds = [...new Set(profiles.map(p => p.user_class_id).filter(Boolean))];
+        const { data: userClasses } = userClassIds.length > 0 ? 
+          await supabase
+            .from('user_classes')
+            .select('id, name')
+            .in('id', userClassIds) : { data: [] };
+
+        // Buscar nomes dos perfis de acesso
+        const accessProfileIds = [...new Set(profiles.map(p => p.access_profile_id).filter(Boolean))];
+        const { data: accessProfiles } = accessProfileIds.length > 0 ? 
+          await supabase
+            .from('access_profiles')
+            .select('id, name')
+            .in('id', accessProfileIds) : { data: [] };
+
+        // Buscar nomes dos gestores
+        const managerIds = [...new Set(profiles.map(p => p.manager_id).filter(Boolean))];
+        const { data: managers } = managerIds.length > 0 ? 
+          await supabase
+            .from('profiles')
+            .select('id, name')
+            .in('id', managerIds) : { data: [] };
+
+        // Criar mapas para lookup rápido
+        const userClassMap = new Map((userClasses || []).map(uc => [uc.id, uc.name]));
+        const accessProfileMap = new Map((accessProfiles || []).map(ap => [ap.id, ap.name]));
+        const managerMap = new Map((managers || []).map(m => [m.id, m.name]));
+
+        // Combinar os dados
+        const usersWithRelations: UserWithRelations[] = profiles.map((profile) => ({
           id: profile.id,
           name: profile.name,
           phone: profile.phone,
@@ -109,11 +131,12 @@ const UserManagement = () => {
           user_class_id: profile.user_class_id,
           access_profile_id: profile.access_profile_id,
           manager_id: profile.manager_id,
-          user_class_name: profile.user_classes?.name,
-          access_profile_name: profile.access_profiles?.name,
-          manager_name: profile.manager?.name
+          user_class_name: profile.user_class_id ? userClassMap.get(profile.user_class_id) : undefined,
+          access_profile_name: profile.access_profile_id ? accessProfileMap.get(profile.access_profile_id) : undefined,
+          manager_name: profile.manager_id ? managerMap.get(profile.manager_id) : undefined
         }));
 
+        console.log('Users with relations:', usersWithRelations);
         return usersWithRelations;
       } catch (error) {
         console.error('Error in users query:', error);
