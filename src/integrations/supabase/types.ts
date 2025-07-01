@@ -340,6 +340,48 @@ export type Database = {
           },
         ]
       }
+      report_checklist_items: {
+        Row: {
+          checklist_item_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          quantity: number | null
+          report_id: string
+        }
+        Insert: {
+          checklist_item_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          quantity?: number | null
+          report_id: string
+        }
+        Update: {
+          checklist_item_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          quantity?: number | null
+          report_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_checklist_items_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_checklist_items_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_templates: {
         Row: {
           checklist_class_id: string | null
@@ -397,12 +439,15 @@ export type Database = {
       reports: {
         Row: {
           attachments: Json | null
+          checklist_data: Json | null
           created_at: string
           description: string
+          form_data: Json | null
           id: string
           service_order_id: string | null
           status: Database["public"]["Enums"]["report_status"]
           technician_id: string
+          template_id: string | null
           title: string
           updated_at: string
           validated_at: string | null
@@ -410,12 +455,15 @@ export type Database = {
         }
         Insert: {
           attachments?: Json | null
+          checklist_data?: Json | null
           created_at?: string
           description: string
+          form_data?: Json | null
           id?: string
           service_order_id?: string | null
           status?: Database["public"]["Enums"]["report_status"]
           technician_id: string
+          template_id?: string | null
           title: string
           updated_at?: string
           validated_at?: string | null
@@ -423,12 +471,15 @@ export type Database = {
         }
         Update: {
           attachments?: Json | null
+          checklist_data?: Json | null
           created_at?: string
           description?: string
+          form_data?: Json | null
           id?: string
           service_order_id?: string | null
           status?: Database["public"]["Enums"]["report_status"]
           technician_id?: string
+          template_id?: string | null
           title?: string
           updated_at?: string
           validated_at?: string | null
@@ -447,6 +498,13 @@ export type Database = {
             columns: ["technician_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "report_templates"
             referencedColumns: ["id"]
           },
           {
@@ -645,12 +703,7 @@ export type Database = {
       }
     }
     Enums: {
-      checklist_category:
-        | "acessorios"
-        | "cabos"
-        | "caixas"
-        | "servicos"
-        | "outros"
+      checklist_category: "servicos" | "materiais"
       maintenance_type: "preventiva" | "corretiva" | "emergencial"
       os_status: "pendente" | "em_andamento" | "concluida" | "cancelada"
       report_field_type:
@@ -779,13 +832,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      checklist_category: [
-        "acessorios",
-        "cabos",
-        "caixas",
-        "servicos",
-        "outros",
-      ],
+      checklist_category: ["servicos", "materiais"],
       maintenance_type: ["preventiva", "corretiva", "emergencial"],
       os_status: ["pendente", "em_andamento", "concluida", "cancelada"],
       report_field_type: [

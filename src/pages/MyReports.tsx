@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +11,7 @@ import { Plus, FileText, Eye, Calendar, Filter } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import ReportFormModal from '@/components/reports/ReportFormModal';
 
 const MyReports = () => {
   const { user } = useAuth();
@@ -20,6 +22,8 @@ const MyReports = () => {
     startDate: '',
     endDate: '',
   });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
 
   // Buscar perfil do usuário
   const { data: userProfile } = useQuery({
@@ -135,11 +139,8 @@ const MyReports = () => {
   };
 
   const handleCreateReport = (templateId: string) => {
-    // Aqui seria implementada a navegação para o formulário de criação de relatório
-    toast({
-      title: "Criar Relatório",
-      description: "Funcionalidade em desenvolvimento",
-    });
+    setSelectedTemplateId(templateId);
+    setIsModalOpen(true);
   };
 
   const handleViewReport = (reportId: string) => {
@@ -301,6 +302,7 @@ const MyReports = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Título</TableHead>
                 <TableHead>Número do Serviço</TableHead>
                 <TableHead>Técnico Responsável</TableHead>
                 <TableHead>Data de Criação</TableHead>
@@ -312,6 +314,9 @@ const MyReports = () => {
               {reports.map((report) => (
                 <TableRow key={report.id}>
                   <TableCell className="font-medium">
+                    {report.title}
+                  </TableCell>
+                  <TableCell>
                     {report.service_order?.number || 'N/A'}
                   </TableCell>
                   <TableCell>{report.technician?.name}</TableCell>
@@ -337,7 +342,7 @@ const MyReports = () => {
               ))}
               {reports.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-4">
+                  <TableCell colSpan={6} className="text-center py-4">
                     Nenhum relatório encontrado
                   </TableCell>
                 </TableRow>
@@ -346,6 +351,12 @@ const MyReports = () => {
           </Table>
         </CardContent>
       </Card>
+
+      <ReportFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        templateId={selectedTemplateId}
+      />
     </div>
   );
 };

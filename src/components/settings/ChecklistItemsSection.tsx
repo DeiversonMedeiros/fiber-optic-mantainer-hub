@@ -11,21 +11,18 @@ import { Trash2, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-type ChecklistCategory = 'acessorios' | 'cabos' | 'caixas' | 'servicos' | 'outros';
+type ChecklistCategory = 'servicos' | 'materiais';
 
 const ChecklistItemsSection = () => {
   const [newItemName, setNewItemName] = useState('');
-  const [newItemCategory, setNewItemCategory] = useState<ChecklistCategory>('acessorios');
+  const [newItemCategory, setNewItemCategory] = useState<ChecklistCategory>('materiais');
   const [selectedClass, setSelectedClass] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const categories = [
-    { value: 'acessorios', label: 'Acessórios' },
-    { value: 'cabos', label: 'Cabos' },
-    { value: 'caixas', label: 'Caixas' },
-    { value: 'servicos', label: 'Serviços' },
-    { value: 'outros', label: 'Outros' }
+    { value: 'materiais', label: 'Materiais' },
+    { value: 'servicos', label: 'Serviços' }
   ];
 
   const { data: userClasses = [] } = useQuery({
