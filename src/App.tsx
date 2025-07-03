@@ -15,6 +15,7 @@ import MyReports from "./pages/MyReports";
 import ReportValidation from "./pages/ReportValidation";
 import MyAdjustments from "./pages/MyAdjustments";
 import MaterialControl from "./pages/MaterialControl";
+import PreventiveMaintenance from "./pages/PreventiveMaintenance";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -110,6 +111,11 @@ const AppRoutes = () => {
       <Route path="/material-control" element={
         <ProtectedRoute>
           <MaterialControl />
+        </ProtectedRoute>
+      } />
+      <Route path="/preventive-maintenance" element={
+        <ProtectedRoute>
+          <PreventiveMaintenance />
         </ProtectedRoute>
       } />
       <Route path="*" element={<NotFound />} />

@@ -273,6 +273,63 @@ export type Database = {
         }
         Relationships: []
       }
+      preventive_schedule: {
+        Row: {
+          attachments: Json | null
+          cable_number: string
+          client_site: string
+          created_at: string
+          created_by: string
+          id: string
+          inspector_id: string
+          observations: string | null
+          scheduled_month: number
+          scheduled_year: number
+          updated_at: string
+        }
+        Insert: {
+          attachments?: Json | null
+          cable_number: string
+          client_site: string
+          created_at?: string
+          created_by: string
+          id?: string
+          inspector_id: string
+          observations?: string | null
+          scheduled_month: number
+          scheduled_year: number
+          updated_at?: string
+        }
+        Update: {
+          attachments?: Json | null
+          cable_number?: string
+          client_site?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          inspector_id?: string
+          observations?: string | null
+          scheduled_month?: number
+          scheduled_year?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_schedule_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_schedule_inspector_id_fkey"
+            columns: ["inspector_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           access_profile_id: string | null
@@ -519,40 +576,64 @@ export type Database = {
       risks: {
         Row: {
           assigned_to: string | null
+          cable_client_site: string | null
+          city: string | null
           created_at: string
           description: string
+          directed_at: string | null
+          directed_to: string | null
           id: string
           location: string
+          photos: Json | null
           reported_by: string
           resolved_at: string | null
+          risk_number: string | null
+          risk_type: string | null
           severity: number
-          status: string
+          status: Database["public"]["Enums"]["risk_status"]
+          status_updated_at: string | null
           title: string
           updated_at: string
         }
         Insert: {
           assigned_to?: string | null
+          cable_client_site?: string | null
+          city?: string | null
           created_at?: string
           description: string
+          directed_at?: string | null
+          directed_to?: string | null
           id?: string
           location: string
+          photos?: Json | null
           reported_by: string
           resolved_at?: string | null
+          risk_number?: string | null
+          risk_type?: string | null
           severity: number
-          status?: string
+          status?: Database["public"]["Enums"]["risk_status"]
+          status_updated_at?: string | null
           title: string
           updated_at?: string
         }
         Update: {
           assigned_to?: string | null
+          cable_client_site?: string | null
+          city?: string | null
           created_at?: string
           description?: string
+          directed_at?: string | null
+          directed_to?: string | null
           id?: string
           location?: string
+          photos?: Json | null
           reported_by?: string
           resolved_at?: string | null
+          risk_number?: string | null
+          risk_type?: string | null
           severity?: number
-          status?: string
+          status?: Database["public"]["Enums"]["risk_status"]
+          status_updated_at?: string | null
           title?: string
           updated_at?: string
         }
@@ -560,6 +641,13 @@ export type Database = {
           {
             foreignKeyName: "risks_assigned_to_fkey"
             columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risks_directed_to_fkey"
+            columns: ["directed_to"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -716,6 +804,7 @@ export type Database = {
         | "upload"
         | "checklist"
       report_status: "pendente" | "validado" | "rejeitado"
+      risk_status: "enviado" | "direcionado" | "concluido" | "aberto"
       user_role: "admin" | "tecnico" | "supervisor" | "gestor"
     }
     CompositeTypes: {
@@ -846,6 +935,7 @@ export const Constants = {
         "checklist",
       ],
       report_status: ["pendente", "validado", "rejeitado"],
+      risk_status: ["enviado", "direcionado", "concluido", "aberto"],
       user_role: ["admin", "tecnico", "supervisor", "gestor"],
     },
   },
