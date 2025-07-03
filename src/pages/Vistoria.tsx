@@ -54,7 +54,12 @@ const Vistoria = () => {
         .order('scheduled_month', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      
+      // Transform data to match ScheduleItem interface
+      return (data || []).map(item => ({
+        ...item,
+        attachments: Array.isArray(item.attachments) ? item.attachments : []
+      })) as ScheduleItem[];
     }
   });
 
