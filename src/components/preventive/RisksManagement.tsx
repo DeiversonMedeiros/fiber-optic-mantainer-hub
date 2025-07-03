@@ -229,7 +229,7 @@ const RisksManagement = () => {
               <SelectValue placeholder="Todos os status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todos</SelectItem>
+              <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="enviado">Enviado</SelectItem>
               <SelectItem value="direcionado">Direcionado</SelectItem>
               <SelectItem value="concluido">Concluído</SelectItem>
