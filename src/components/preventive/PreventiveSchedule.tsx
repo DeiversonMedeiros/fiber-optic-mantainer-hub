@@ -37,11 +37,11 @@ interface PreventiveScheduleItem {
   scheduled_month: number;
   scheduled_year: number;
   inspector_id: string;
-  observations: string;
+  observations: string | null;
   created_at: string;
-  profiles: {
+  inspector: {
     name: string;
-  };
+  } | null;
 }
 
 const PreventiveSchedule = () => {
@@ -80,7 +80,7 @@ const PreventiveSchedule = () => {
         .from('preventive_schedule')
         .select(`
           *,
-          profiles:inspector_id(name)
+          inspector:profiles!inspector_id(name)
         `)
         .order('scheduled_year', { ascending: false })
         .order('scheduled_month', { ascending: false });
@@ -104,26 +104,18 @@ const PreventiveSchedule = () => {
     }
   });
 
-  // Buscar inspetores (classe V)
+  // Buscar inspetores
   const { data: inspectors = [] } = useQuery({
     queryKey: ['inspectors'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select(`
-          id, 
-          name,
-          user_classes(name)
-        `)
-        .eq('is_active', true);
+        .select('id, name')
+        .eq('is_active', true)
+        .in('role', ['tecnico', 'supervisor']);
       
       if (error) throw error;
-      
-      // Filtrar apenas usuários da classe V (vistoriadores)
-      return (data || []).filter(profile => 
-        profile.user_classes?.name?.toLowerCase().includes('v') ||
-        profile.user_classes?.name?.toLowerCase().includes('vistoria')
-      );
+      return data || [];
     }
   });
 
@@ -137,12 +129,13 @@ const PreventiveSchedule = () => {
           .eq('id', editingItem.id);
         if (error) throw error;
       } else {
+        const { data: user } = await supabase.auth.getUser();
         const { error } = await supabase
           .from('preventive_schedule')
-          .insert([{
+          .insert({
             ...data,
-            created_by: (await supabase.auth.getUser()).data.user?.id
-          }]);
+            created_by: user.user?.id || ''
+          });
         if (error) throw error;
       }
     },
@@ -215,7 +208,7 @@ const PreventiveSchedule = () => {
       'Cliente/Site': schedule.client_site,
       'Mês': getMonthName(schedule.scheduled_month),
       'Ano': schedule.scheduled_year,
-      'Vistoriador': schedule.profiles?.name,
+      'Vistoriador': schedule.inspector?.name || '',
       'Observações': schedule.observations || '',
       'Data Criação': format(new Date(schedule.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })
     }));
@@ -482,7 +475,7 @@ const PreventiveSchedule = () => {
                 <TableCell>
                   {getMonthName(schedule.scheduled_month)}/{schedule.scheduled_year}
                 </TableCell>
-                <TableCell>{schedule.profiles?.name}</TableCell>
+                <TableCell>{schedule.inspector?.name || '-'}</TableCell>
                 <TableCell>{schedule.observations || '-'}</TableCell>
                 <TableCell>
                   {format(new Date(schedule.created_at), 'dd/MM/yyyy', { locale: ptBR })}

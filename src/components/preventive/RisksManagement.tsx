@@ -15,30 +15,33 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Download, Eye, UserCheck } from "lucide-react";
 import * as XLSX from 'xlsx';
+import type { Database } from '@/integrations/supabase/types';
+
+type RiskStatus = Database['public']['Enums']['risk_status'];
 
 interface Risk {
   id: string;
-  risk_number: string;
+  risk_number: string | null;
   title: string;
   description: string;
   location: string;
   severity: number;
-  status: 'enviado' | 'direcionado' | 'concluido' | 'aberto';
-  risk_type: string;
-  cable_client_site: string;
-  city: string;
-  photos: any[];
-  directed_to: string;
-  directed_at: string;
-  status_updated_at: string;
+  status: RiskStatus;
+  risk_type: string | null;
+  cable_client_site: string | null;
+  city: string | null;
+  photos: string[];
+  directed_to: string | null;
+  directed_at: string | null;
+  status_updated_at: string | null;
   created_at: string;
   reported_by: string;
-  profiles?: {
+  reporter: {
     name: string;
-  };
-  directed_profile?: {
+  } | null;
+  directed_profile: {
     name: string;
-  };
+  } | null;
 }
 
 const RisksManagement = () => {
@@ -48,7 +51,7 @@ const RisksManagement = () => {
   const [filters, setFilters] = useState({
     user: '',
     riskNumber: '',
-    status: '',
+    status: '' as RiskStatus | '',
     cableClientSite: '',
     city: '',
     dateFrom: '',
@@ -66,8 +69,8 @@ const RisksManagement = () => {
         .from('risks')
         .select(`
           *,
-          profiles:reported_by(name),
-          directed_profile:directed_to(name)
+          reporter:profiles!reported_by(name),
+          directed_profile:profiles!directed_to(name)
         `)
         .order('created_at', { ascending: false });
 
@@ -92,7 +95,12 @@ const RisksManagement = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data || [];
+      
+      // Convert Json photos to string array
+      return (data || []).map(risk => ({
+        ...risk,
+        photos: Array.isArray(risk.photos) ? risk.photos : []
+      }));
     }
   });
 
@@ -119,7 +127,7 @@ const RisksManagement = () => {
         .update({
           directed_to: technicianId,
           directed_at: new Date().toISOString(),
-          status: 'direcionado'
+          status: 'direcionado' as RiskStatus
         })
         .eq('id', riskId);
       
@@ -144,7 +152,7 @@ const RisksManagement = () => {
     }
   });
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: RiskStatus) => {
     switch (status) {
       case 'enviado': return 'bg-blue-100 text-blue-800';
       case 'direcionado': return 'bg-yellow-100 text-yellow-800';
@@ -153,7 +161,7 @@ const RisksManagement = () => {
     }
   };
 
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status: RiskStatus) => {
     switch (status) {
       case 'enviado': return 'Enviado';
       case 'direcionado': return 'Direcionado';
@@ -165,16 +173,16 @@ const RisksManagement = () => {
 
   const exportToExcel = () => {
     const exportData = risks.map(risk => ({
-      'Nº Risco': risk.risk_number,
+      'Nº Risco': risk.risk_number || '',
       'Título': risk.title,
       'Descrição': risk.description,
       'Localização': risk.location,
-      'Tipo': risk.risk_type,
-      'Cabo/Cliente/Site': risk.cable_client_site,
-      'Cidade': risk.city,
+      'Tipo': risk.risk_type || '',
+      'Cabo/Cliente/Site': risk.cable_client_site || '',
+      'Cidade': risk.city || '',
       'Severidade': risk.severity,
       'Status': getStatusLabel(risk.status),
-      'Reportado por': risk.profiles?.name,
+      'Reportado por': risk.reporter?.name || '',
       'Direcionado para': risk.directed_profile?.name || '',
       'Data Direcionamento': risk.directed_at ? format(new Date(risk.directed_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
       'Data Criação': format(new Date(risk.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })
@@ -214,7 +222,7 @@ const RisksManagement = () => {
         </div>
         <div>
           <Label htmlFor="status">Status</Label>
-          <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+          <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value as RiskStatus }))}>
             <SelectTrigger>
               <SelectValue placeholder="Todos os status" />
             </SelectTrigger>
@@ -274,11 +282,11 @@ const RisksManagement = () => {
           <TableBody>
             {risks.map((risk) => (
               <TableRow key={risk.id}>
-                <TableCell className="font-medium">{risk.risk_number}</TableCell>
+                <TableCell className="font-medium">{risk.risk_number || '-'}</TableCell>
                 <TableCell>{risk.title}</TableCell>
-                <TableCell>{risk.risk_type}</TableCell>
-                <TableCell>{risk.cable_client_site}</TableCell>
-                <TableCell>{risk.city}</TableCell>
+                <TableCell>{risk.risk_type || '-'}</TableCell>
+                <TableCell>{risk.cable_client_site || '-'}</TableCell>
+                <TableCell>{risk.city || '-'}</TableCell>
                 <TableCell>
                   <Badge className={getStatusColor(risk.status)}>
                     {getStatusLabel(risk.status)}
