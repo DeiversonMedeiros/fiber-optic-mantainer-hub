@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -287,7 +286,7 @@ const PreventiveSchedule = () => {
               <SelectValue placeholder="Todos os meses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todos</SelectItem>
+              <SelectItem value="all">Todos</SelectItem>
               {months.map((month) => (
                 <SelectItem key={month.value} value={month.value.toString()}>
                   {month.label}
