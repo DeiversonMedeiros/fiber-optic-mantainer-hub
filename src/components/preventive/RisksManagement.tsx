@@ -96,11 +96,13 @@ const RisksManagement = () => {
       const { data, error } = await query;
       if (error) throw error;
       
-      // Convert Json photos to string array
+      // Convert Json photos to string array and transform data
       return (data || []).map(risk => ({
         ...risk,
-        photos: Array.isArray(risk.photos) ? risk.photos : []
-      }));
+        photos: Array.isArray(risk.photos) 
+          ? (risk.photos as any[]).filter(photo => typeof photo === 'string') as string[]
+          : []
+      })) as Risk[];
     }
   });
 

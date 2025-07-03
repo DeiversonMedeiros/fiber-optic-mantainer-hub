@@ -125,7 +125,14 @@ const PreventiveSchedule = () => {
       if (editingItem) {
         const { error } = await supabase
           .from('preventive_schedule')
-          .update(data)
+          .update({
+            cable_number: data.cable_number,
+            client_site: data.client_site,
+            scheduled_month: data.scheduled_month,
+            scheduled_year: data.scheduled_year,
+            inspector_id: data.inspector_id,
+            observations: data.observations || null
+          })
           .eq('id', editingItem.id);
         if (error) throw error;
       } else {
@@ -133,7 +140,12 @@ const PreventiveSchedule = () => {
         const { error } = await supabase
           .from('preventive_schedule')
           .insert({
-            ...data,
+            cable_number: data.cable_number,
+            client_site: data.client_site,
+            scheduled_month: data.scheduled_month,
+            scheduled_year: data.scheduled_year,
+            inspector_id: data.inspector_id,
+            observations: data.observations || null,
             created_by: user.user?.id || ''
           });
         if (error) throw error;
