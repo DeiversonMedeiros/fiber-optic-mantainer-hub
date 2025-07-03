@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,6 +15,8 @@ import ReportValidation from "./pages/ReportValidation";
 import MyAdjustments from "./pages/MyAdjustments";
 import MaterialControl from "./pages/MaterialControl";
 import PreventiveMaintenance from "./pages/PreventiveMaintenance";
+import Preventivas from "./pages/Preventivas";
+import Vistoria from "./pages/Vistoria";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -116,6 +117,16 @@ const AppRoutes = () => {
       <Route path="/preventive-maintenance" element={
         <ProtectedRoute>
           <PreventiveMaintenance />
+        </ProtectedRoute>
+      } />
+      <Route path="/preventivas" element={
+        <ProtectedRoute>
+          <Preventivas />
+        </ProtectedRoute>
+      } />
+      <Route path="/vistoria" element={
+        <ProtectedRoute>
+          <Vistoria />
         </ProtectedRoute>
       } />
       <Route path="*" element={<NotFound />} />
