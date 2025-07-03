@@ -41,6 +41,24 @@ const SYSTEM_PAGES = [
     category: 'Material'
   },
   {
+    id: 'preventive-maintenance',
+    name: 'Gestão de Preventiva',
+    description: 'Gerenciar manutenção preventiva e riscos',
+    category: 'Preventiva'
+  },
+  {
+    id: 'preventivas',
+    name: 'Preventivas',
+    description: 'Visualizar e gerenciar preventivas',
+    category: 'Preventiva'
+  },
+  {
+    id: 'vistoria',
+    name: 'Vistoria',
+    description: 'Realizar vistorias técnicas',
+    category: 'Preventiva'
+  },
+  {
     id: 'users',
     name: 'Gerenciar Usuários',
     description: 'Administrar usuários do sistema',
