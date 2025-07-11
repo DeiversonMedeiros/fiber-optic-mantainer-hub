@@ -18,7 +18,7 @@ interface MaterialAdjustmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   userId: string;
-  materialId: string;
+  checklistItemId: string;
   onSuccess: () => void;
 }
 
@@ -26,7 +26,7 @@ const MaterialAdjustmentModal: React.FC<MaterialAdjustmentModalProps> = ({
   isOpen,
   onClose,
   userId,
-  materialId,
+  checklistItemId,
   onSuccess
 }) => {
   const [quantity, setQuantity] = useState('');
@@ -44,7 +44,7 @@ const MaterialAdjustmentModal: React.FC<MaterialAdjustmentModalProps> = ({
         .from('material_adjustments')
         .insert({
           user_id: userId,
-          material_id: materialId,
+          checklist_item_id: checklistItemId,
           quantity_reduced: parseInt(quantity),
           sa_code: saCode,
           reason: reason || null,

@@ -13,31 +13,85 @@ import { Plus, Minus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { ChecklistFormSection, ChecklistItem } from "./ChecklistFormSection";
+import { useImageUpload } from '@/hooks/useImageUpload';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 interface ReportFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   templateId: string;
+  scheduleId?: string | null;
+  onSuccess?: () => void;
+  parentReportId?: string | null; // <-- nova prop
 }
 
-interface ChecklistItem {
-  id: string;
-  name: string;
-  category: string;
-  quantity: number;
-  notes: string;
+const STORAGE_BUCKET = 'report-attachments';
+const MAX_FILES = 10;
+const MAX_FILE_SIZE_MB = 10;
+
+async function uploadFiles(files: File[], userId: string) {
+  console.log('🚀 uploadFiles iniciado com:', files.length, 'arquivos');
+  const uploaded = [];
+  for (const file of files) {
+    const timestamp = Date.now();
+    const filePath = `reports/${userId}/${timestamp}_${file.name}`;
+    console.log('📤 Fazendo upload de:', filePath, file);
+    const { data, error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(filePath, file, { upsert: false });
+    if (error) {
+      console.error('❌ Erro ao fazer upload:', error);
+      throw error;
+    }
+    console.log('✅ Upload bem-sucedido:', data);
+    const { data: publicUrl } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+    uploaded.push({
+      name: file.name,
+      url: publicUrl.publicUrl,
+      path: filePath,
+      size: file.size,
+      type: file.type
+    });
+    console.log('📋 Arquivo adicionado à lista:', uploaded[uploaded.length - 1]);
+  }
+  console.log('🎉 Upload concluído. Total de arquivos:', uploaded.length);
+  return uploaded;
 }
 
-const ReportFormModal = ({ isOpen, onClose, templateId }: ReportFormModalProps) => {
+const ReportFormModal = ({ isOpen, onClose, templateId, scheduleId, onSuccess, parentReportId }: ReportFormModalProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [checklistData, setChecklistData] = useState<ChecklistItem[]>([]);
-  const [serviceOrderId, setServiceOrderId] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [numeroServico, setNumeroServico] = useState('');
+
+  // Usar o hook de upload otimizado
+  const {
+    uploadFiles,
+    validateFiles,
+    uploading,
+    uploadError,
+    uploadProgress,
+    clearError
+  } = useImageUpload({
+    bucket: STORAGE_BUCKET,
+    maxFiles: MAX_FILES,
+    maxFileSize: MAX_FILE_SIZE_MB * 1024 * 1024,
+    compressionOptions: {
+      maxWidth: 1920,
+      maxHeight: 1080,
+      quality: 0.8,
+      format: 'jpeg'
+    },
+    createThumbnails: true
+  });
+
+  const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
 
   // Buscar template
   const { data: template } = useQuery({
@@ -49,6 +103,17 @@ const ReportFormModal = ({ isOpen, onClose, templateId }: ReportFormModalProps) 
         .eq('id', templateId)
         .single();
       if (error) throw error;
+      
+      // Debug: verificar se o template foi carregado
+      console.log('🔍 Template carregado:', data);
+      console.log('🔍 ID do template:', data.id);
+      console.log('🔍 Nome do template:', data.name);
+      console.log('🔍 Campos do template:', data.fields);
+      
+      // Verificar se há campo de upload
+      const uploadField = Array.isArray(data.fields) ? data.fields.find((field: any) => field.type === 'upload') : null;
+      console.log('🔍 Campo de upload encontrado:', uploadField);
+      
       return data;
     },
     enabled: !!templateId
@@ -73,46 +138,87 @@ const ReportFormModal = ({ isOpen, onClose, templateId }: ReportFormModalProps) 
     enabled: !!template?.checklist_enabled && !!template?.checklist_class_id
   });
 
-  // Buscar ordens de serviço
-  const { data: serviceOrders = [] } = useQuery({
-    queryKey: ['service-orders'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('service_orders')
-        .select('id, number, title')
-        .eq('status', 'em_andamento')
-        .order('number');
-      if (error) throw error;
-      return data;
+  // Remover qualquer query ou lógica que utilize a tabela service_orders
+
+  useEffect(() => {
+    if (template) {
+      // Se for edição, buscar valor do relatório existente (se houver)
+      setNumeroServico(''); // Ajuste para edição se necessário
     }
-  });
+  }, [template]);
 
   const createReportMutation = useMutation({
     mutationFn: async (reportData: any) => {
-      const { data: report, error: reportError } = await supabase
-        .from('reports')
-        .insert({
+      console.log('🗄️ createReportMutation iniciada');
+      console.log('🗄️ Dados recebidos:', reportData);
+      
+      const payload = {
           title: reportData.title,
           description: reportData.description,
+        numero_servico: reportData.numero_servico,
           technician_id: user?.id,
-          service_order_id: reportData.serviceOrderId || null,
           template_id: templateId,
           form_data: reportData.formData,
           checklist_data: reportData.checklistData,
-          status: 'pendente'
-        })
+        attachments: Array.isArray(reportData.attachments) ? reportData.attachments : [],
+          status: 'nao_validado' as const,
+          schedule_id: typeof scheduleId === 'string' ? scheduleId : null,
+          parent_report_id: reportData.parent_report_id ?? parentReportId ?? null // <-- garantir preenchimento
+      };
+      console.log('Payload para insert:', payload);
+      console.log('🗄️ Attachments no payload:', payload.attachments);
+      
+      const { data: report, error: reportError } = await supabase
+        .from('reports')
+        .insert(payload)
         .select()
         .single();
 
-      if (reportError) throw reportError;
+      if (reportError) {
+        console.error('❌ Erro ao inserir relatório:', reportError);
+        throw reportError;
+      }
+      
+      console.log('✅ Relatório inserido com sucesso:', report);
+
+      // Registrar atividade de criação
+      const { error: activityCreateError } = await supabase.from('activities').insert([
+        {
+          user_id: user?.id,
+          action: 'criar',
+          entity_type: 'report',
+          entity_id: report.id,
+          details: {
+            title: report.title,
+            description: report.description,
+            form_data: report.form_data,
+            checklist_data: report.checklist_data,
+            attachments: report.attachments
+          }
+        }
+      ]);
+      console.log('[activities.insert][criar] Dados enviados:', {
+        user_id: user?.id,
+        action: 'criar',
+        entity_type: 'report',
+        entity_id: report.id,
+        details: {
+          title: report.title,
+          description: report.description,
+          form_data: report.form_data,
+          checklist_data: report.checklist_data,
+          attachments: report.attachments
+        }
+      });
+      console.log('[activities.insert][criar] Erro:', activityCreateError);
 
       // Se há itens do checklist, criar os registros na tabela de relacionamento
       if (reportData.checklistData && reportData.checklistData.length > 0) {
         const checklistInserts = reportData.checklistData.map((item: ChecklistItem) => ({
           report_id: report.id,
           checklist_item_id: item.id,
-          quantity: item.quantity,
-          notes: item.notes
+          quantity: item.quantity || 1,
+          notes: item.notes || ''
         }));
 
         const { error: checklistError } = await supabase
@@ -126,10 +232,12 @@ const ReportFormModal = ({ isOpen, onClose, templateId }: ReportFormModalProps) 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-reports'] });
+      queryClient.invalidateQueries({ queryKey: ['validation-reports'] });
       toast({
         title: "Relatório criado",
         description: "O relatório foi criado com sucesso.",
       });
+      if (onSuccess) onSuccess();
       onClose();
       resetForm();
     },
@@ -145,9 +253,9 @@ const ReportFormModal = ({ isOpen, onClose, templateId }: ReportFormModalProps) 
   const resetForm = () => {
     setFormData({});
     setChecklistData([]);
-    setServiceOrderId('');
     setTitle('');
     setDescription('');
+    setFilesToUpload([]); // Resetar arquivos selecionados
   };
 
   const handleFieldChange = (fieldId: string, value: any) => {
@@ -187,24 +295,82 @@ const ReportFormModal = ({ isOpen, onClose, templateId }: ReportFormModalProps) 
     setChecklistData(prev => prev.filter(item => item.id !== itemId));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || !description.trim()) {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('📁 handleFileChange chamado');
+    let files = e.target.files ? Array.from(e.target.files) : [];
+    console.log('📁 Arquivos selecionados:', files);
+    
+    // Validar arquivos usando o novo sistema
+    const validation = validateFiles(files);
+    if (!validation.valid) {
       toast({
-        title: "Campos obrigatórios",
-        description: "Título e descrição são obrigatórios.",
+        title: "Erro de validação",
+        description: validation.error,
         variant: "destructive",
       });
       return;
     }
+    
+    // Filtrar apenas imagens
+    files = files.filter(file => file.type.startsWith('image/'));
+    console.log('📁 Arquivos após filtro de imagem:', files);
+    
+    console.log('📁 Arquivos finais para upload:', files);
+    setFilesToUpload(files);
+    handleFieldChange('upload', files);
+  };
 
-    createReportMutation.mutate({
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('📝 handleSubmit iniciado');
+    console.log('📝 Título:', title);
+    console.log('📝 Descrição:', description);
+    console.log('📝 Número do Serviço:', numeroServico);
+    console.log('📝 FormData:', formData);
+    console.log('📝 FilesToUpload:', filesToUpload);
+    
+    if (!title.trim() || !description.trim() || !numeroServico.trim() || !/^[0-9]+$/.test(numeroServico)) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha todos os campos obrigatórios, incluindo o Número do Serviço (apenas números).",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    clearError();
+    let newFormData = { ...formData };
+    let uploadedFiles = [];
+    
+    if (filesToUpload.length > 0 && user?.id) {
+      try {
+        console.log('🚀 Iniciando upload otimizado de', filesToUpload.length, 'arquivos...');
+        uploadedFiles = await uploadFiles(filesToUpload, user.id, 'reports');
+        console.log('✅ Upload concluído. Arquivos:', uploadedFiles);
+        newFormData.upload = uploadedFiles;
+      } catch (err: any) {
+        toast({
+          title: "Erro no upload",
+          description: err.message || 'Erro ao fazer upload.',
+          variant: "destructive",
+        });
+        console.error('❌ Erro no upload:', err);
+        return;
+      }
+    }
+    
+    const reportData = {
       title: title.trim(),
       description: description.trim(),
-      serviceOrderId,
-      formData,
-      checklistData
-    });
+      numero_servico: numeroServico.trim(),
+      formData: newFormData,
+      checklistData,
+      attachments: uploadedFiles,
+      parent_report_id: parentReportId ?? null // <-- garantir passagem
+    };
+    
+    console.log('📤 Enviando dados do relatório:', reportData);
+    createReportMutation.mutate(reportData);
   };
 
   const renderField = (field: any) => {
@@ -220,7 +386,6 @@ const ReportFormModal = ({ isOpen, onClose, templateId }: ReportFormModalProps) 
             required={field.required}
           />
         );
-      
       case 'texto_longo':
         return (
           <Textarea
@@ -230,7 +395,6 @@ const ReportFormModal = ({ isOpen, onClose, templateId }: ReportFormModalProps) 
             required={field.required}
           />
         );
-      
       case 'dropdown':
         return (
           <Select 
@@ -249,7 +413,6 @@ const ReportFormModal = ({ isOpen, onClose, templateId }: ReportFormModalProps) 
             </SelectContent>
           </Select>
         );
-      
       case 'checkbox':
         return (
           <div className="space-y-2">
@@ -272,7 +435,82 @@ const ReportFormModal = ({ isOpen, onClose, templateId }: ReportFormModalProps) 
             ))}
           </div>
         );
-      
+      case 'radio':
+        return (
+          <div className="space-y-2">
+            {field.options?.map((option: string, idx: number) => (
+              <div key={idx} className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id={`${fieldId}_${idx}`}
+                  name={fieldId}
+                  value={option}
+                  checked={formData[fieldId] === option}
+                  onChange={() => handleFieldChange(fieldId, option)}
+                  required={field.required}
+                />
+                <Label htmlFor={`${fieldId}_${idx}`}>{option}</Label>
+              </div>
+            ))}
+          </div>
+        );
+      case 'data':
+        return (
+          <Input
+            type="date"
+            value={formData[fieldId] || ''}
+            onChange={(e) => handleFieldChange(fieldId, e.target.value)}
+            required={field.required}
+          />
+        );
+      case 'upload':
+        return (
+          <div className="space-y-2">
+            <Input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleFileChange}
+              required={field.required}
+              disabled={uploading}
+            />
+            
+            {uploadError && (
+              <p className="text-sm text-red-500">{uploadError}</p>
+            )}
+            
+            {uploading && (
+              <div className="space-y-2">
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <p className="text-sm text-gray-600">
+                  Fazendo upload... {uploadProgress.toFixed(0)}%
+                </p>
+              </div>
+            )}
+            
+            {/* Preview dos arquivos selecionados */}
+            {filesToUpload.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {filesToUpload.map((file, index) => (
+                  <div key={index} className="relative">
+                    <OptimizedImage
+                      src={URL.createObjectURL(file)}
+                      alt={file.name}
+                      className="w-full h-24 object-cover rounded border"
+                      thumbnailSize={100}
+                    />
+                    <p className="text-xs text-gray-500 mt-1 truncate">{file.name}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
       default:
         return (
           <Input
@@ -285,15 +523,22 @@ const ReportFormModal = ({ isOpen, onClose, templateId }: ReportFormModalProps) 
     }
   };
 
-  const groupedChecklistItems = availableChecklistItems.reduce((acc, item) => {
-    if (!acc[item.category]) {
-      acc[item.category] = [];
-    }
-    acc[item.category].push(item);
-    return acc;
-  }, {} as Record<string, any[]>);
-
   if (!template) return null;
+
+  if (template?.id === '4b45c601-e5b7-4a33-98f9-1769aad319e9' || template?.name === 'Relatório de Vistoria') {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Relatório de Vistoria</DialogTitle>
+          </DialogHeader>
+          <div className="p-4 text-center text-muted-foreground">
+            O fluxo de criação de Relatório de Vistoria foi migrado. Utilize a tela de Vistoria Preventiva.
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -302,9 +547,14 @@ const ReportFormModal = ({ isOpen, onClose, templateId }: ReportFormModalProps) 
           <DialogTitle>Criar Relatório - {template.name}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Campos básicos */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Dados do Serviço */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Dados do Serviço</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-4">
             <div className="space-y-2">
               <Label htmlFor="title">Título *</Label>
               <Input
@@ -315,23 +565,6 @@ const ReportFormModal = ({ isOpen, onClose, templateId }: ReportFormModalProps) 
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="service-order">Ordem de Serviço</Label>
-              <Select value={serviceOrderId} onValueChange={setServiceOrderId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma OS (opcional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {serviceOrders.map(order => (
-                    <SelectItem key={order.id} value={order.id}>
-                      {order.number} - {order.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
           <div className="space-y-2">
             <Label htmlFor="description">Descrição *</Label>
             <Textarea
@@ -342,6 +575,24 @@ const ReportFormModal = ({ isOpen, onClose, templateId }: ReportFormModalProps) 
               required
             />
           </div>
+                <div className="space-y-2">
+                  <Label htmlFor="numero-servico">Número do Serviço *</Label>
+                  <Input
+                    id="numero-servico"
+                    value={numeroServico}
+                    onChange={e => {
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      setNumeroServico(val);
+                    }}
+                    placeholder="Digite o número do serviço"
+                    required
+                    minLength={1}
+                    pattern="^[0-9]+$"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Campos dinâmicos do template */}
           {template.fields && Array.isArray(template.fields) && template.fields.length > 0 && (
@@ -349,7 +600,8 @@ const ReportFormModal = ({ isOpen, onClose, templateId }: ReportFormModalProps) 
               <CardHeader>
                 <CardTitle>Informações Específicas</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent>
+                <div className="flex flex-col gap-4">
                 {template.fields.map((field: any, index: number) => (
                   <div key={index} className="space-y-2">
                     <Label>
@@ -359,6 +611,7 @@ const ReportFormModal = ({ isOpen, onClose, templateId }: ReportFormModalProps) 
                     {renderField(field)}
                   </div>
                 ))}
+                </div>
               </CardContent>
             </Card>
           )}
@@ -369,69 +622,22 @@ const ReportFormModal = ({ isOpen, onClose, templateId }: ReportFormModalProps) 
               <CardHeader>
                 <CardTitle>Checklist</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Adicionar itens */}
-                <div className="space-y-4">
-                  {Object.entries(groupedChecklistItems).map(([category, items]) => (
-                    <div key={category} className="space-y-2">
-                      <h4 className="font-medium">{category === 'materiais' ? 'Materiais' : 'Serviços'}</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {items.map(item => (
-                          <Button
-                            key={item.id}
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => addChecklistItem(item.id)}
-                          >
-                            <Plus className="w-3 h-3 mr-1" />
-                            {item.name}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+              <CardContent>
+                <div className="p-2 border rounded-lg bg-green-50 border-green-300">
+                  <ChecklistFormSection
+                    items={availableChecklistItems}
+                    value={checklistData}
+                    onChange={setChecklistData}
+                  />
                 </div>
-
-                {/* Itens selecionados */}
-                {checklistData.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Itens Selecionados</h4>
-                    <div className="space-y-2">
-                      {checklistData.map(item => (
-                        <div key={item.id} className="flex items-center gap-2 p-2 border rounded">
-                          <span className="flex-1">{item.name}</span>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => updateChecklistItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
-                            className="w-20"
-                          />
-                          <Input
-                            placeholder="Observações"
-                            value={item.notes}
-                            onChange={(e) => updateChecklistItem(item.id, 'notes', e.target.value)}
-                            className="w-32"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeChecklistItem(item.id)}
-                          >
-                            <Minus className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </CardContent>
             </Card>
           )}
 
-          <div className="flex justify-end space-x-2">
+          {/* Upload de Imagens - Removido campo fixo, usando apenas campo dinâmico do template */}
+
+          {/* Botões de ação */}
+          <div className="flex justify-end space-x-2 pt-4">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>

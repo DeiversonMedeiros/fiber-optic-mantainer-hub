@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import * as XLSX from 'xlsx';
+import { RequireAuth } from '@/components/RequireAuth';
+import { compressImage } from '@/lib/imageOptimization';
+import { exportToCSV } from "@/utils/csvExport";
+import { usePagination } from "@/hooks/usePagination";
 
 const scheduleSchema = z.object({
   cable_number: z.string().min(1, "Número do cabo é obrigatório"),
@@ -41,7 +45,19 @@ interface PreventiveScheduleItem {
   inspector: {
     name: string;
   } | null;
+  attachments?: { name: string; url: string; size: number; type: string; }[] | string | null;
+  is_completed: boolean;
 }
+
+// ScheduleFormData precisa aceitar attachments para o insert funcionar
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+interface ScheduleFormDataWithAttachments extends ScheduleFormData {
+  attachments?: any;
+}
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILES = 2; // Máximo 2 arquivos
+const STORAGE_BUCKET = 'preventive-attachments';
 
 const PreventiveSchedule = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -53,8 +69,13 @@ const PreventiveSchedule = () => {
     month: '',
     year: '',
     dateFrom: '',
-    dateTo: ''
+    dateTo: '',
+    status: 'all', // novo filtro
   });
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<any[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -70,6 +91,20 @@ const PreventiveSchedule = () => {
       observations: '',
     }
   });
+
+  // Preencher anexos ao editar
+  useEffect(() => {
+    if (editingItem) {
+      let atts = editingItem.attachments;
+      if (typeof atts === 'string') {
+        try { atts = JSON.parse(atts); } catch { atts = []; }
+      }
+      if (!Array.isArray(atts)) atts = [];
+      setAttachments(atts);
+    } else {
+      setAttachments([]);
+    }
+  }, [editingItem]);
 
   // Buscar cronograma
   const { data: schedules = [], isLoading } = useQuery({
@@ -96,6 +131,13 @@ const PreventiveSchedule = () => {
       if (filters.year) {
         query = query.eq('scheduled_year', parseInt(filters.year));
       }
+      if (filters.status && filters.status !== 'all') {
+        if (filters.status === 'concluido') {
+          query = query.eq('is_completed', true);
+        } else if (filters.status === 'pendente') {
+          query = query.eq('is_completed', false);
+        }
+      }
 
       const { data, error } = await query;
       if (error) throw error;
@@ -111,16 +153,48 @@ const PreventiveSchedule = () => {
         .from('profiles')
         .select('id, name')
         .eq('is_active', true)
-        .in('role', ['tecnico', 'supervisor']);
-      
+        .eq('access_profile_id', '38a5d358-75d6-4ae6-a109-1456a7dba714')
+        .order('name');
       if (error) throw error;
       return data || [];
     }
   });
 
+  // Buscar e contar relatórios enviados por vistoria (inspection_reports)
+  const { data: inspectionReports = [] } = useQuery({
+    queryKey: ['all-inspection-reports-for-schedule'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('inspection_reports')
+        .select('id, schedule_id')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  // Mapear quantidade de relatórios por schedule_id
+  const reportsCountBySchedule = useMemo(() => {
+    const counts: Record<string, number> = {};
+    inspectionReports.forEach((report: any) => {
+      if (report.schedule_id) {
+        counts[report.schedule_id] = (counts[report.schedule_id] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [inspectionReports]);
+
+  const {
+    visibleItems: paginatedSchedules,
+    hasMore: hasMoreSchedules,
+    showMore: showMoreSchedules,
+    reset: resetSchedules
+  } = usePagination(schedules, 10, 10);
+
   // Criar/Editar cronograma
   const mutation = useMutation({
-    mutationFn: async (data: ScheduleFormData) => {
+    mutationFn: async (data: ScheduleFormDataWithAttachments) => {
+      console.log('mutationFn chamada com:', data);
       if (editingItem) {
         const { error } = await supabase
           .from('preventive_schedule')
@@ -130,24 +204,44 @@ const PreventiveSchedule = () => {
             scheduled_month: data.scheduled_month,
             scheduled_year: data.scheduled_year,
             inspector_id: data.inspector_id,
-            observations: data.observations || null
+            observations: data.observations || null,
+            attachments: (data as any).attachments || null
           })
           .eq('id', editingItem.id);
-        if (error) throw error;
+        if (error) {
+          console.error('Erro no update:', error);
+          throw error;
+        }
       } else {
         const { data: user } = await supabase.auth.getUser();
-        const { error } = await supabase
-          .from('preventive_schedule')
-          .insert({
+        console.log('Usuário retornado pelo supabase.auth.getUser():', user);
+        if (!user?.user?.id) {
+          toast({
+            title: "Erro",
+            description: "Usuário não autenticado.",
+            variant: "destructive",
+          });
+          return;
+        }
+        // Logar dados do insert
+        const insertPayload = {
             cable_number: data.cable_number,
             client_site: data.client_site,
             scheduled_month: data.scheduled_month,
             scheduled_year: data.scheduled_year,
             inspector_id: data.inspector_id,
             observations: data.observations || null,
-            created_by: user.user?.id || ''
-          });
-        if (error) throw error;
+          attachments: (data as any).attachments || null,
+          created_by: user.user.id
+        };
+        console.log('Payload do insert:', insertPayload);
+        const { error } = await supabase
+          .from('preventive_schedule')
+          .insert(insertPayload);
+        if (error) {
+          console.error('Erro no insert:', error);
+          throw error;
+        }
       }
     },
     onSuccess: () => {
@@ -159,6 +253,7 @@ const PreventiveSchedule = () => {
       setIsDialogOpen(false);
       setEditingItem(null);
       form.reset();
+      setAttachments([]); // Limpar anexos após salvar
     },
     onError: (error: any) => {
       toast({
@@ -166,6 +261,7 @@ const PreventiveSchedule = () => {
         description: error.message,
         variant: "destructive",
       });
+      console.error('Erro na mutation:', error);
     }
   });
 
@@ -239,7 +335,14 @@ const PreventiveSchedule = () => {
       scheduled_year: item.scheduled_year,
       inspector_id: item.inspector_id,
       observations: item.observations || '',
+      // NÃO passar attachments aqui
     });
+    let atts = item.attachments;
+    if (typeof atts === 'string') {
+      try { atts = JSON.parse(atts); } catch { atts = []; }
+    }
+    if (!Array.isArray(atts)) atts = [];
+    setAttachments(atts);
     setIsDialogOpen(true);
   };
 
@@ -249,9 +352,131 @@ const PreventiveSchedule = () => {
     }
   };
 
-  const onSubmit = (data: ScheduleFormData) => {
-    mutation.mutate(data);
+  const onSubmit = async (data: ScheduleFormDataWithAttachments) => {
+    setUploadError(null);
+    let uploadedAttachments = attachments;
+    // Se houver arquivos novos para upload
+    if (fileInputRef.current && fileInputRef.current.files && fileInputRef.current.files.length > 0) {
+      setUploading(true);
+      try {
+        const files = Array.from(fileInputRef.current.files);
+        
+        // Validar número máximo de arquivos
+        if (files.length > MAX_FILES) {
+          throw new Error(`Máximo de ${MAX_FILES} arquivos permitidos.`);
+        }
+        
+        // Validar se o total de arquivos não excede o limite
+        if (attachments.length + files.length > MAX_FILES) {
+          throw new Error(`Máximo de ${MAX_FILES} arquivos permitidos. Você já tem ${attachments.length} arquivo(s) anexado(s).`);
+        }
+        
+        // Validar tamanho dos arquivos
+        for (const file of files) {
+          if (file.size > MAX_FILE_SIZE) {
+            throw new Error(`Arquivo ${file.name} excede 10MB.`);
+          }
+        }
+        
+        const newAttachments = [];
+        for (const file of files) {
+          let uploadFile = file;
+          let filePath = `${Date.now()}_${file.name}`;
+          // Só comprime se for imagem
+          if (file.type.startsWith('image/')) {
+            try {
+              const optimized = await compressImage(file, { format: 'jpeg', quality: 0.8, maxWidth: 1920, maxHeight: 1080 });
+              uploadFile = optimized.file;
+              filePath = `${Date.now()}_${file.name.replace(/\.[^.]+$/, '.jpg')}`;
+            } catch (err) {
+              console.error('Erro ao comprimir imagem:', err);
+              setUploadError('Falha ao comprimir imagem');
+              setUploading(false);
+              return;
+            }
+          }
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from(STORAGE_BUCKET)
+            .upload(filePath, uploadFile, { upsert: false });
+          if (uploadError) throw uploadError;
+          const { data: publicUrl } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+          newAttachments.push({
+            name: uploadFile.name,
+            url: publicUrl.publicUrl,
+            size: uploadFile.size,
+            type: uploadFile.type
+          });
+        }
+        uploadedAttachments = [...attachments, ...newAttachments];
+      } catch (err: any) {
+        setUploadError(err.message || 'Erro ao fazer upload.');
+        setUploading(false);
+        console.error('Erro no upload:', err);
+        return;
+      }
+      setUploading(false);
+    }
+    // Logar payload antes do insert
+    console.log('Payload enviado para mutation:', { ...data, attachments: uploadedAttachments });
+    // Chamar mutação com attachments (não passar para o form)
+    mutation.mutate({ ...data, attachments: uploadedAttachments });
   };
+
+  // Função para exportar CSV dos cronogramas filtrados
+  function handleExportCsv() {
+    const { dateFrom, dateTo } = filters;
+    if (!dateFrom || !dateTo) {
+      toast({ title: "Selecione as duas datas.", variant: "destructive" });
+      return;
+    }
+    const start = new Date(dateFrom);
+    const end = new Date(dateTo);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+    if (diffDays > 92) {
+      toast({ title: "O intervalo máximo permitido é de 3 meses.", variant: "destructive" });
+      return;
+    }
+    if (end < start) {
+      toast({ title: "A data final deve ser maior que a inicial.", variant: "destructive" });
+      return;
+    }
+    // Filtrar os cronogramas conforme os filtros atuais da tela
+    const filteredSchedules = (schedules as any[]).filter((item) => {
+      const cableNumberMatch = !filters.cableNumber || (item.cable_number && item.cable_number.toLowerCase().includes(filters.cableNumber.toLowerCase()));
+      const clientSiteMatch = !filters.clientSite || (item.client_site && item.client_site.toLowerCase().includes(filters.clientSite.toLowerCase()));
+      const monthMatch = !filters.month || item.scheduled_month === parseInt(filters.month);
+      const yearMatch = !filters.year || item.scheduled_year === parseInt(filters.year);
+      const statusMatch = filters.status === 'all' ||
+        (filters.status === 'concluido' && item.is_completed) ||
+        (filters.status === 'pendente' && !item.is_completed);
+      const dateFromMatch = !filters.dateFrom || (item.created_at && item.created_at >= filters.dateFrom);
+      const dateToMatch = !filters.dateTo || (item.created_at && item.created_at <= filters.dateTo + 'T23:59:59');
+      return cableNumberMatch && clientSiteMatch && monthMatch && yearMatch && statusMatch && dateFromMatch && dateToMatch;
+    });
+    if (!filteredSchedules || filteredSchedules.length === 0) {
+      toast({ title: "Nenhum cronograma encontrado no período selecionado.", variant: "destructive" });
+      return;
+    }
+    // Mapeia para substituir o inspector_id pelo nome do vistoriador e converte objetos/arrays para string JSON
+    const exportData = filteredSchedules.map((item) => {
+      const { inspector_id, inspector, ...rest } = item;
+      // Converta objetos/arrays para string JSON
+      const safeRest = Object.fromEntries(
+        Object.entries(rest).map(([key, value]) => {
+          if (typeof value === "object" && value !== null) {
+            return [key, JSON.stringify(value)];
+          }
+          return [key, value];
+        })
+      );
+      return {
+        ...safeRest,
+        inspector_nome: inspector?.name || ""
+      };
+    });
+    exportToCSV(exportData, `cronogramas_${dateFrom}_a_${dateTo}`);
+  }
 
   if (isLoading) {
     return <div>Carregando cronograma...</div>;
@@ -303,6 +528,37 @@ const PreventiveSchedule = () => {
             placeholder="Ex: 2024"
             value={filters.year}
             onChange={(e) => setFilters(prev => ({ ...prev, year: e.target.value }))}
+          />
+        </div>
+        <div>
+          <Label htmlFor="status">Status</Label>
+          <Select value={filters.status} onValueChange={value => setFilters(prev => ({ ...prev, status: value }))}>
+            <SelectTrigger>
+              <SelectValue placeholder="Todos os status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="pendente">Pendente</SelectItem>
+              <SelectItem value="concluido">Concluído</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="dateFrom">Data Início</Label>
+          <Input
+            id="dateFrom"
+            type="date"
+            value={filters.dateFrom}
+            onChange={e => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+          />
+        </div>
+        <div>
+          <Label htmlFor="dateTo">Data Fim</Label>
+          <Input
+            id="dateTo"
+            type="date"
+            value={filters.dateTo}
+            onChange={e => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
           />
         </div>
       </div>
@@ -441,6 +697,28 @@ const PreventiveSchedule = () => {
                   )}
                 />
 
+                {/* Campo de upload fora do react-hook-form */}
+                <div className="mb-2">
+                  <label className="block text-sm font-medium mb-1">Anexos (opcional, máximo 2 arquivos, 10MB cada)</label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/80"
+                    accept="*"
+                  />
+                  {uploadError && <div className="text-red-500 text-xs mt-1">{uploadError}</div>}
+                  {attachments.length > 0 && (
+                    <ul className="mt-2 space-y-1 text-xs">
+                      {attachments.map((att, idx) => (
+                        <li key={idx}>
+                          <a href={att.url} target="_blank" rel="noopener noreferrer" className="underline text-blue-600">{att.name}</a> ({(att.size/1024/1024).toFixed(2)} MB)
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
                 <div className="flex justify-end gap-2">
                   <Button 
                     type="button" 
@@ -449,8 +727,8 @@ const PreventiveSchedule = () => {
                   >
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={mutation.isPending}>
-                    {mutation.isPending ? 'Salvando...' : 'Salvar'}
+                  <Button type="submit" disabled={mutation.isPending || uploading}>
+                    {mutation.isPending || uploading ? 'Salvando...' : 'Salvar'}
                   </Button>
                 </div>
               </form>
@@ -458,9 +736,9 @@ const PreventiveSchedule = () => {
           </DialogContent>
         </Dialog>
 
-        <Button onClick={exportToExcel} variant="outline">
+        <Button onClick={handleExportCsv} variant="default">
           <Download className="h-4 w-4 mr-2" />
-          Exportar Excel
+          Exportar CSV
         </Button>
       </div>
 
@@ -469,34 +747,40 @@ const PreventiveSchedule = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nº Cabo</TableHead>
+              <TableHead>Nº do Cabo</TableHead>
               <TableHead>Cliente/Site</TableHead>
-              <TableHead>Mês/Ano</TableHead>
+              <TableHead>Mês</TableHead>
+              <TableHead>Ano</TableHead>
               <TableHead>Vistoriador</TableHead>
-              <TableHead>Observações</TableHead>
-              <TableHead>Data Criação</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Relatórios Enviados</TableHead>
               <TableHead>Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {schedules.map((schedule) => (
+            {paginatedSchedules.map((schedule) => (
               <TableRow key={schedule.id}>
-                <TableCell className="font-medium">{schedule.cable_number}</TableCell>
+                <TableCell>{schedule.cable_number}</TableCell>
                 <TableCell>{schedule.client_site}</TableCell>
-                <TableCell>
-                  {getMonthName(schedule.scheduled_month)}/{schedule.scheduled_year}
-                </TableCell>
+                <TableCell>{getMonthName(schedule.scheduled_month)}</TableCell>
+                <TableCell>{schedule.scheduled_year}</TableCell>
                 <TableCell>{schedule.inspector?.name || '-'}</TableCell>
-                <TableCell>{schedule.observations || '-'}</TableCell>
                 <TableCell>
-                  {format(new Date(schedule.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                  {schedule.is_completed ? (
+                    <span className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs">Concluída</span>
+                  ) : (
+                    <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs">Pendente</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {reportsCountBySchedule[schedule.id] || 0}
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleEdit(schedule)}
+                      onClick={() => handleEdit(schedule as PreventiveScheduleItem)}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -514,6 +798,14 @@ const PreventiveSchedule = () => {
             ))}
           </TableBody>
         </Table>
+        {hasMoreSchedules && (
+          <div className="flex justify-center mt-4">
+            <Button onClick={showMoreSchedules} variant="outline">Ver mais</Button>
+          </div>
+        )}
+        <div className="text-xs text-gray-500 text-center mt-2">
+          Mostrando {paginatedSchedules.length} de {schedules.length} cronogramas
+        </div>
       </div>
     </div>
   );

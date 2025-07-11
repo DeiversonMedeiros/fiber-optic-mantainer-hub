@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
@@ -10,12 +10,17 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ThumbnailImage, FullImage } from "@/components/ui/OptimizedImage";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Download, Eye, UserCheck } from "lucide-react";
+import { Download, Eye, UserCheck, FileText, AlertTriangle } from "lucide-react";
 import * as XLSX from 'xlsx';
 import type { Database } from '@/integrations/supabase/types';
+import { useMemo } from 'react';
+import ReportViewModal from "@/components/reports/ReportViewModal";
+import { exportToCSV } from "@/utils/csvExport";
+import { usePagination } from "@/hooks/usePagination";
 
 type RiskStatus = Database['public']['Enums']['risk_status'];
 
@@ -47,7 +52,6 @@ interface Risk {
 const RisksManagement = () => {
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
   const [directionDialog, setDirectionDialog] = useState(false);
-  const [selectedTechnician, setSelectedTechnician] = useState('');
   const [filters, setFilters] = useState({
     user: '',
     riskNumber: '',
@@ -57,9 +61,103 @@ const RisksManagement = () => {
     dateFrom: '',
     dateTo: ''
   });
+  // Arrays padronizados para filtros
+  const RISK_TYPES = [
+    "Adequação / Acomodação Caixa De Emenda",
+    "Adequação de Reserva Técnica",
+    "Cabo Óptico Danificado / Rompido / Vincado",
+    "Tampa Caixa Subterrânea Danificada / Sem tampa",
+    "Duto Lateral Danificado",
+    "Tampa solta",
+    "Cabo sem Riscos",
+    "Entulho",
+    "Roçado / Capinagem",
+    "Erosão (buraco)",
+    "Obra no trecho",
+    "Posteamento Substituido / Abalroado",
+    "Cabos Soltos / Bandolados / Pendente Espinamento",
+    "Altura Rede Abaixo Da Recomendada Sobre Passeio",
+    "Altura Rede Abaixo Da Recomendada Em Travessia",
+    "Abraçadeira Bap Danificada / Inexistente",
+    "Cordoalha Solta / Rompida",
+    "Árvore Danificando Rede (Necessidade Poda)",
+    "Rede Próximo A Rede Elétrica (Concessionária Energia)",
+    "Rede Próximo A Iluminação Pública (Concessionária Energia)",
+    "Existência Pragas Urbanas (Ratos, Abelhas, Formigas, Etc...)",
+    "Aterramento Danificado / Inexistente"
+  ];
+  const RISK_LEVELS = ["Alto", "Médio", "Baixo"];
+  const NETWORK_TYPES = ["Aérea", "Subterrânea"];
+  const CITY_OPTIONS = [
+    "Camaçari",
+    "Candeias",
+    "Catu",
+    "Dias D'Avila",
+    "Lauro de Freitas",
+    "Mata de São João",
+    "Pojuca",
+    "Salvador",
+    "São Francisco do Conde",
+    "Simões Filho"
+  ];
+  // Atualizar tipos para incluir 'cancelado'
+  type ReportStatus = 'pendente' | 'concluido' | 'cancelado' | 'all';
+  const [reportFilters, setReportFilters] = useState({
+    status: 'all' as ReportStatus,
+    riskType: 'all',
+    riskLevel: 'all',
+    city: 'all',
+    cableNumber: '',
+    networkType: 'all',
+    dateFrom: '',
+    dateTo: ''
+  });
+  // 1. Adicionar estado para controle do dialog e relatório selecionado
+  const [selectedReport, setSelectedReport] = useState<any | null>(null);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [selectedTechnician, setSelectedTechnician] = useState<string | undefined>(undefined);
+  // Adicionar estado para controlar o dialog de detalhes
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  // Substituir o estado de imagem ampliada:
+  const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
+  // Adicionar estado para relatórios (substituir o uso direto de useQuery para exibição)
+  const [localReports, setLocalReports] = useState<any[]>([]);
+  // Sincronizar localReports com allReports do useQuery
+  const { data: allReports = [] } = useQuery({
+    queryKey: ['all-inspection-reports-management'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('inspection_reports')
+        .select(`*, technician:profiles!technician_id(name), assigned_profile:profiles!assigned_to(name)`)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    }
+  });
+  useEffect(() => {
+    setLocalReports(allReports);
+  }, [allReports]);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const TEMPLATE_ID = "4b45c601-e5b7-4a33-98f9-1769aad319e9";
+
+  // Numeração sequencial global dos relatórios (mais antigo = 1)
+  const reportSequenceMap = useMemo(() => {
+    const sorted = [...allReports].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const map: Record<string, number> = {};
+    sorted.forEach((report, idx) => {
+      map[report.id] = idx + 1;
+    });
+    return map;
+  }, [allReports]);
+
+  // Relatórios filtrados (ajustar campos para nova tabela)
+  // Remover filteredReports e filtrar diretamente em localReports
+  // useEffect(() => {
+  //   setLocalReports(allReports);
+  // }, [allReports]);
 
   // Buscar riscos
   const { data: risks = [], isLoading } = useQuery({
@@ -106,7 +204,7 @@ const RisksManagement = () => {
     }
   });
 
-  // Buscar técnicos para direcionamento
+  // 2. Buscar técnicos (perfil Técnico)
   const { data: technicians = [] } = useQuery({
     queryKey: ['technicians'],
     queryFn: async () => {
@@ -114,16 +212,39 @@ const RisksManagement = () => {
         .from('profiles')
         .select('id, name')
         .eq('is_active', true)
-        .in('role', ['tecnico', 'supervisor']);
-      
+        .eq('access_profile_id', '38a5d358-75d6-4ae6-a109-1456a7dba714')
+        .order('name');
       if (error) throw error;
       return data || [];
+    }
+  });
+
+  // 3. Mutation para direcionar relatório
+  const assignMutation = useMutation({
+    mutationFn: async ({ reportId, technicianId }: { reportId: string; technicianId: string }) => {
+      const { error } = await supabase
+        .from('inspection_reports')
+        .update({ assigned_to: technicianId })
+        .eq('id', reportId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: 'Relatório direcionado', description: 'O relatório foi direcionado com sucesso.' });
+      queryClient.invalidateQueries({ queryKey: ['all-inspection-reports-management'] });
+      setAssignDialogOpen(false);
+      setSelectedReport(null);
+      setSelectedTechnician(undefined);
+    },
+    onError: (error: any) => {
+      toast({ title: 'Erro ao direcionar', description: error.message, variant: 'destructive' });
     }
   });
 
   // Direcionar risco
   const directionMutation = useMutation({
     mutationFn: async ({ riskId, technicianId }: { riskId: string; technicianId: string }) => {
+      const { data: user } = await supabase.auth.getUser();
+      console.log('Usuário retornado pelo supabase.auth.getUser():', user);
       const { error } = await supabase
         .from('risks')
         .update({
@@ -143,7 +264,7 @@ const RisksManagement = () => {
       queryClient.invalidateQueries({ queryKey: ['risks'] });
       setDirectionDialog(false);
       setSelectedRisk(null);
-      setSelectedTechnician('');
+      setSelectedTechnician(undefined);
     },
     onError: (error: any) => {
       toast({
@@ -154,21 +275,19 @@ const RisksManagement = () => {
     }
   });
 
-  const getStatusColor = (status: RiskStatus) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case 'enviado': return 'bg-blue-100 text-blue-800';
-      case 'direcionado': return 'bg-yellow-100 text-yellow-800';
+      case 'pendente': return 'bg-orange-100 text-orange-800';
       case 'concluido': return 'bg-green-100 text-green-800';
+      case 'cancelado': return 'bg-gray-200 text-gray-600';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
-
-  const getStatusLabel = (status: RiskStatus) => {
+  const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'enviado': return 'Enviado';
-      case 'direcionado': return 'Direcionado';
+      case 'pendente': return 'Pendente';
       case 'concluido': return 'Concluído';
-      case 'aberto': return 'Aberto';
+      case 'cancelado': return 'Cancelado';
       default: return status;
     }
   };
@@ -205,166 +324,312 @@ const RisksManagement = () => {
     }
   };
 
+  // Estado para modal do relatório final
+  const [finalReport, setFinalReport] = useState<any | null>(null);
+  const [showFinalReportModal, setShowFinalReportModal] = useState(false);
+
+  // Função para exportar CSV dos riscos filtrados
+  function handleExportCsv() {
+    const { dateFrom, dateTo } = reportFilters;
+    if (!dateFrom || !dateTo) {
+      toast({ title: "Selecione as duas datas.", variant: "destructive" });
+      return;
+    }
+    const start = new Date(dateFrom);
+    const end = new Date(dateTo);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+    if (diffDays > 92) {
+      toast({ title: "O intervalo máximo permitido é de 3 meses.", variant: "destructive" });
+      return;
+    }
+    if (end < start) {
+      toast({ title: "A data final deve ser maior que a inicial.", variant: "destructive" });
+      return;
+    }
+    // Filtrar os relatórios conforme os filtros atuais da tela
+    const filteredReports = (localReports as any[]).filter((report) => {
+      const statusMatch = reportFilters.status === 'all' || report.status === reportFilters.status;
+      const riskTypeMatch = reportFilters.riskType === 'all' || report.risk_type === reportFilters.riskType;
+      const riskLevelMatch = reportFilters.riskLevel === 'all' || report.risk_level === reportFilters.riskLevel;
+      const cityMatch = reportFilters.city === 'all' || report.city === reportFilters.city;
+      const cableNumberMatch = !reportFilters.cableNumber || (report.cable_number && report.cable_number.toLowerCase().includes(reportFilters.cableNumber.toLowerCase()));
+      const networkTypeMatch = reportFilters.networkType === 'all' || report.network_type === reportFilters.networkType;
+      const dateFromMatch = !reportFilters.dateFrom || (report.created_at && report.created_at >= reportFilters.dateFrom);
+      const dateToMatch = !reportFilters.dateTo || (report.created_at && report.created_at <= reportFilters.dateTo + 'T23:59:59');
+      return statusMatch && riskTypeMatch && riskLevelMatch && cityMatch && cableNumberMatch && networkTypeMatch && dateFromMatch && dateToMatch;
+    });
+    if (!filteredReports || filteredReports.length === 0) {
+      toast({ title: "Nenhum relatório encontrado no período selecionado.", variant: "destructive" });
+      return;
+    }
+    // Mapeia para substituir o technician_id pelo nome do técnico e converte objetos/arrays para string JSON
+    const exportData = filteredReports.map((report) => {
+      const { technician_id, technician, ...rest } = report;
+      // Converta objetos/arrays para string JSON
+      const safeRest = Object.fromEntries(
+        Object.entries(rest).map(([key, value]) => {
+          if (typeof value === "object" && value !== null) {
+            return [key, JSON.stringify(value)];
+          }
+          return [key, value];
+        })
+      );
+      return {
+        ...safeRest,
+        tecnico_nome: technician?.name || ""
+      };
+    });
+    exportToCSV(exportData, `relatorios_${dateFrom}_a_${dateTo}`);
+  }
+
+  // Paginando relatórios filtrados
+  const filteredReports = localReports.filter((report: any) => {
+    const statusMatch = reportFilters.status === 'all' || report.status === reportFilters.status;
+    const riskTypeMatch = reportFilters.riskType === 'all' || report.risk_type === reportFilters.riskType;
+    const riskLevelMatch = reportFilters.riskLevel === 'all' || report.risk_level === reportFilters.riskLevel;
+    const cityMatch = reportFilters.city === 'all' || report.city === reportFilters.city;
+    const cableNumberMatch = !reportFilters.cableNumber || (report.cable_number && report.cable_number.toLowerCase().includes(reportFilters.cableNumber.toLowerCase()));
+    const networkTypeMatch = reportFilters.networkType === 'all' || report.network_type === reportFilters.networkType;
+    const dateFromMatch = !reportFilters.dateFrom || (report.created_at && report.created_at >= reportFilters.dateFrom);
+    const dateToMatch = !reportFilters.dateTo || (report.created_at && report.created_at <= reportFilters.dateTo + 'T23:59:59');
+    return statusMatch && riskTypeMatch && riskLevelMatch && cityMatch && cableNumberMatch && networkTypeMatch && dateFromMatch && dateToMatch;
+  });
+
+  const {
+    visibleItems: paginatedReports,
+    hasMore: hasMoreReports,
+    showMore: showMoreReports,
+    reset: resetReports
+  } = usePagination(filteredReports, 10, 10);
+
   if (isLoading) {
     return <div>Carregando riscos...</div>;
   }
 
   return (
     <div className="space-y-4">
-      {/* Filtros */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
-        <div>
-          <Label htmlFor="riskNumber">Nº Risco</Label>
-          <Input
-            id="riskNumber"
-            placeholder="Ex: R-000001"
-            value={filters.riskNumber}
-            onChange={(e) => setFilters(prev => ({ ...prev, riskNumber: e.target.value }))}
-          />
-        </div>
-        <div>
-          <Label htmlFor="status">Status</Label>
-          <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value as RiskStatus }))}>
-            <SelectTrigger>
-              <SelectValue placeholder="Todos os status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="enviado">Enviado</SelectItem>
-              <SelectItem value="direcionado">Direcionado</SelectItem>
-              <SelectItem value="concluido">Concluído</SelectItem>
-              <SelectItem value="aberto">Aberto</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="cableClientSite">Cabo/Cliente/Site</Label>
-          <Input
-            id="cableClientSite"
-            placeholder="Buscar por cabo/cliente/site"
-            value={filters.cableClientSite}
-            onChange={(e) => setFilters(prev => ({ ...prev, cableClientSite: e.target.value }))}
-          />
-        </div>
-        <div>
-          <Label htmlFor="city">Cidade</Label>
-          <Input
-            id="city"
-            placeholder="Buscar por cidade"
-            value={filters.city}
-            onChange={(e) => setFilters(prev => ({ ...prev, city: e.target.value }))}
-          />
-        </div>
-      </div>
-
-      {/* Ações */}
-      <div className="flex justify-end">
-        <Button onClick={exportToExcel} variant="outline">
-          <Download className="h-4 w-4 mr-2" />
-          Exportar Excel
-        </Button>
-      </div>
-
-      {/* Tabela */}
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nº Risco</TableHead>
-              <TableHead>Título</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Cabo/Cliente/Site</TableHead>
-              <TableHead>Cidade</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Direcionado para</TableHead>
-              <TableHead>Data Status</TableHead>
-              <TableHead>Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {risks.map((risk) => (
-              <TableRow key={risk.id}>
-                <TableCell className="font-medium">{risk.risk_number || '-'}</TableCell>
-                <TableCell>{risk.title}</TableCell>
-                <TableCell>{risk.risk_type || '-'}</TableCell>
-                <TableCell>{risk.cable_client_site || '-'}</TableCell>
-                <TableCell>{risk.city || '-'}</TableCell>
-                <TableCell>
-                  <Badge className={getStatusColor(risk.status)}>
-                    {getStatusLabel(risk.status)}
-                  </Badge>
-                </TableCell>
-                <TableCell>{risk.directed_profile?.name || '-'}</TableCell>
-                <TableCell>
-                  {risk.status_updated_at ? 
-                    format(new Date(risk.status_updated_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) 
-                    : '-'
-                  }
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" onClick={() => setSelectedRisk(risk)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                          <DialogTitle>Detalhes do Risco - {risk.risk_number}</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <Label>Título</Label>
-                            <p>{risk.title}</p>
-                          </div>
-                          <div>
-                            <Label>Descrição</Label>
-                            <p>{risk.description}</p>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label>Localização</Label>
-                              <p>{risk.location}</p>
-                            </div>
-                            <div>
-                              <Label>Severidade</Label>
-                              <p>{risk.severity}</p>
-                            </div>
-                          </div>
-                          {risk.photos && risk.photos.length > 0 && (
-                            <div>
-                              <Label>Fotos</Label>
-                              <div className="grid grid-cols-2 gap-2 mt-2">
-                                {risk.photos.map((photo, index) => (
-                                  <img key={index} src={photo} alt={`Foto ${index + 1}`} className="w-full h-32 object-cover rounded" />
-                                ))}
-                              </div>
-                            </div>
-                          )}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold flex items-center gap-2">
+          <FileText className="w-5 h-5" />
+          Relatórios de Vistoria Enviados
+        </h2>
+        {/* Filtros para relatórios */}
+        <div className="flex flex-wrap gap-4 mb-4">
+              <div>
+                <Label htmlFor="filter-status">Status</Label>
+                <Select
+                  value={reportFilters.status}
+                  onValueChange={value => setReportFilters(f => ({ ...f, status: value as ReportStatus }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="concluido">Concluído</SelectItem>
+                    <SelectItem value="cancelado">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="filter-risk-type">Tipo de Risco</Label>
+                <Select
+                  value={reportFilters.riskType}
+                  onValueChange={v => setReportFilters(f => ({ ...f, riskType: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os tipos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {RISK_TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="filter-risk-level">Grau de Risco</Label>
+                <Select
+                  value={reportFilters.riskLevel}
+                  onValueChange={v => setReportFilters(f => ({ ...f, riskLevel: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os graus" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {RISK_LEVELS.map((level) => (
+                      <SelectItem key={level} value={level}>{level}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="filter-city">Cidade</Label>
+                <Select
+                  value={reportFilters.city}
+                  onValueChange={v => setReportFilters(f => ({ ...f, city: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas as cidades" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {CITY_OPTIONS.map((city) => (
+                      <SelectItem key={city} value={city}>{city}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="filter-cable-number">Número do Cabo</Label>
+                <Input
+                  id="filter-cable-number"
+                  placeholder="Buscar número do cabo..."
+                  value={reportFilters.cableNumber}
+                  onChange={e => setReportFilters(f => ({ ...f, cableNumber: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="filter-network-type">Rede</Label>
+                <Select
+                  value={reportFilters.networkType}
+                  onValueChange={v => setReportFilters(f => ({ ...f, networkType: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas as redes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {NETWORK_TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="filter-date-from">Data Início</Label>
+                <Input
+                  id="filter-date-from"
+                  type="date"
+                  value={reportFilters.dateFrom}
+                  onChange={e => setReportFilters(f => ({ ...f, dateFrom: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="filter-date-to">Data Fim</Label>
+                <Input
+                  id="filter-date-to"
+                  type="date"
+                  value={reportFilters.dateTo}
+                  onChange={e => setReportFilters(f => ({ ...f, dateTo: e.target.value }))}
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setReportFilters({ status: 'all', riskType: 'all', riskLevel: 'all', city: 'all', cableNumber: '', networkType: 'all', dateFrom: '', dateTo: '' })}
+                >
+                  Limpar Filtros
+                </Button>
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={handleExportCsv}
+                >
+                  Exportar CSV
+                </Button>
+              </div>
+            </div>
+            {/* Lista de relatórios filtrados */}
+            {filteredReports.length === 0 ? (
+              <div className="text-center py-8">
+                <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-semibold mb-2">Nenhum relatório encontrado</h3>
+                <p className="text-muted-foreground">
+                  Nenhum relatório de vistoria encontrado com os filtros atuais.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {paginatedReports.map((report: any) => (
+                  <div key={report.id} className="border rounded-lg p-4">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                      <div>
+                        <div className="font-semibold flex items-center gap-2">
+                          Nº: <span className="text-primary font-mono">{reportSequenceMap[report.id]}</span>
+                          {report.title || 'Relatório de Vistoria'}
                         </div>
-                      </DialogContent>
-                    </Dialog>
-                    
-                    {risk.status === 'enviado' && (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          setSelectedRisk(risk);
-                          setDirectionDialog(true);
-                        }}
-                      >
-                        <UserCheck className="h-4 w-4" />
-                      </Button>
-                    )}
+                        <div className="text-sm text-muted-foreground">
+                          <span className="mr-2">Cabo: {report.cable_number || '-'}</span>
+                          <span className="mr-2">Cliente: {report.technician?.name || '-'}</span>
+                          <span className="mr-2">Técnico: {report.technician?.name || '-'}</span>
+                          <span className="mr-2">Data: {report.created_at ? new Date(report.created_at).toLocaleDateString('pt-BR') : '-'}</span>
+                          <span className="mr-2">Status: <Badge className={getStatusColor(report.status)}>{getStatusLabel(report.status)}</Badge></span>
+                          <span className="mr-2">Técnico Direcionado: {report.assigned_profile?.name || 'Não Direcionado'}</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => { setSelectedReport(report); setAssignDialogOpen(true); }}>
+                          Direcionar
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => { setSelectedReport(report); setAssignDialogOpen(false); setShowDetailsDialog(true); }}>
+                          Ver Detalhes
+                        </Button>
+                        {report.status === 'concluido' && (
+                          <Button size="sm" variant="secondary" onClick={async () => {
+                            // Buscar relatório final na tabela reports
+                            const { data, error } = await supabase
+                              .from('reports')
+                              .select('*')
+                              .eq('schedule_id', report.schedule_id)
+                              .order('created_at', { ascending: false })
+                              .limit(1)
+                              .single();
+                            if (data) {
+                              setFinalReport(data);
+                              setShowFinalReportModal(true);
+                            } else {
+                              toast({ title: 'Relatório não encontrado', description: error?.message || 'Nenhum relatório final encontrado para esta vistoria.', variant: 'destructive' });
+                            }
+                          }}>
+                            Ver Relatório
+                          </Button>
+                        )}
+                        {report.status !== 'cancelado' && (
+                          <Button size="sm" variant="destructive" onClick={async () => {
+                            const { error } = await supabase.from('inspection_reports').update({ status: 'cancelado' }).eq('id', report.id);
+                            if (!error) {
+                              toast({ title: 'Relatório cancelado', description: 'O relatório foi cancelado com sucesso.' });
+                              setLocalReports(reports => reports.map(r => r.id === report.id ? { ...r, status: 'cancelado' } : r));
+                              setSelectedReport(r => r && r.id === report.id ? { ...r, status: 'cancelado' } : r);
+                              queryClient.invalidateQueries({ queryKey: ['all-inspection-reports-management'] });
+                            } else {
+                              toast({ title: 'Erro ao cancelar', description: error.message, variant: 'destructive' });
+                            }
+                          }}>
+                            Cancelar
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+                ))}
+                {hasMoreReports && (
+                  <div className="flex justify-center mt-4">
+                    <Button onClick={showMoreReports} variant="outline">Ver mais</Button>
+                  </div>
+                )}
+                <div className="text-xs text-gray-500 text-center mt-2">
+                  Mostrando {paginatedReports.length} de {filteredReports.length} relatórios
+                </div>
+              </div>
+            )}
+          </div>
 
       {/* Dialog de direcionamento */}
       <Dialog open={directionDialog} onOpenChange={setDirectionDialog}>
@@ -374,38 +639,162 @@ const RisksManagement = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Risco: {selectedRisk?.risk_number}</Label>
-              <p className="text-sm text-muted-foreground">{selectedRisk?.title}</p>
-            </div>
-            <div>
-              <Label htmlFor="technician">Direcionar para</Label>
-              <Select value={selectedTechnician} onValueChange={setSelectedTechnician}>
+              <Label htmlFor="select-technician">Selecione o Técnico</Label>
+              <Select
+                value={selectedTechnician ?? undefined}
+                onValueChange={v => setSelectedTechnician(v || undefined)}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione um técnico" />
+                  <SelectValue placeholder="Escolha o técnico" />
                 </SelectTrigger>
                 <SelectContent>
-                  {technicians.map((tech) => (
-                    <SelectItem key={tech.id} value={tech.id}>
-                      {tech.name}
-                    </SelectItem>
+                  {technicians.map((tech: any) => (
+                    <SelectItem key={tech.id} value={tech.id}>{tech.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setDirectionDialog(false)}>
-                Cancelar
-              </Button>
-              <Button 
-                onClick={handleDirection}
-                disabled={!selectedTechnician || directionMutation.isPending}
-              >
-                {directionMutation.isPending ? 'Direcionando...' : 'Direcionar'}
-              </Button>
-            </div>
+            <Button
+              onClick={handleDirection}
+              disabled={!selectedTechnician || !selectedRisk}
+              className="w-full"
+            >
+              Direcionar
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 5. Dialog para selecionar técnico */}
+      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Direcionar Relatório</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="select-technician">Selecione o Técnico</Label>
+              <Select
+                value={selectedTechnician ?? undefined}
+                onValueChange={v => setSelectedTechnician(v || undefined)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Escolha o técnico" />
+                </SelectTrigger>
+                <SelectContent>
+                  {technicians.map((tech: any) => (
+                    <SelectItem key={tech.id} value={tech.id}>{tech.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={() => assignMutation.mutate({ reportId: selectedReport.id, technicianId: selectedTechnician! })}
+              disabled={!selectedTechnician || !selectedReport || assignMutation.isPending}
+              className="w-full"
+            >
+              Direcionar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de detalhes do relatório */}
+      <Dialog open={showDetailsDialog && !!selectedReport} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Relatório de Vistoria</DialogTitle>
+          </DialogHeader>
+          {selectedReport && (
+            <div className="space-y-2">
+              <div><b>Nº:</b> {reportSequenceMap[selectedReport.id]}</div>
+              <div><b>Status:</b> <span className={`inline-block align-middle px-2 py-0.5 rounded ${getStatusColor(selectedReport.status)}`}>{getStatusLabel(selectedReport.status)}</span></div>
+              <div><b>Técnico:</b> {selectedReport.technician?.name || '-'}</div>
+              <div><b>Técnico Direcionado:</b> {selectedReport.assigned_profile?.name || 'Não Direcionado'}</div>
+              <div><b>Data:</b> {selectedReport.created_at ? new Date(selectedReport.created_at).toLocaleDateString('pt-BR') : '-'}</div>
+              <div><b>Tipo de Risco:</b> {selectedReport.risk_type || '-'}</div>
+              <div><b>Grau de Risco:</b> {selectedReport.risk_level || '-'}</div>
+              <div><b>Cidade:</b> {selectedReport.city || '-'}</div>
+              <div><b>Bairro:</b> {selectedReport.neighborhood || '-'}</div>
+              <div><b>Endereço:</b> {selectedReport.address || '-'}</div>
+              <div><b>Número do Cabo:</b> {selectedReport.cable_number || '-'}</div>
+              <div><b>Rede:</b> {selectedReport.network_type || '-'}</div>
+              <div><b>Descrição:</b> {selectedReport.description || '-'}</div>
+              <div><b>Fotos:</b></div>
+              <div className="flex flex-wrap gap-2">
+                {selectedReport.photos && selectedReport.photos.length > 0 ? (
+                  selectedReport.photos.map((url: string, idx: number) => (
+                    <ThumbnailImage
+                      key={idx}
+                      src={url}
+                      alt={`Foto ${idx + 1}`}
+                      className="w-32 h-32 rounded border"
+                      onClick={() => setZoomedIndex(idx)}
+                    />
+                  ))
+                ) : (
+                  <span className="text-muted-foreground">Nenhuma foto enviada.</span>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de imagem ampliada */}
+      <Dialog open={zoomedIndex !== null} onOpenChange={open => !open && setZoomedIndex(null)}>
+        <DialogContent className="max-w-3xl flex flex-col items-center">
+          {zoomedIndex !== null && (
+            <>
+              <div className="flex items-center gap-4 mb-4 z-10 bg-white/90 px-4 py-2 rounded shadow">
+                <button
+                  className="px-2 py-1 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+                  onClick={e => {
+                    e.stopPropagation();
+                    setZoomedIndex(prev =>
+                      prev !== null
+                        ? (prev - 1 + selectedReport.photos.length) % selectedReport.photos.length
+                        : 0
+                    );
+                  }}
+                  disabled={selectedReport.photos.length <= 1}
+                >
+                  &#8592; Anterior
+                </button>
+                <span className="text-sm text-gray-700 font-medium">
+                  {zoomedIndex + 1} / {selectedReport.photos.length}
+                </span>
+                <button
+                  className="px-2 py-1 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+                  onClick={e => {
+                    e.stopPropagation();
+                    setZoomedIndex(prev =>
+                      prev !== null
+                        ? (prev + 1) % selectedReport.photos.length
+                        : 0
+                    );
+                  }}
+                  disabled={selectedReport.photos.length <= 1}
+                >
+                  Próxima &#8594;
+                </button>
+              </div>
+              <FullImage
+                src={selectedReport.photos[zoomedIndex]}
+                alt={`Foto ampliada ${zoomedIndex + 1}`}
+                className="max-h-[70vh] w-auto rounded shadow"
+              />
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para visualizar relatório final */}
+      <ReportViewModal
+        report={finalReport}
+        open={showFinalReportModal}
+        onClose={() => setShowFinalReportModal(false)}
+      />
     </div>
   );
 };

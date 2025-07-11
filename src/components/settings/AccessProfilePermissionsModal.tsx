@@ -10,72 +10,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 const SYSTEM_PAGES = [
-  {
-    id: 'dashboard',
-    name: 'Dashboard',
-    description: 'Painel principal do sistema',
-    category: 'Principal'
-  },
-  {
-    id: 'my-reports',
-    name: 'Meus Relatórios',
-    description: 'Visualizar e criar relatórios técnicos',
-    category: 'Relatórios'
-  },
-  {
-    id: 'report-validation',
-    name: 'Validação de Relatórios',
-    description: 'Validar relatórios técnicos',
-    category: 'Relatórios'
-  },
-  {
-    id: 'material-control',
-    name: 'Controle de Material',
-    description: 'Gerenciar materiais e estoque',
-    category: 'Material'
-  },
-  {
-    id: 'my-adjustments',
-    name: 'Meus Ajustes',
-    description: 'Visualizar ajustes de material',
-    category: 'Material'
-  },
-  {
-    id: 'preventive-maintenance',
-    name: 'Gestão de Preventiva',
-    description: 'Gerenciar manutenção preventiva e riscos',
-    category: 'Preventiva'
-  },
-  {
-    id: 'preventivas',
-    name: 'Preventivas',
-    description: 'Visualizar e gerenciar preventivas',
-    category: 'Preventiva'
-  },
-  {
-    id: 'vistoria',
-    name: 'Vistoria',
-    description: 'Realizar vistorias técnicas',
-    category: 'Preventiva'
-  },
-  {
-    id: 'users',
-    name: 'Gerenciar Usuários',
-    description: 'Administrar usuários do sistema',
-    category: 'Administração'
-  },
-  {
-    id: 'settings',
-    name: 'Configurações',
-    description: 'Configurações do sistema',
-    category: 'Administração'
-  },
-  {
-    id: 'profile',
-    name: 'Meu Perfil',
-    description: 'Editar perfil pessoal',
-    category: 'Pessoal'
-  }
+  { id: 'dashboard', name: 'Dashboard', description: 'Painel principal do sistema', category: 'Principal' },
+  { id: 'my-reports', name: 'Meus Relatórios', description: 'Visualizar e criar relatórios técnicos', category: 'Relatórios' },
+  { id: 'report-validation', name: 'Validação de Relatórios', description: 'Validar relatórios técnicos', category: 'Relatórios' },
+  { id: 'material-control', name: 'Controle de Material', description: 'Gerenciar materiais e estoque', category: 'Material' },
+  { id: 'my-adjustments', name: 'Minhas Adequações', description: 'Visualizar ajustes de material', category: 'Material' },
+  { id: 'preventive-maintenance', name: 'Gestão de Preventiva', description: 'Gerenciar manutenção preventiva e riscos', category: 'Preventiva' },
+  { id: 'preventivas', name: 'Preventivas', description: 'Visualizar e gerenciar preventivas', category: 'Preventiva' },
+  { id: 'vistoria', name: 'Vistoria', description: 'Realizar vistorias técnicas', category: 'Preventiva' },
+  { id: 'users', name: 'Gerenciar Usuários', description: 'Administrar usuários do sistema', category: 'Administração' },
+  { id: 'settings', name: 'Configurações', description: 'Configurações do sistema', category: 'Administração' },
+  { id: 'profile', name: 'Meu Perfil', description: 'Editar perfil pessoal', category: 'Pessoal' },
 ];
 
 const PERMISSION_TYPES = [
@@ -92,25 +37,34 @@ interface AccessProfilePermissionsModalProps {
 }
 
 const AccessProfilePermissionsModal = ({ isOpen, onClose, profile }: AccessProfilePermissionsModalProps) => {
-  const [permissions, setPermissions] = useState<Record<string, string[]>>({});
+  // Novo estado: array de páginas permitidas
+  const [permissions, setPermissions] = useState<string[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (profile?.permissions) {
+    if (Array.isArray(profile?.permissions)) {
       setPermissions(profile.permissions);
+    } else if (typeof profile?.permissions === 'string') {
+      try {
+        const arr = JSON.parse(profile.permissions);
+        if (Array.isArray(arr)) setPermissions(arr);
+        else setPermissions([]);
+      } catch {
+        setPermissions([]);
+      }
     } else {
-      setPermissions({});
+      setPermissions([]);
     }
   }, [profile]);
 
   const mutation = useMutation({
-    mutationFn: async (newPermissions: Record<string, string[]>) => {
+    mutationFn: async (newPermissions: string[]) => {
+      if (!profile?.id) throw new Error("Perfil não encontrado");
       const { error } = await supabase
         .from('access_profiles')
         .update({ permissions: newPermissions })
         .eq('id', profile.id);
-      
       if (error) throw error;
     },
     onSuccess: () => {
@@ -121,41 +75,22 @@ const AccessProfilePermissionsModal = ({ isOpen, onClose, profile }: AccessProfi
       });
       onClose();
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.log('Erro no onError:', error);
       toast({
-        title: "Erro ao atualizar",
-        description: "Não foi possível atualizar as permissões.",
+        title: "Erro",
+        description: error.message,
         variant: "destructive",
       });
     }
   });
 
-  const togglePermission = (pageId: string, permissionType: string) => {
-    setPermissions(prev => {
-      const newPermissions = { ...prev };
-      
-      // Ensure we always have an array for the pageId
-      if (!Array.isArray(newPermissions[pageId])) {
-        newPermissions[pageId] = [];
-      }
-      
-      const currentPermissions = [...newPermissions[pageId]];
-      const permissionIndex = currentPermissions.indexOf(permissionType);
-      
-      if (permissionIndex > -1) {
-        currentPermissions.splice(permissionIndex, 1);
-      } else {
-        currentPermissions.push(permissionType);
-      }
-      
-      newPermissions[pageId] = currentPermissions;
-      return newPermissions;
-    });
-  };
-
-  const hasPermission = (pageId: string, permissionType: string) => {
-    const pagePermissions = permissions[pageId];
-    return Array.isArray(pagePermissions) && pagePermissions.includes(permissionType);
+  const togglePage = (pageId: string) => {
+    setPermissions(prev =>
+      prev.includes(pageId)
+        ? prev.filter(id => id !== pageId)
+        : [...prev, pageId]
+    );
   };
 
   const handleSubmit = () => {
@@ -184,38 +119,20 @@ const AccessProfilePermissionsModal = ({ isOpen, onClose, profile }: AccessProfi
               </CardHeader>
               <CardContent className="space-y-4">
                 {SYSTEM_PAGES.filter(page => page.category === category).map((page) => (
-                  <div key={page.id} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <h4 className="font-medium">{page.name}</h4>
-                        <p className="text-sm text-gray-600">{page.description}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        {Array.isArray(permissions[page.id]) && permissions[page.id].length > 0 && (
-                          <Badge variant="secondary">
-                            {permissions[page.id].length} permissão(ões)
-                          </Badge>
-                        )}
-                      </div>
+                  <div key={page.id} className="border rounded-lg p-4 flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium">{page.name}</h4>
+                      <p className="text-sm text-gray-600">{page.description}</p>
                     </div>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {PERMISSION_TYPES.map((permissionType) => (
-                        <div key={permissionType.id} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`${page.id}-${permissionType.id}`}
-                            checked={hasPermission(page.id, permissionType.id)}
-                            onCheckedChange={() => togglePermission(page.id, permissionType.id)}
-                          />
-                          <label 
-                            htmlFor={`${page.id}-${permissionType.id}`}
-                            className="text-sm font-medium cursor-pointer"
-                            title={permissionType.description}
-                          >
-                            {permissionType.name}
-                          </label>
-                        </div>
-                      ))}
+                    <div>
+                      <Checkbox
+                        id={page.id}
+                        checked={permissions.includes(page.id)}
+                        onCheckedChange={() => togglePage(page.id)}
+                      />
+                      <label htmlFor={page.id} className="ml-2 text-sm font-medium cursor-pointer">
+                        Permitir acesso
+                      </label>
                     </div>
                   </div>
                 ))}

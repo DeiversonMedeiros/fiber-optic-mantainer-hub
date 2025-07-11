@@ -1,137 +1,332 @@
 
-import React from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { 
-  Settings, 
-  Users, 
-  FileText, 
-  AlertTriangle, 
-  CheckSquare, 
-  TrendingUp,
-  LogOut,
-  User
-} from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import StatCard from '@/components/dashboard/StatCard';
-import QuickActions from '@/components/dashboard/QuickActions';
-import ActivityFeed from '@/components/dashboard/ActivityFeed';
-import MaintenanceChart from '@/components/dashboard/MaintenanceChart';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { FileText, CheckSquare, AlertTriangle, TrendingUp } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
+} from 'recharts';
+import React from 'react';
+
+const STATUS_LABELS: Record<string, string> = {
+  nao_validado: 'Não Validado',
+  validado: 'Validado',
+  pendente: 'Pendente',
+  cancelado: 'Cancelado',
+  em_adequacao: 'Em Adequação',
+  adequado: 'Adequado',
+  faturado: 'Faturado',
+  concluido: 'Concluído',
+  sem_pendencia: 'Sem Pendência',
+};
+
+const RISK_STATUS_LABELS: Record<string, string> = {
+  enviado: 'Enviado',
+  direcionado: 'Direcionado',
+  concluido: 'Concluído',
+  aberto: 'Aberto',
+};
+
+const RISK_LEVEL_LABELS: Record<string, string> = {
+  alto: 'Alto',
+  medio: 'Médio',
+  baixo: 'Baixo',
+};
+
+const PIE_COLORS = ['#ef4444', '#facc15', '#22c55e', '#3b82f6', '#a21caf', '#f472b6'];
+
+// Cores fixas para cada grau de risco
+const RISK_LEVEL_COLORS: Record<string, string> = {
+  alto: '#ef4444', // vermelho
+  medio: '#facc15', // amarelo
+  baixo: '#22c55e', // verde
+};
+
+function groupBy(arr: any[], key: string) {
+  return arr.reduce((acc: Record<string, number>, item) => {
+    const k = item[key] ?? 'indefinido';
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, {});
+}
+
+function groupByMonth(arr: any[], dateKey: string) {
+  return arr.reduce((acc: Record<string, number>, item) => {
+    if (!item[dateKey]) return acc;
+    const date = new Date(item[dateKey]);
+    const label = `${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+    acc[label] = (acc[label] || 0) + 1;
+    return acc;
+  }, {});
+}
 
 const Dashboard = () => {
-  const { signOut, user } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    await signOut();
-  };
-
-  const handleQuickAction = (actionId: string) => {
-    switch (actionId) {
-      case 'create-os':
-        console.log('Criar OS');
-        break;
-      case 'validate-reports':
-        navigate('/report-validation');
-        break;
-      case 'new-user':
-        navigate('/users');
-        break;
-      default:
-        console.log('Ação não encontrada:', actionId);
+  // --- CORRETIVA ---
+  const { data: reports = [], isLoading: loadingReports } = useQuery({
+    queryKey: ['dashboard-reports'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('reports')
+        .select('*')
+        .neq('template_id', '4b45c601-e5b7-4a33-98f9-1769aad319e9'); // exceto vistoria preventiva
+      return data || [];
     }
-  };
+  });
 
+  // --- PREVENTIVA ---
+  const { data: schedules = [], isLoading: loadingSchedules } = useQuery({
+    queryKey: ['dashboard-schedules'],
+    queryFn: async () => {
+      const { data } = await supabase.from('preventive_schedule').select('*');
+      return data || [];
+    }
+  });
+
+  // Buscar relatórios de vistoria preventiva (substitui riscos)
+  const { data: inspectionReports = [], isLoading: loadingInspectionReports } = useQuery({
+    queryKey: ['dashboard-inspection-reports'],
+    queryFn: async () => {
+      const { data } = await supabase.from('inspection_reports').select('*');
+      return data || [];
+    }
+  });
+
+  // --- Agrupamentos Corretiva ---
+  const totalReports = reports.length;
+  const reportsByStatus = groupBy(reports, 'status');
+  const reportsByMonth = groupByMonth(reports, 'created_at');
+  const adequacaoReports = reports.filter(
+    (r: any) => r.status === 'em_adequacao' || r.status === 'adequado'
+  ).length;
+
+  // --- Agrupamentos Preventiva ---
+  const schedulesByStatus = groupBy(schedules, 'is_completed');
+  const schedulesByMonth = groupByMonth(schedules, 'created_at');
+
+  // Relatórios de vistoria preventiva (riscos)
+  const totalInspectionReports = inspectionReports.length;
+  const inspectionReportsByStatus = groupBy(inspectionReports, 'status');
+  const inspectionReportsByLevel = groupBy(inspectionReports, 'risk_level');
+  const inspectionReportsByMonth = groupByMonth(inspectionReports, 'created_at');
+
+  const riscosConcluidos = inspectionReportsByStatus['concluido'] || 0;
+  const riscosPendentes = inspectionReportsByStatus['pendente'] || 0;
+  const percentualRiscosConcluidos = (riscosConcluidos + riscosPendentes) > 0
+    ? ((riscosConcluidos / (riscosConcluidos + riscosPendentes)) * 100).toFixed(1)
+    : '0.0';
+
+  // --- Loading ---
+  if (loadingReports || loadingSchedules || loadingInspectionReports) {
+    return <div className="p-8">Carregando...</div>;
+  }
+
+  // --- Dados para gráficos ---
+  const reportsByMonthData = Object.entries(reportsByMonth).map(([month, count]) => ({ month: String(month), count: Number(count) }));
+  // Gráficos simples: total por mês/ano
+  const schedulesTotalByMonth = Object.entries(schedulesByMonth).map(([month, count]) => ({ month: String(month), total: Number(count) }));
+  const inspectionReportsTotalByMonth = Object.entries(inspectionReportsByMonth).map(([month, count]) => ({ month: String(month), total: Number(count) }));
+  // Gráficos agrupados
+  const schedulesByMonthGrouped = Object.entries(schedulesByMonth).map(([month, total]) => {
+    const monthSchedules = schedules.filter(s => {
+      const scheduleDate = new Date(s.created_at);
+      const scheduleMonth = `${String(scheduleDate.getMonth() + 1).padStart(2, '0')}/${scheduleDate.getFullYear()}`;
+      return scheduleMonth === month;
+    });
+    const pendentes = monthSchedules.filter(s => !s.is_completed).length;
+    const realizados = monthSchedules.filter(s => s.is_completed).length;
+    return { month: String(month), pendentes, realizados };
+  });
+  const inspectionReportsByMonthGrouped = Object.entries(inspectionReportsByMonth).map(([month, total]) => {
+    const monthReports = inspectionReports.filter(r => {
+      const reportDate = new Date(r.created_at);
+      const reportMonth = `${String(reportDate.getMonth() + 1).padStart(2, '0')}/${reportDate.getFullYear()}`;
+      return reportMonth === month;
+    });
+    const pendentes = monthReports.filter(r => r.status === 'pendente').length;
+    const concluidos = monthReports.filter(r => r.status === 'concluido').length;
+    const cancelados = monthReports.filter(r => r.status === 'cancelado').length;
+    return { month: String(month), pendentes, concluidos, cancelados };
+  });
+  const inspectionReportsByLevelData = Object.entries(inspectionReportsByLevel).map(([level, count]) => ({
+    name: RISK_LEVEL_LABELS[level] || String(level),
+    value: Number(count),
+  }));
+
+  // --- Renderização ---
   return (
-    <div className="p-8">
-      {/* Quick Access Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/users')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Gerenciar Usuários</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+    <div className="p-8 space-y-10">
+      {/* Seção Corretiva */}
+      <section>
+        <h2 className="text-2xl font-bold mb-4">Corretiva</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          <StatCard title="Relatórios Técnicos" value={totalReports} icon={FileText} />
+          {Object.entries(reportsByStatus).map(([status, count], idx) => (
+            <StatCard
+              key={status}
+              title={`Status: ${STATUS_LABELS[status] || status}`}
+              value={Number(count)}
+              icon={TrendingUp}
+              color={status === 'pendente' ? 'warning' : status === 'cancelado' ? 'danger' : 'primary'}
+            />
+          ))}
+        </div>
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Relatórios Técnicos por Mês/Ano</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground">
-              Administrar usuários do sistema
-            </p>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={reportsByMonthData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="count" fill="#1a9446" name="Relatórios" />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
+      </section>
 
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/settings')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Configurações</CardTitle>
-            <Settings className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              Configurar sistema e permissões
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/my-reports')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Relatórios</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              Visualizar e gerar relatórios
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/report-validation')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Validação</CardTitle>
-            <CheckSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              Validação de Relatórios Técnicos
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard
-          title="Ordens Pendentes"
-          value="24"
-          description="+12% em relação ao mês anterior"
-          icon={CheckSquare}
-        />
-        <StatCard
-          title="Ordens Concluídas"
-          value="156"
-          description="+8% em relação ao mês anterior"
-          icon={FileText}
-        />
-        <StatCard
-          title="Alertas Ativos"
-          value="7"
-          description="3 críticos, 4 moderados"
-          icon={AlertTriangle}
-        />
-        <StatCard
-          title="Eficiência"
-          value="94.2%"
-          description="+2.1% em relação ao mês anterior"
-          icon={TrendingUp}
-        />
-      </div>
-
-      {/* Charts and Activities */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <MaintenanceChart />
-        <ActivityFeed />
-      </div>
-
-      {/* Quick Actions */}
-      <QuickActions onAction={handleQuickAction} />
+      {/* Seção Preventiva */}
+      <section>
+        <h2 className="text-2xl font-bold mb-4">Preventiva</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          <StatCard title="Vistorias" value={schedules.length} icon={FileText} />
+          {Object.entries(schedulesByStatus).map(([status, count]) => (
+            <StatCard
+              key={status}
+              title={`Vistorias: ${status === 'true' ? 'Concluídas' : 'Pendentes'}`}
+              value={Number(count)}
+              icon={TrendingUp}
+              color={status === 'true' ? 'primary' : 'warning'}
+            />
+          ))}
+          <StatCard title="Riscos" value={totalInspectionReports} icon={AlertTriangle} />
+          {Object.entries(inspectionReportsByStatus).map(([status, count]) => (
+            <StatCard
+              key={status}
+              title={`Riscos: ${RISK_STATUS_LABELS[status] || STATUS_LABELS[status] || status}`}
+              value={Number(count)}
+              icon={TrendingUp}
+              color={status === 'concluido' ? 'primary' : status === 'pendente' ? 'warning' : 'secondary'}
+            />
+          ))}
+          <StatCard
+            title="% de Riscos Concluídos"
+            value={`${percentualRiscosConcluidos}%`}
+            icon={TrendingUp}
+            color="primary"
+          />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Vistorias por Mês/Ano</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={schedulesTotalByMonth}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="total" fill="#3b82f6" name="Total de Vistorias" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Riscos por Mês/Ano</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={inspectionReportsTotalByMonth}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="total" fill="#ef4444" name="Total de Riscos" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Vistorias por Mês/Ano (Agrupado)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={schedulesByMonthGrouped}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="pendentes" fill="#f59e0b" name="Pendentes" />
+                  <Bar dataKey="realizados" fill="#10b981" name="Realizados" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Riscos por Mês/Ano (Agrupado)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={inspectionReportsByMonthGrouped}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="pendentes" fill="#f59e0b" name="Pendentes" />
+                  <Bar dataKey="concluidos" fill="#10b981" name="Concluídos" />
+                  <Bar dataKey="cancelados" fill="#6b7280" name="Cancelados" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Riscos por Grau de Risco</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={inspectionReportsByLevelData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label
+                  >
+                    {inspectionReportsByLevelData.map((entry, idx) => {
+                      // entry.name pode ser 'Alto', 'Médio', 'Baixo' (label), mas o valor original é o key do objeto
+                      // Para garantir, mapeie para minúsculo e sem acento
+                      let key = '';
+                      if (entry.name.toLowerCase().includes('alto')) key = 'alto';
+                      else if (entry.name.toLowerCase().includes('médio') || entry.name.toLowerCase().includes('medio')) key = 'medio';
+                      else if (entry.name.toLowerCase().includes('baixo')) key = 'baixo';
+                      const color = RISK_LEVEL_COLORS[key] || PIE_COLORS[idx % PIE_COLORS.length];
+                      return <Cell key={`cell-${idx}`} fill={color} />;
+                    })}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
     </div>
   );
 };

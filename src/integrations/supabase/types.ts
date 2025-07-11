@@ -126,7 +126,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
-          material_id: string
+          checklist_item_id: string
           quantity_reduced: number
           reason: string | null
           sa_code: string
@@ -136,7 +136,7 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
-          material_id: string
+          checklist_item_id: string
           quantity_reduced: number
           reason?: string | null
           sa_code: string
@@ -146,7 +146,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
-          material_id?: string
+          checklist_item_id?: string
           quantity_reduced?: number
           reason?: string | null
           sa_code?: string
@@ -161,10 +161,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "material_adjustments_material_id_fkey"
-            columns: ["material_id"]
+            foreignKeyName: "material_adjustments_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
             isOneToOne: false
-            referencedRelation: "materials"
+            referencedRelation: "checklist_items"
             referencedColumns: ["id"]
           },
           {
@@ -278,10 +278,12 @@ export type Database = {
           attachments: Json | null
           cable_number: string
           client_site: string
+          completed_at: string | null
           created_at: string
           created_by: string
           id: string
           inspector_id: string
+          is_completed: boolean
           observations: string | null
           scheduled_month: number
           scheduled_year: number
@@ -291,10 +293,12 @@ export type Database = {
           attachments?: Json | null
           cable_number: string
           client_site: string
+          completed_at?: string | null
           created_at?: string
           created_by: string
           id?: string
           inspector_id: string
+          is_completed?: boolean
           observations?: string | null
           scheduled_month: number
           scheduled_year: number
@@ -304,10 +308,12 @@ export type Database = {
           attachments?: Json | null
           cable_number?: string
           client_site?: string
+          completed_at?: string | null
           created_at?: string
           created_by?: string
           id?: string
           inspector_id?: string
+          is_completed?: boolean
           observations?: string | null
           scheduled_month?: number
           scheduled_year?: number
@@ -341,7 +347,6 @@ export type Database = {
           manager_id: string | null
           name: string
           phone: string | null
-          role: Database["public"]["Enums"]["user_role"]
           updated_at: string
           user_class_id: string | null
         }
@@ -355,7 +360,6 @@ export type Database = {
           manager_id?: string | null
           name: string
           phone?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           user_class_id?: string | null
         }
@@ -369,7 +373,6 @@ export type Database = {
           manager_id?: string | null
           name?: string
           phone?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           user_class_id?: string | null
         }
@@ -501,7 +504,6 @@ export type Database = {
           description: string
           form_data: Json | null
           id: string
-          service_order_id: string | null
           status: Database["public"]["Enums"]["report_status"]
           technician_id: string
           template_id: string | null
@@ -509,6 +511,12 @@ export type Database = {
           updated_at: string
           validated_at: string | null
           validated_by: string | null
+          numero_servico: string | null
+          service_order_id: string | null
+          assigned_to: string | null
+          pending_reason: string | null
+          pending_notes: string | null
+          parent_report_id: string | null
         }
         Insert: {
           attachments?: Json | null
@@ -517,7 +525,6 @@ export type Database = {
           description: string
           form_data?: Json | null
           id?: string
-          service_order_id?: string | null
           status?: Database["public"]["Enums"]["report_status"]
           technician_id: string
           template_id?: string | null
@@ -525,6 +532,12 @@ export type Database = {
           updated_at?: string
           validated_at?: string | null
           validated_by?: string | null
+          numero_servico?: string | null
+          service_order_id?: string | null
+          assigned_to?: string | null
+          pending_reason?: string | null
+          pending_notes?: string | null
+          parent_report_id?: string | null
         }
         Update: {
           attachments?: Json | null
@@ -533,7 +546,6 @@ export type Database = {
           description?: string
           form_data?: Json | null
           id?: string
-          service_order_id?: string | null
           status?: Database["public"]["Enums"]["report_status"]
           technician_id?: string
           template_id?: string | null
@@ -541,15 +553,14 @@ export type Database = {
           updated_at?: string
           validated_at?: string | null
           validated_by?: string | null
+          numero_servico?: string | null
+          service_order_id?: string | null
+          assigned_to?: string | null
+          pending_reason?: string | null
+          pending_notes?: string | null
+          parent_report_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "reports_service_order_id_fkey"
-            columns: ["service_order_id"]
-            isOneToOne: false
-            referencedRelation: "service_orders"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "reports_technician_id_fkey"
             columns: ["technician_id"]
@@ -661,72 +672,6 @@ export type Database = {
           },
         ]
       }
-      service_orders: {
-        Row: {
-          assigned_to: string | null
-          completed_date: string | null
-          created_at: string
-          created_by: string
-          description: string | null
-          id: string
-          location: string | null
-          maintenance_type: Database["public"]["Enums"]["maintenance_type"]
-          number: string
-          priority: number
-          scheduled_date: string | null
-          status: Database["public"]["Enums"]["os_status"]
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          assigned_to?: string | null
-          completed_date?: string | null
-          created_at?: string
-          created_by: string
-          description?: string | null
-          id?: string
-          location?: string | null
-          maintenance_type: Database["public"]["Enums"]["maintenance_type"]
-          number: string
-          priority?: number
-          scheduled_date?: string | null
-          status?: Database["public"]["Enums"]["os_status"]
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          assigned_to?: string | null
-          completed_date?: string | null
-          created_at?: string
-          created_by?: string
-          description?: string | null
-          id?: string
-          location?: string | null
-          maintenance_type?: Database["public"]["Enums"]["maintenance_type"]
-          number?: string
-          priority?: number
-          scheduled_date?: string | null
-          status?: Database["public"]["Enums"]["os_status"]
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "service_orders_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "service_orders_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_classes: {
         Row: {
           access_profile_id: string | null
@@ -765,22 +710,83 @@ export type Database = {
           },
         ]
       }
+      inspection_reports: {
+        Row: {
+          id: string;
+          technician_id: string;
+          schedule_id: string | null;
+          risk_type: string;
+          risk_level: string;
+          address: string;
+          city: string;
+          neighborhood: string;
+          cable_number: string;
+          network_type: string;
+          description: string;
+          photos: string[];
+          created_at: string;
+          updated_at: string;
+          assigned_to: string | null;
+          status: 'pendente' | 'concluido' | 'cancelado'; // novo campo
+        };
+        Insert: {
+          id?: string;
+          technician_id: string;
+          schedule_id?: string | null;
+          risk_type: string;
+          risk_level: string;
+          address: string;
+          city: string;
+          neighborhood: string;
+          cable_number: string;
+          network_type: string;
+          description: string;
+          photos: string[];
+          created_at?: string;
+          updated_at?: string;
+          assigned_to?: string | null;
+          status?: 'pendente' | 'concluido' | 'cancelado'; // novo campo
+        };
+        Update: {
+          id?: string;
+          technician_id?: string;
+          schedule_id?: string | null;
+          risk_type?: string;
+          risk_level?: string;
+          address?: string;
+          city?: string;
+          neighborhood?: string;
+          cable_number?: string;
+          network_type?: string;
+          description?: string;
+          photos?: string[];
+          created_at?: string;
+          updated_at?: string;
+          assigned_to?: string | null;
+          status?: 'pendente' | 'concluido' | 'cancelado'; // novo campo
+        };
+        Relationships: [
+          {
+            foreignKeyName: "inspection_reports_technician_id_fkey",
+            columns: ["technician_id"],
+            isOneToOne: false,
+            referencedRelation: "profiles",
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_reports_schedule_id_fkey",
+            columns: ["schedule_id"],
+            isOneToOne: false,
+            referencedRelation: "preventive_schedule",
+            referencedColumns: ["id"]
+          }
+        ];
+      },
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      get_current_user_role: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      has_role: {
-        Args: {
-          user_id: string
-          required_role: Database["public"]["Enums"]["user_role"]
-        }
-        Returns: boolean
-      }
       is_admin_or_manager: {
         Args: { user_id: string }
         Returns: boolean
@@ -803,9 +809,8 @@ export type Database = {
         | "dropdown"
         | "upload"
         | "checklist"
-      report_status: "pendente" | "validado" | "rejeitado"
+      report_status: "nao_validado" | "validado" | "pendente" | "cancelado" | "em_adequacao" | "adequado" | "faturado"
       risk_status: "enviado" | "direcionado" | "concluido" | "aberto"
-      user_role: "admin" | "tecnico" | "supervisor" | "gestor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -934,9 +939,8 @@ export const Constants = {
         "upload",
         "checklist",
       ],
-      report_status: ["pendente", "validado", "rejeitado"],
+      report_status: ["nao_validado", "validado", "pendente", "cancelado", "em_adequacao", "adequado", "faturado"],
       risk_status: ["enviado", "direcionado", "concluido", "aberto"],
-      user_role: ["admin", "tecnico", "supervisor", "gestor"],
     },
   },
 } as const

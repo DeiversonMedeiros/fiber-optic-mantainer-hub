@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -21,48 +20,77 @@ import {
   User,
   CheckSquare,
   Package,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Shield,
+  ClipboardList,
+  Eye,
+  Wrench
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 const menuItems = [
   {
-    title: "Dashboard",
-    url: "/dashboard",
+    id: 'dashboard',
+    title: 'Dashboard',
+    url: '/dashboard',
     icon: LayoutDashboard,
   },
   {
-    title: "Meus Relatórios",
-    url: "/my-reports",
+    id: 'my-reports',
+    title: 'Meus Relatórios',
+    url: '/my-reports',
     icon: FileText,
   },
   {
-    title: "Validação de Relatórios",
-    url: "/report-validation",
+    id: 'report-validation',
+    title: 'Validação de Relatórios',
+    url: '/report-validation',
     icon: CheckSquare,
   },
   {
-    title: "Controle de Material",
-    url: "/material-control",
+    id: 'material-control',
+    title: 'Controle de Material',
+    url: '/material-control',
     icon: Package,
   },
   {
-    title: "Meus Ajustes",
-    url: "/my-adjustments",
+    id: 'my-adjustments',
+    title: 'Minhas Adequações',
+    url: '/my-adjustments',
     icon: Settings,
   },
   {
-    title: "Gerenciar Usuários",
-    url: "/users",
+    id: 'users',
+    title: 'Gerenciar Usuários',
+    url: '/users',
     icon: Users,
-    adminOnly: true,
   },
   {
-    title: "Configurações",
-    url: "/settings",
+    id: 'settings',
+    title: 'Configurações',
+    url: '/settings',
     icon: SettingsIcon,
-    adminOnly: true,
+  },
+  {
+    id: 'preventive-maintenance',
+    title: 'Gestão de Preventiva',
+    url: '/preventive-maintenance',
+    icon: Wrench,
+  },
+  {
+    id: 'preventivas',
+    title: 'Preventivas',
+    url: '/preventivas',
+    icon: ClipboardList,
+  },
+  {
+    id: 'vistoria',
+    title: 'Vistoria',
+    url: '/vistoria',
+    icon: Eye,
   },
 ];
 
@@ -71,17 +99,60 @@ export function AppSidebar() {
   const location = useLocation();
   const { user, signOut } = useAuth();
   
+  // Buscar perfil do usuário logado
+  const { data: profile } = useQuery({
+    queryKey: ['user-profile', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Buscar perfil de acesso e permissões
+  const { data: accessProfile } = useQuery({
+    queryKey: ['access-profile', profile?.access_profile_id],
+    queryFn: async () => {
+      if (!profile?.access_profile_id) return null;
+      const { data, error } = await supabase
+        .from('access_profiles')
+        .select('id, name, permissions')
+        .eq('id', profile.access_profile_id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.access_profile_id,
+  });
+
   const handleLogout = async () => {
     await signOut();
   };
 
-  const filteredMenuItems = menuItems.filter(item => {
-    if (item.adminOnly) {
-      // Mostrar apenas para admins e gestores
-      return user?.role === 'admin' || user?.role === 'gestor';
+  // Filtrar menu conforme permissões do perfil de acesso (array de páginas)
+  let permissionsArr = accessProfile?.permissions;
+  if (typeof permissionsArr === 'string') {
+    try {
+      permissionsArr = JSON.parse(permissionsArr);
+    } catch {
+      permissionsArr = [];
     }
-    return true;
-  });
+  }
+  if (!Array.isArray(permissionsArr)) {
+    permissionsArr = [];
+  }
+
+  const filteredMenuItems = menuItems.filter(item => permissionsArr.includes(item.id));
+  const noAccess = filteredMenuItems.length === 0;
+
+  console.log('Permissões carregadas:', permissionsArr);
+  console.log('IDs do menu:', menuItems.map(i => i.id));
 
   return (
     <Sidebar>
@@ -102,25 +173,33 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navegação</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {filteredMenuItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.url;
-                
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton 
-                      asChild 
-                      isActive={isActive}
-                      onClick={() => navigate(item.url)}
-                    >
-                      <button className="w-full">
-                        <Icon className="w-4 h-4" />
-                        <span>{item.title}</span>
-                      </button>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+              {noAccess ? (
+                <SidebarMenuItem>
+                  <span className="text-xs text-muted-foreground px-4 py-2 block">
+                    Nenhuma página disponível para seu perfil.<br />
+                    Contate o administrador.
+                  </span>
+                </SidebarMenuItem>
+              ) : (
+                filteredMenuItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.url;
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton 
+                        asChild 
+                        isActive={isActive}
+                        onClick={() => navigate(item.url)}
+                      >
+                        <button className="w-full">
+                          <Icon className="w-4 h-4" />
+                          <span>{item.title}</span>
+                        </button>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

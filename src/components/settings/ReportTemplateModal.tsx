@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -21,8 +20,7 @@ const FIELD_TYPES = {
   radio: 'Botão de Rádio',
   checkbox: 'Caixa de Seleção',
   dropdown: 'Lista Suspensa',
-  upload: 'Upload de Arquivos',
-  checklist: 'Checklist'
+  upload: 'Upload de Arquivos'
 };
 
 interface ReportTemplateModalProps {
@@ -38,6 +36,7 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
   const [checklistEnabled, setChecklistEnabled] = useState(false);
   const [checklistClassId, setChecklistClassId] = useState('');
   const [fields, setFields] = useState<any[]>([]);
+  const [numeroServico, setNumeroServico] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -63,6 +62,7 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
       setChecklistEnabled(template.checklist_enabled || false);
       setChecklistClassId(template.checklist_class_id || '');
       setFields(Array.isArray(template.fields) ? template.fields : []);
+      setNumeroServico(template.numero_servico || '');
     } else {
       setName('');
       setDescription('');
@@ -70,6 +70,7 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
       setChecklistEnabled(false);
       setChecklistClassId('');
       setFields([]);
+      setNumeroServico('');
     }
   }, [template]);
 
@@ -162,6 +163,7 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
       checklist_enabled: checklistEnabled,
       checklist_class_id: checklistEnabled ? (checklistClassId || null) : null,
       fields: fields
+      // numero_servico removido
     });
   };
 
@@ -340,6 +342,36 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
                           </div>
                         ))}
                       </div>
+                      {/* Prévia visual do campo conforme o tipo */}
+                      <div className="mt-4">
+                        {field.type === 'radio' && (
+                          <div className="flex flex-col gap-2">
+                            {field.options && field.options.length > 0 ? field.options.map((opt: string, i: number) => (
+                              <label key={i} className="flex items-center gap-2">
+                                <input type="radio" name={`preview-radio-${field.id}`} disabled />
+                                <span>{opt || `Opção ${i + 1}`}</span>
+                              </label>
+                            )) : <span className="text-gray-400">Adicione opções para visualizar</span>}
+                          </div>
+                        )}
+                        {field.type === 'checkbox' && (
+                          <div className="flex flex-col gap-2">
+                            {field.options && field.options.length > 0 ? field.options.map((opt: string, i: number) => (
+                              <label key={i} className="flex items-center gap-2">
+                                <input type="checkbox" name={`preview-checkbox-${field.id}`} disabled />
+                                <span>{opt || `Opção ${i + 1}`}</span>
+                              </label>
+                            )) : <span className="text-gray-400">Adicione opções para visualizar</span>}
+                          </div>
+                        )}
+                        {field.type === 'dropdown' && (
+                          <select className="border rounded px-2 py-1" disabled>
+                            {field.options && field.options.length > 0 ? field.options.map((opt: string, i: number) => (
+                              <option key={i} value={opt}>{opt || `Opção ${i + 1}`}</option>
+                            )) : <option>Adicione opções para visualizar</option>}
+                          </select>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -371,6 +403,17 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
             </CardContent>
           </Card>
 
+          {/* Substituir o bloco removido anteriormente por um campo desabilitado, apenas informativo: */}
+          <div className="space-y-2">
+            <Label>Número do Serviço *</Label>
+            <Input
+              value="Campo obrigatório para o usuário"
+              disabled
+              readOnly
+              placeholder="Será preenchido pelo usuário no relatório"
+            />
+          </div>
+
           <div className="flex justify-end space-x-2 pt-4">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
@@ -387,5 +430,38 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
     </Dialog>
   );
 };
+
+// Função utilitária para corrigir campos type dos templates de relatório
+export async function corrigirTiposUploadTemplates() {
+  // Buscar todos os templates
+  const { data: templates, error } = await supabase.from('report_templates').select('*');
+  if (error) {
+    console.error('Erro ao buscar templates:', error);
+    return;
+  }
+  for (const template of templates) {
+    if (Array.isArray(template.fields)) {
+      let alterado = false;
+      const novosCampos = template.fields.map((field: any) => {
+        if (field.type === 'Upload de Arquivos') {
+          alterado = true;
+          return { ...field, type: 'upload' };
+        }
+        return field;
+      });
+      if (alterado) {
+        const { error: updateError } = await supabase
+          .from('report_templates')
+          .update({ fields: novosCampos })
+          .eq('id', template.id);
+        if (updateError) {
+          console.error('Erro ao atualizar template', template.id, updateError);
+        } else {
+          console.log('Corrigido template', template.id);
+        }
+      }
+    }
+  }
+}
 
 export default ReportTemplateModal;

@@ -18,7 +18,6 @@ interface PermissionsModalProps {
 const PERMISSIONS = [
   { key: 'dashboard', label: 'Dashboard', description: 'Acesso ao painel principal' },
   { key: 'reports', label: 'Relatórios', description: 'Criar e visualizar relatórios' },
-  { key: 'service_orders', label: 'Ordens de Serviço', description: 'Gerenciar ordens de serviço' },
   { key: 'settings', label: 'Configurações', description: 'Acesso às configurações do sistema' },
   { key: 'users', label: 'Usuários', description: 'Gerenciar usuários do sistema' },
   { key: 'analytics', label: 'Analytics', description: 'Acesso a relatórios analíticos' },

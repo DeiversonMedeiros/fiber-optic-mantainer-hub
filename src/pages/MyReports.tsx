@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import ReportFormModal from '@/components/reports/ReportFormModal';
+import ReportViewModal from "@/components/reports/ReportViewModal";
+import { usePagination } from "@/hooks/usePagination";
 
 const MyReports = () => {
   const { user } = useAuth();
@@ -24,6 +26,8 @@ const MyReports = () => {
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [selectedReport, setSelectedReport] = useState<any | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
   // Buscar perfil do usuário
   const { data: userProfile } = useQuery({
@@ -45,26 +49,37 @@ const MyReports = () => {
     enabled: !!user?.id
   });
 
+  // Buscar perfil de acesso e permissões
+  const permissions = userProfile?.access_profile?.permissions || [];
+  let permissionsArr = permissions;
+  if (typeof permissionsArr === 'string') {
+    try {
+      permissionsArr = JSON.parse(permissionsArr);
+    } catch {
+      permissionsArr = [];
+    }
+  }
+  if (!Array.isArray(permissionsArr)) {
+    permissionsArr = [];
+  }
+
   // Buscar templates disponíveis baseado na classe do usuário
   const { data: availableTemplates = [] } = useQuery({
     queryKey: ['available-templates', userProfile?.user_class_id],
     queryFn: async () => {
       if (!userProfile) return [];
-      
       let query = supabase
         .from('report_templates')
         .select('*')
         .eq('is_active', true);
-
-      // Se o usuário não é admin/gestor, filtrar apenas templates da sua classe ou sem classe definida
-      if (userProfile.role !== 'admin' && userProfile.role !== 'gestor') {
+      // Se o usuário não tem permissão de admin/gestor, filtrar apenas templates da sua classe ou sem classe definida
+      if (!permissionsArr.includes('admin') && !permissionsArr.includes('gestor')) {
         if (userProfile.user_class_id) {
           query = query.or(`user_class_id.eq.${userProfile.user_class_id},user_class_id.is.null`);
         } else {
           query = query.is('user_class_id', null);
         }
       }
-
       const { data, error } = await query.order('name');
       if (error) throw error;
       return data || [];
@@ -72,40 +87,24 @@ const MyReports = () => {
     enabled: !!userProfile
   });
 
-  // Buscar relatórios do usuário
+  // Buscar relatórios do usuário (tabela correta: reports)
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['my-reports', user?.id, filters],
     queryFn: async () => {
       if (!user?.id) return [];
-      
       let query = supabase
         .from('reports')
-        .select(`
-          *,
-          technician:profiles!technician_id(name),
-          service_order:service_orders(number, title)
-        `);
-
+        .select(`*, technician:profiles!technician_id(name)`);
       // Admins e gestores veem todos os relatórios
-      if (userProfile?.role !== 'admin' && userProfile?.role !== 'gestor') {
+      if (!permissionsArr.includes('admin') && !permissionsArr.includes('gestor')) {
         query = query.eq('technician_id', user.id);
       }
-
-      if (filters.status !== 'all') {
-        const validStatuses = ['pendente', 'validado', 'rejeitado'];
-        if (validStatuses.includes(filters.status)) {
-          query = query.eq('status', filters.status as 'pendente' | 'validado' | 'rejeitado');
-        }
-      }
-
       if (filters.startDate) {
         query = query.gte('created_at', filters.startDate);
       }
-
       if (filters.endDate) {
         query = query.lte('created_at', filters.endDate + 'T23:59:59');
       }
-
       const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
       return data;
@@ -113,30 +112,30 @@ const MyReports = () => {
     enabled: !!user?.id && !!userProfile
   });
 
-  // Contadores por status
-  const statusCounts = {
-    approved: reports.filter(r => r.status === 'validado').length,
-    pending: reports.filter(r => r.status === 'pendente').length,
-    rejected: reports.filter(r => r.status === 'rejeitado').length,
-  };
+  // Contadores por status (remover pois não há status na nova tabela)
+  // const statusCounts = {
+  //   approved: reports.filter(r => r.status === 'validado').length,
+  //   pending: reports.filter(r => r.status === 'pendente').length,
+  //   rejected: reports.filter(r => r.status === 'rejeitado').length,
+  // };
 
-  const getStatusColor = (status: string) => {
-    const colors = {
-      'pendente': 'bg-orange-100 text-orange-800',
-      'validado': 'bg-green-100 text-green-800',
-      'rejeitado': 'bg-red-100 text-red-800',
-    };
-    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
-  };
+  // const getStatusColor = (status: string) => {
+  //   const colors = {
+  //     'pendente': 'bg-orange-100 text-orange-800',
+  //     'concluido': 'bg-green-100 text-green-800',
+  //     'cancelado': 'bg-gray-200 text-gray-600',
+  //   };
+  //   return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+  // };
 
-  const getStatusLabel = (status: string) => {
-    const labels = {
-      'pendente': 'Pendente',
-      'validado': 'Validado',
-      'rejeitado': 'Rejeitado',
-    };
-    return labels[status as keyof typeof labels] || status;
-  };
+  // const getStatusLabel = (status: string) => {
+  //   const labels = {
+  //     'pendente': 'Pendente',
+  //     'concluido': 'Concluído',
+  //     'cancelado': 'Cancelado',
+  //   };
+  //   return labels[status as keyof typeof labels] || status;
+  // };
 
   const handleCreateReport = (templateId: string) => {
     setSelectedTemplateId(templateId);
@@ -150,6 +149,23 @@ const MyReports = () => {
       description: "Funcionalidade em desenvolvimento",
     });
   };
+
+  // Numeração sequencial global dos relatórios (mais antigo = 1)
+  const reportSequenceMap = useMemo(() => {
+    const sorted = [...reports].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const map: Record<string, number> = {};
+    sorted.forEach((report, idx) => {
+      map[report.id] = idx + 1;
+    });
+    return map;
+  }, [reports]);
+
+  const {
+    visibleItems: paginatedReports,
+    hasMore: hasMoreReports,
+    showMore: showMoreReports,
+    reset: resetReports
+  } = usePagination(reports, 10, 10);
 
   if (isLoading) {
     return <div className="p-8">Carregando...</div>;
@@ -190,7 +206,7 @@ const MyReports = () => {
               <h3 className="text-lg font-medium mb-2">Nenhum template disponível</h3>
               <p className="text-sm">
                 Não há templates de relatório disponíveis para sua classe de usuário.
-                {userProfile?.role === 'admin' || userProfile?.role === 'gestor' ? 
+                {permissionsArr.includes('admin') || permissionsArr.includes('gestor') ? 
                   ' Crie novos templates na seção de Configurações.' : 
                   ' Entre em contato com o administrador.'}
               </p>
@@ -199,156 +215,68 @@ const MyReports = () => {
         </CardContent>
       </Card>
 
-      {/* Indicadores */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <div className="w-8 h-8 bg-green-500 rounded"></div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Aprovados</p>
-                <p className="text-2xl font-bold text-green-600">{statusCounts.approved}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <div className="w-8 h-8 bg-yellow-500 rounded"></div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Pendentes</p>
-                <p className="text-2xl font-bold text-yellow-600">{statusCounts.pending}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <div className="w-8 h-8 bg-red-500 rounded"></div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Rejeitados</p>
-                <p className="text-2xl font-bold text-red-600">{statusCounts.rejected}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filtros */}
+      {/* Relatórios Enviados */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Filter className="w-5 h-5" />
-            <span>Filtros</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 block">Status</label>
-              <Select 
-                value={filters.status} 
-                onValueChange={(value) => setFilters(prev => ({...prev, status: value}))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="pendente">Pendente</SelectItem>
-                  <SelectItem value="validado">Validado</SelectItem>
-                  <SelectItem value="rejeitado">Rejeitado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 block">Data Inicial</label>
-              <Input
-                type="date"
-                value={filters.startDate}
-                onChange={(e) => setFilters(prev => ({...prev, startDate: e.target.value}))}
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 block">Data Final</label>
-              <Input
-                type="date"
-                value={filters.endDate}
-                onChange={(e) => setFilters(prev => ({...prev, endDate: e.target.value}))}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tabela de Relatórios */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Relatórios Enviados</CardTitle>
+          <CardTitle>Relatórios de Campo</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Nº</TableHead>
                 <TableHead>Título</TableHead>
-                <TableHead>Número do Serviço</TableHead>
-                <TableHead>Técnico Responsável</TableHead>
-                <TableHead>Data de Criação</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Número do Serviço</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead>Técnico</TableHead>
                 <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {reports.map((report) => (
-                <TableRow key={report.id}>
-                  <TableCell className="font-medium">
-                    {report.title}
-                  </TableCell>
-                  <TableCell>
-                    {report.service_order?.number || 'N/A'}
-                  </TableCell>
-                  <TableCell>{report.technician?.name}</TableCell>
-                  <TableCell>
-                    {new Date(report.created_at).toLocaleDateString('pt-BR')}
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(report.status)}>
-                      {getStatusLabel(report.status)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleViewReport(report.id)}
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      Visualizar
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {reports.length === 0 && (
+              {paginatedReports.length > 0 ? (
+                paginatedReports.map((report) => (
+                    <TableRow key={report.id}>
+                      <TableCell className="font-mono font-medium text-primary">
+                        {reportSequenceMap[report.id]}
+                      </TableCell>
+                      <TableCell>{report.title}</TableCell>
+                      <TableCell>{report.status}</TableCell>
+                      <TableCell>{report.numero_servico || '-'}</TableCell>
+                      <TableCell>{new Date(report.created_at).toLocaleDateString('pt-BR')}</TableCell>
+                      <TableCell>{report.technician?.name || '-'}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedReport(report);
+                            setIsViewModalOpen(true);
+                          }}
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          Visualizar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+              ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-4">
+                  <TableCell colSpan={7} className="text-center py-4">
                     Nenhum relatório encontrado
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+          {hasMoreReports && (
+            <div className="flex justify-center mt-4">
+              <Button onClick={showMoreReports} variant="outline">Ver mais</Button>
+            </div>
+          )}
+          <div className="text-xs text-gray-500 text-center mt-2">
+            Mostrando {paginatedReports.length} de {reports.length} relatórios
+          </div>
         </CardContent>
       </Card>
 
@@ -356,6 +284,11 @@ const MyReports = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         templateId={selectedTemplateId}
+      />
+      <ReportViewModal
+        report={selectedReport}
+        open={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
       />
     </div>
   );

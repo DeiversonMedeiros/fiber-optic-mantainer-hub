@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -126,6 +126,19 @@ const ChecklistItemsSection = () => {
     return acc;
   }, {} as Record<string, Record<string, any[]>>);
 
+  // Logs de debug para diagnóstico
+  console.log('userClasses:', userClasses);
+  console.log('checklistItems:', checklistItems);
+  console.log('groupedItems:', JSON.stringify(groupedItems, null, 2));
+
+  // Estado para controlar a aba ativa
+  const [activeTab, setActiveTab] = useState(Object.keys(groupedItems)[0] || '');
+
+  useEffect(() => {
+    const firstTab = Object.keys(groupedItems)[0] || '';
+    setActiveTab(firstTab);
+  }, [JSON.stringify(groupedItems)]);
+
   return (
     <div className="space-y-6">
       <Card>
@@ -189,51 +202,57 @@ const ChecklistItemsSection = () => {
           <CardTitle>Itens do Checklist</CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue={Object.keys(groupedItems)[0]} className="space-y-4">
-            <TabsList className="grid w-full grid-cols-auto">
-              {Object.keys(groupedItems).map(className => (
-                <TabsTrigger key={className} value={className}>
-                  {className}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+        <div className="checklist-tabs">
+          {Object.keys(groupedItems).length === 0 ? (
+            <p className="text-gray-500 text-center py-8">Nenhum checklist cadastrado para as classes ativas.</p>
+          ) : (
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+              <TabsList className="flex w-full">
+                {Object.keys(groupedItems).map(className => (
+                  <TabsTrigger key={className} value={className}>
+                    {className}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
 
-            {Object.entries(groupedItems).map(([className, categoriesData]) => (
-              <TabsContent key={className} value={className} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {Object.entries(categoriesData).map(([category, items]) => (
-                    <Card key={category}>
-                      <CardHeader>
-                        <CardTitle className="text-lg">
-                          {categories.find(cat => cat.value === category)?.label || category}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          {items.map(item => (
-                            <div key={item.id} className="flex items-center justify-between p-2 border rounded">
-                              <span>{item.name}</span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => deleteMutation.mutate(item.id)}
-                                disabled={deleteMutation.isPending}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-                          {items.length === 0 && (
-                            <p className="text-gray-500 text-sm">Nenhum item nesta categoria</p>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </TabsContent>
-            ))}
-          </Tabs>
+              {Object.entries(groupedItems).map(([className, categoriesData]) => (
+                <TabsContent key={className} value={className} className="space-y-4 checklist-tab-content">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {Object.entries(categoriesData).map(([category, items]) => (
+                      <Card key={category}>
+                        <CardHeader>
+                          <CardTitle className="text-lg">
+                            {categories.find(cat => cat.value === category)?.label || category}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {items.map(item => (
+                              <div key={item.id} className="flex items-center justify-between p-2 border rounded">
+                                <span>{item.name}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteMutation.mutate(item.id)}
+                                  disabled={deleteMutation.isPending}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ))}
+                            {items.length === 0 && (
+                              <p className="text-gray-500 text-sm">Nenhum item nesta categoria</p>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
+          )}
+        </div>
         </CardContent>
       </Card>
     </div>
@@ -241,3 +260,14 @@ const ChecklistItemsSection = () => {
 };
 
 export default ChecklistItemsSection;
+
+// Garantir que apenas o conteúdo ativo do checklist seja exibido
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.innerHTML = `
+    .checklist-tabs .checklist-tab-content[data-state="inactive"] {
+      display: none !important;
+    }
+  `;
+  document.head.appendChild(style);
+}

@@ -10,6 +10,7 @@ import { User, Lock, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { AppLayout } from "@/components/layout/AppLayout";
 
 const Profile = () => {
   const { user } = useAuth();
@@ -29,23 +30,24 @@ const Profile = () => {
     confirmPassword: ''
   });
 
-  // Buscar dados do perfil do usuário
+  // Buscar dados do perfil do usuário (com JOIN para access_profiles)
   const { data: profile, isLoading } = useQuery({
     queryKey: ['user-profile', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-      
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(`*, access_profile:access_profiles(id, name)`) // JOIN
         .eq('id', user.id)
         .single();
-      
       if (error) throw error;
       return data;
     },
     enabled: !!user?.id
   });
+
+  // Debug: ver o que vem do perfil
+  console.log('Perfil carregado:', profile);
 
   // Buscar dados relacionados separadamente
   const { data: userClass } = useQuery({
@@ -177,34 +179,37 @@ const Profile = () => {
   };
 
   if (isLoading) {
-    return <div className="flex justify-center py-8">Carregando perfil...</div>;
+    return (
+      <AppLayout>
+        <div className="flex justify-center py-8">Carregando perfil...</div>
+      </AppLayout>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" onClick={() => navigate('/dashboard')}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Voltar
-              </Button>
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                <User className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Meu Perfil</h1>
-                <p className="text-sm text-gray-600">Gerencie suas informações pessoais</p>
+    <AppLayout>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <div className="flex items-center space-x-4">
+                <Button variant="ghost" onClick={() => navigate('/dashboard')}>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Voltar
+                </Button>
+                <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                  <User className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Meu Perfil</h1>
+                  <p className="text-sm text-gray-600">Gerencie suas informações pessoais</p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        </header>
+        {/* Main Content */}
         <Tabs defaultValue="personal" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="personal" className="flex items-center space-x-2">
@@ -258,9 +263,10 @@ const Profile = () => {
                     
                     <div className="space-y-2">
                       <Label>Perfil de Acesso</Label>
-                      <div className="p-2 bg-gray-50 rounded border">
-                        {accessProfile?.name || 'Não definido'}
-                      </div>
+                      <Input
+                        value={profile?.access_profile?.name || "Não definido"}
+                        readOnly
+                      />
                     </div>
                     
                     <div className="space-y-2">
@@ -348,8 +354,8 @@ const Profile = () => {
             </Card>
           </TabsContent>
         </Tabs>
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 };
 

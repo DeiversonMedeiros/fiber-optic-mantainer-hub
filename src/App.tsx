@@ -2,9 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
@@ -20,6 +22,40 @@ import Vistoria from "./pages/Vistoria";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+// ID do perfil de acesso "Técnico"
+const TECNICO_PROFILE_ID = '38a5d358-75d6-4ae6-a109-1456a7dba714';
+
+// Componente para redirecionar baseado no perfil
+const ProfileBasedRedirect = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useAuth();
+  const location = useLocation();
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ['user-profile', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('access_profile_id')
+        .eq('id', user.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Só redireciona se estiver na rota "/dashboard"
+  if (
+    !isLoading &&
+    profile?.access_profile_id === TECNICO_PROFILE_ID &&
+    location.pathname === "/dashboard"
+  ) {
+    return <Navigate to="/my-reports" replace />;
+  }
+
+  return <>{children}</>;
+};
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -39,7 +75,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   return user ? (
     <AppLayout>
-      {children}
+      <ProfileBasedRedirect>
+        {children}
+      </ProfileBasedRedirect>
     </AppLayout>
   ) : (
     <Navigate to="/auth" replace />

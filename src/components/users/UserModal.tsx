@@ -59,17 +59,18 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
     }
   });
 
-  // Buscar gestores (usuários com role gestor ou admin)
+  // Buscar gestores (usuários com access_profile_id de gestor ou gestor preventiva)
   const { data: managers = [] } = useQuery({
     queryKey: ['managers'],
     queryFn: async () => {
+      const GESTOR_PROFILE_ID = '8e720f2f-a69e-4660-8f6e-e8601892dda7';
+      const GESTOR_PREVENTIVA_PROFILE_ID = '93fa8f08-9666-4f96-bee7-c378398cfd76';
       const { data, error } = await supabase
         .from('profiles')
         .select('id, name')
-        .in('role', ['gestor', 'admin'])
+        .in('access_profile_id', [GESTOR_PROFILE_ID, GESTOR_PREVENTIVA_PROFILE_ID])
         .eq('is_active', true)
         .order('name');
-      
       if (error) throw error;
       return data;
     }
@@ -102,19 +103,25 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
   const mutation = useMutation({
     mutationFn: async (data: typeof formData) => {
       if (user) {
-        // Atualizar usuário existente
-        const { error } = await supabase
+        // Montar payload sem campos nulos
+        const updatePayload: any = {
+          name: data.name,
+          phone: data.phone,
+          access_profile_id: data.accessProfileId || null,
+        };
+        if (data.userClassId) updatePayload.user_class_id = data.userClassId;
+        if (data.managerId) updatePayload.manager_id = data.managerId;
+        console.log('Payload final do update:', updatePayload);
+        const { data: updateData, error } = await supabase
           .from('profiles')
-          .update({
-            name: data.name,
-            phone: data.phone,
-            user_class_id: data.userClassId || null,
-            access_profile_id: data.accessProfileId || null,
-            manager_id: data.managerId || null
-          })
-          .eq('id', user.id);
-        
+          .update(updatePayload)
+          .eq('id', user.id)
+          .select();
+        console.log('Resposta do update:', updateData, error);
         if (error) throw error;
+        if (!updateData || updateData.length === 0) {
+          throw new Error('Nenhuma linha foi atualizada. Verifique se o ID do usuário está correto e se os dados realmente mudaram.');
+        }
       } else {
         // Criar novo usuário usando Edge Function
         const { data: result, error: createError } = await supabase.functions.invoke('create-user', {

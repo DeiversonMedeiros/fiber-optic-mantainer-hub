@@ -81,14 +81,23 @@ const AccessProfilesSection = () => {
   };
 
   const getPermissionCount = (permissions: any): number => {
-    if (!permissions || typeof permissions !== 'object') return 0;
-    
-    return Object.values(permissions).reduce<number>((total, pagePermissions) => {
-      if (Array.isArray(pagePermissions)) {
-        return total + pagePermissions.length;
+    if (!permissions) return 0;
+    if (Array.isArray(permissions)) return permissions.length;
+    if (typeof permissions === 'string') {
+      try {
+        const arr = JSON.parse(permissions);
+        if (Array.isArray(arr)) return arr.length;
+        if (typeof arr === 'object' && arr !== null) {
+          return Object.values(arr as Record<string, any>).reduce((total: number, v: any) => Array.isArray(v) ? Number(total) + v.length : Number(total), 0);
+        }
+      } catch {
+        return 0;
       }
-      return total;
-    }, 0);
+    }
+    if (typeof permissions === 'object' && permissions !== null) {
+      return Object.values(permissions as Record<string, any>).reduce((total: number, v: any) => Array.isArray(v) ? Number(total) + v.length : Number(total), 0);
+    }
+    return 0;
   };
 
   if (isLoading) {
