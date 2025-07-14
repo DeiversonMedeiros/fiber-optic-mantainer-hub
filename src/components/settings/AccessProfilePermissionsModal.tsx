@@ -20,7 +20,7 @@ const SYSTEM_PAGES = [
   { id: 'vistoria', name: 'Vistoria', description: 'Realizar vistorias técnicas', category: 'Preventiva' },
   { id: 'users', name: 'Gerenciar Usuários', description: 'Administrar usuários do sistema', category: 'Administração' },
   { id: 'settings', name: 'Configurações', description: 'Configurações do sistema', category: 'Administração' },
-  { id: 'profile', name: 'Meu Perfil', description: 'Editar perfil pessoal', category: 'Pessoal' },
+  { id: 'change-password', name: 'Alterar Senha', description: 'Permitir que o usuário altere sua senha', category: 'Pessoal' },
 ];
 
 const PERMISSION_TYPES = [

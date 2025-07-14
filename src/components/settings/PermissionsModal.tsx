@@ -23,6 +23,7 @@ const PERMISSIONS = [
   { key: 'analytics', label: 'Analytics', description: 'Acesso a relatórios analíticos' },
   { key: 'preventive', label: 'Manutenção Preventiva', description: 'Gerenciar manutenções preventivas' },
   { key: 'control', label: 'Controle', description: 'Funções de controle e auditoria' },
+  { key: 'change-password', label: 'Alterar Senha', description: 'Permitir que o usuário altere sua senha' },
 ];
 
 const PermissionsModal = ({ isOpen, onClose, profile }: PermissionsModalProps) => {

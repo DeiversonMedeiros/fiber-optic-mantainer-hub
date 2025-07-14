@@ -19,6 +19,7 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    username: '',
     phone: '',
     userClassId: '',
     accessProfileId: '',
@@ -81,6 +82,7 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
       setFormData({
         name: user.name || '',
         email: user.email || '',
+        username: user.username || '',
         phone: user.phone || '',
         userClassId: user.user_class_id || '',
         accessProfileId: user.access_profile_id || '',
@@ -91,6 +93,7 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
       setFormData({
         name: '',
         email: '',
+        username: '',
         phone: '',
         userClassId: '',
         accessProfileId: '',
@@ -129,6 +132,7 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
             email: data.email,
             password: data.password,
             name: data.name,
+            username: data.username,
             phone: data.phone,
             userClassId: data.userClassId,
             accessProfileId: data.accessProfileId,
@@ -229,6 +233,17 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
               />
             </div>
           )}
+          
+          <div className="space-y-2">
+            <Label htmlFor="username">Nome de Usuário *</Label>
+            <Input
+              id="username"
+              value={formData.username}
+              onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
+              placeholder="Digite o nome de usuário"
+              required
+            />
+          </div>
           
           <div className="space-y-2">
             <Label htmlFor="phone">Telefone</Label>

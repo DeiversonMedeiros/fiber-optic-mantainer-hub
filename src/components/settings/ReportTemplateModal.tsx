@@ -9,9 +9,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, X } from 'lucide-react';
+import { Plus, Trash2, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const FIELD_TYPES = {
   texto_curto: 'Texto Curto',
@@ -39,6 +53,11 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
   const [numeroServico, setNumeroServico] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [checklistOpen, setChecklistOpen] = useState(true);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+  const [expandedFields, setExpandedFields] = useState<Set<string>>(new Set());
 
   const { data: userClasses } = useQuery({
     queryKey: ['user-classes-for-template'],
@@ -152,6 +171,42 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
     return ['radio', 'dropdown', 'checkbox'].includes(fieldType);
   };
 
+  function handleDragEnd(event: any) {
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+      const oldIndex = fields.findIndex(f => f.id === active.id);
+      const newIndex = fields.findIndex(f => f.id === over.id);
+      setFields((fields) => arrayMove(fields, oldIndex, newIndex));
+    }
+  }
+
+  function toggleFieldExpand(id: string) {
+    setExpandedFields(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  }
+
+  function SortableFieldCard({ id, children }: { id: string, children: React.ReactNode }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+      cursor: 'grab',
+    };
+    return (
+      <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+        {children}
+      </div>
+    );
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
@@ -224,37 +279,45 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
 
           {/* Configurações de checklist */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Configurações de Checklist</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="checklist-enabled"
-                  checked={checklistEnabled}
-                  onCheckedChange={(checked) => setChecklistEnabled(checked === true)}
-                />
-                <Label htmlFor="checklist-enabled">Habilitar checklist de itens</Label>
+            <CardHeader
+              className="flex flex-row items-center justify-between cursor-pointer"
+              onClick={() => setChecklistOpen((v) => !v)}
+            >
+              <div className="flex items-center gap-2">
+                {checklistOpen ? <ChevronDown /> : <ChevronRight />}
+                <CardTitle className="text-lg">Configurações de Checklist</CardTitle>
               </div>
-              
-              {checklistEnabled && (
-                <div className="space-y-2">
-                  <Label htmlFor="checklist-class">Classe do Checklist</Label>
-                  <Select value={checklistClassId} onValueChange={setChecklistClassId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a classe dos itens" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {userClasses?.map((userClass) => (
-                        <SelectItem key={userClass.id} value={userClass.id}>
-                          {userClass.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            </CardHeader>
+            {checklistOpen && (
+              <CardContent className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="checklist-enabled"
+                    checked={checklistEnabled}
+                    onCheckedChange={(checked) => setChecklistEnabled(checked === true)}
+                  />
+                  <Label htmlFor="checklist-enabled">Habilitar checklist de itens</Label>
                 </div>
-              )}
-            </CardContent>
+                
+                {checklistEnabled && (
+                  <div className="space-y-2">
+                    <Label htmlFor="checklist-class">Classe do Checklist</Label>
+                    <Select value={checklistClassId} onValueChange={setChecklistClassId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a classe dos itens" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {userClasses?.map((userClass) => (
+                          <SelectItem key={userClass.id} value={userClass.id}>
+                            {userClass.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </CardContent>
+            )}
           </Card>
 
           {/* Campos customizáveis */}
@@ -269,131 +332,157 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {fields.map((field, index) => (
-                <Card key={field.id} className="p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label>Nome do Campo</Label>
-                      <Input
-                        value={field.name}
-                        onChange={(e) => updateField(index, 'name', e.target.value)}
-                        placeholder="nome_do_campo"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Rótulo</Label>
-                      <Input
-                        value={field.label}
-                        onChange={(e) => updateField(index, 'label', e.target.value)}
-                        placeholder="Rótulo do campo"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Tipo</Label>
-                      <Select
-                        value={field.type}
-                        onValueChange={(value) => updateField(index, 'type', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(FIELD_TYPES).map(([key, label]) => (
-                            <SelectItem key={key} value={key}>
-                              {label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Opções para campos que precisam */}
-                  {needsOptions(field.type) && (
-                    <div className="mt-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <Label>Opções</Label>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => addOption(index)}
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Adicionar Opção
-                        </Button>
-                      </div>
-                      <div className="space-y-2">
-                        {(field.options || []).map((option: string, optionIndex: number) => (
-                          <div key={optionIndex} className="flex gap-2">
-                            <Input
-                              value={option}
-                              onChange={(e) => updateOption(index, optionIndex, e.target.value)}
-                              placeholder={`Opção ${optionIndex + 1}`}
-                            />
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={fields.map((f) => f.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {fields.map((field, index) => {
+                    const isExpanded = expandedFields.has(field.id);
+                    return (
+                      <SortableFieldCard key={field.id} id={field.id}>
+                        <Card className="p-4">
+                          {/* Cabeçalho do campo */}
+                          <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleFieldExpand(field.id)}>
+                            <div className="flex items-center gap-2">
+                              {isExpanded ? <ChevronDown /> : <ChevronRight />}
+                              <span className="font-semibold">{field.label || 'Campo sem rótulo'}</span>
+                            </div>
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => removeOption(index, optionIndex)}
+                              onClick={e => { e.stopPropagation(); removeField(index); }}
                             >
-                              <X className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
-                        ))}
-                      </div>
-                      {/* Prévia visual do campo conforme o tipo */}
-                      <div className="mt-4">
-                        {field.type === 'radio' && (
-                          <div className="flex flex-col gap-2">
-                            {field.options && field.options.length > 0 ? field.options.map((opt: string, i: number) => (
-                              <label key={i} className="flex items-center gap-2">
-                                <input type="radio" name={`preview-radio-${field.id}`} disabled />
-                                <span>{opt || `Opção ${i + 1}`}</span>
-                              </label>
-                            )) : <span className="text-gray-400">Adicione opções para visualizar</span>}
-                          </div>
-                        )}
-                        {field.type === 'checkbox' && (
-                          <div className="flex flex-col gap-2">
-                            {field.options && field.options.length > 0 ? field.options.map((opt: string, i: number) => (
-                              <label key={i} className="flex items-center gap-2">
-                                <input type="checkbox" name={`preview-checkbox-${field.id}`} disabled />
-                                <span>{opt || `Opção ${i + 1}`}</span>
-                              </label>
-                            )) : <span className="text-gray-400">Adicione opções para visualizar</span>}
-                          </div>
-                        )}
-                        {field.type === 'dropdown' && (
-                          <select className="border rounded px-2 py-1" disabled>
-                            {field.options && field.options.length > 0 ? field.options.map((opt: string, i: number) => (
-                              <option key={i} value={opt}>{opt || `Opção ${i + 1}`}</option>
-                            )) : <option>Adicione opções para visualizar</option>}
-                          </select>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex justify-between items-center mt-4">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        checked={field.required}
-                        onCheckedChange={(checked) => updateField(index, 'required', checked === true)}
-                      />
-                      <Label>Campo obrigatório</Label>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => removeField(index)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </Card>
-              ))}
+                          {/* Corpo do campo, só aparece se expandido */}
+                          {isExpanded && (
+                            <div className="mt-4">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="space-y-2">
+                                  <Label>Nome do Campo</Label>
+                                  <Input
+                                    value={field.name}
+                                    onChange={(e) => updateField(index, 'name', e.target.value)}
+                                    placeholder="nome_do_campo"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Rótulo</Label>
+                                  <Input
+                                    value={field.label}
+                                    onChange={(e) => updateField(index, 'label', e.target.value)}
+                                    placeholder="Rótulo do campo"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Tipo</Label>
+                                  <Select
+                                    value={field.type}
+                                    onValueChange={(value) => updateField(index, 'type', value)}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {Object.entries(FIELD_TYPES).map(([key, label]) => (
+                                        <SelectItem key={key} value={key}>
+                                          {label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              {/* Opções para campos que precisam */}
+                              {needsOptions(field.type) && (
+                                <div className="mt-4">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <Label>Opções</Label>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => addOption(index)}
+                                    >
+                                      <Plus className="w-4 h-4 mr-2" />
+                                      Adicionar Opção
+                                    </Button>
+                                  </div>
+                                  <div className="space-y-2">
+                                    {(field.options || []).map((option: string, optionIndex: number) => (
+                                      <div key={optionIndex} className="flex gap-2">
+                                        <Input
+                                          value={option}
+                                          onChange={(e) => updateOption(index, optionIndex, e.target.value)}
+                                          placeholder={`Opção ${optionIndex + 1}`}
+                                        />
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => removeOption(index, optionIndex)}
+                                        >
+                                          <X className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {/* Prévia visual do campo conforme o tipo */}
+                                  <div className="mt-4">
+                                    {field.type === 'radio' && (
+                                      <div className="flex flex-col gap-2">
+                                        {field.options && field.options.length > 0 ? field.options.map((opt: string, i: number) => (
+                                          <label key={i} className="flex items-center gap-2">
+                                            <input type="radio" name={`preview-radio-${field.id}`} disabled />
+                                            <span>{opt || `Opção ${i + 1}`}</span>
+                                          </label>
+                                        )) : <span className="text-gray-400">Adicione opções para visualizar</span>}
+                                      </div>
+                                    )}
+                                    {field.type === 'checkbox' && (
+                                      <div className="flex flex-col gap-2">
+                                        {field.options && field.options.length > 0 ? field.options.map((opt: string, i: number) => (
+                                          <label key={i} className="flex items-center gap-2">
+                                            <input type="checkbox" name={`preview-checkbox-${field.id}`} disabled />
+                                            <span>{opt || `Opção ${i + 1}`}</span>
+                                          </label>
+                                        )) : <span className="text-gray-400">Adicione opções para visualizar</span>}
+                                      </div>
+                                    )}
+                                    {field.type === 'dropdown' && (
+                                      <select className="border rounded px-2 py-1" disabled>
+                                        {field.options && field.options.length > 0 ? field.options.map((opt: string, i: number) => (
+                                          <option key={i} value={opt}>{opt || `Opção ${i + 1}`}</option>
+                                        )) : <option>Adicione opções para visualizar</option>}
+                                      </select>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                              <div className="flex justify-between items-center mt-4">
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    checked={field.required}
+                                    onCheckedChange={(checked) => updateField(index, 'required', checked === true)}
+                                  />
+                                  <Label>Campo obrigatório</Label>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </Card>
+                      </SortableFieldCard>
+                    );
+                  })}
+                </SortableContext>
+              </DndContext>
               
               {fields.length === 0 && (
                 <div className="text-center py-8 text-gray-500">

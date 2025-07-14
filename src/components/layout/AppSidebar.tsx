@@ -24,7 +24,8 @@ import {
   Shield,
   ClipboardList,
   Eye,
-  Wrench
+  Wrench,
+  Lock
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -92,6 +93,12 @@ const menuItems = [
     url: '/vistoria',
     icon: Eye,
   },
+  {
+    id: 'change-password',
+    title: 'Alterar Senha',
+    url: '/change-password',
+    icon: Lock,
+  },
 ];
 
 export function AppSidebar() {
@@ -157,14 +164,12 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <LayoutDashboard className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <h2 className="font-semibold text-sm">SGM</h2>
-            <p className="text-xs text-muted-foreground">Sistema de Gestão</p>
-          </div>
+        <div className="flex items-center">
+          <img
+            src="/sgm-logo.png"
+            alt="SGM Logo"
+            className="w-[180px] h-[80px] object-contain"
+          />
         </div>
       </SidebarHeader>
 
@@ -207,15 +212,7 @@ export function AppSidebar() {
 
       <SidebarFooter className="p-4">
         <div className="space-y-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full justify-start"
-            onClick={() => navigate('/profile')}
-          >
-            <User className="w-4 h-4 mr-2" />
-            Meu Perfil
-          </Button>
+          {/* Remover o botão Meu Perfil */}
           <Button
             variant="outline"
             size="sm"

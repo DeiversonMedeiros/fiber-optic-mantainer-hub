@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
       }
     )
 
-    const { email, password, name, phone, userClassId, accessProfileId, managerId } = await req.json()
+    const { email, password, name, username, phone, userClassId, accessProfileId, managerId } = await req.json()
 
     console.log('Creating user with email:', email)
 
@@ -51,6 +51,7 @@ Deno.serve(async (req) => {
         .from('profiles')
         .update({
           name,
+          username,
           phone: phone || null,
           user_class_id: userClassId || null,
           access_profile_id: accessProfileId || null,

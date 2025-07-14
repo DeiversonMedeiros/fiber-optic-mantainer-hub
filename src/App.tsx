@@ -10,7 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
-import Profile from "./pages/Profile";
 import UserManagement from "./pages/UserManagement";
 import MyReports from "./pages/MyReports";
 import ReportValidation from "./pages/ReportValidation";
@@ -20,6 +19,7 @@ import PreventiveMaintenance from "./pages/PreventiveMaintenance";
 import Preventivas from "./pages/Preventivas";
 import Vistoria from "./pages/Vistoria";
 import NotFound from "./pages/NotFound";
+import ChangePassword from "./pages/ChangePassword";
 
 const queryClient = new QueryClient();
 
@@ -122,11 +122,6 @@ const AppRoutes = () => {
           <Settings />
         </ProtectedRoute>
       } />
-      <Route path="/profile" element={
-        <ProtectedRoute>
-          <Profile />
-        </ProtectedRoute>
-      } />
       <Route path="/users" element={
         <ProtectedRoute>
           <UserManagement />
@@ -165,6 +160,11 @@ const AppRoutes = () => {
       <Route path="/vistoria" element={
         <ProtectedRoute>
           <Vistoria />
+        </ProtectedRoute>
+      } />
+      <Route path="/change-password" element={
+        <ProtectedRoute>
+          <ChangePassword />
         </ProtectedRoute>
       } />
       <Route path="*" element={<NotFound />} />

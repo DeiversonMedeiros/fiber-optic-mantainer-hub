@@ -18,20 +18,18 @@ const Login = ({ onLogin }: LoginProps) => {
 
       {/* Logo Section */}
       <div className="absolute top-8 left-8 z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-lg">
-            <div className="w-6 h-6 bg-primary rounded-full animate-pulse-glow"></div>
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white">SGM</h1>
-            <p className="text-white/80 text-sm">Sistema de Gestão de Manutenção</p>
-          </div>
-        </div>
+        <img
+          src="/sgm-logo.png"
+          alt="Logomarca SGM"
+          className="h-16 w-auto drop-shadow-lg"
+        />
       </div>
 
       {/* Login Form */}
-      <div className="relative z-10 w-full">
-        <LoginForm onLogin={onLogin} />
+      <div className="relative z-10 w-full flex justify-center">
+        <div className="w-full max-w-md">
+          <LoginForm onLogin={onLogin} />
+        </div>
       </div>
 
       {/* Fiber Optic Animation */}

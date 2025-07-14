@@ -38,9 +38,8 @@ const AccessProfilesSection = () => {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('access_profiles')
-        .update({ is_active: false })
+        .delete()
         .eq('id', id);
-      
       if (error) throw error;
     },
     onSuccess: () => {
@@ -85,17 +84,18 @@ const AccessProfilesSection = () => {
     if (Array.isArray(permissions)) return permissions.length;
     if (typeof permissions === 'string') {
       try {
-        const arr = JSON.parse(permissions);
-        if (Array.isArray(arr)) return arr.length;
-        if (typeof arr === 'object' && arr !== null) {
-          return Object.values(arr as Record<string, any>).reduce((total: number, v: any) => Array.isArray(v) ? Number(total) + v.length : Number(total), 0);
+        const parsed = JSON.parse(permissions);
+        if (Array.isArray(parsed)) return parsed.length;
+        if (typeof parsed === 'object' && parsed !== null) {
+          return Object.values(parsed).filter(v => v === true).length;
         }
+        return 0;
       } catch {
         return 0;
       }
     }
     if (typeof permissions === 'object' && permissions !== null) {
-      return Object.values(permissions as Record<string, any>).reduce((total: number, v: any) => Array.isArray(v) ? Number(total) + v.length : Number(total), 0);
+      return Object.values(permissions).filter(v => v === true).length;
     }
     return 0;
   };

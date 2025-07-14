@@ -3,11 +3,14 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import StatCard from '@/components/dashboard/StatCard';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { FileText, CheckSquare, AlertTriangle, TrendingUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { FileText, CheckSquare, AlertTriangle, TrendingUp, Calendar, Filter } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from 'recharts';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const STATUS_LABELS: Record<string, string> = {
   nao_validado: 'Não Validado',
@@ -62,32 +65,85 @@ function groupByMonth(arr: any[], dateKey: string) {
 }
 
 const Dashboard = () => {
+  // Estados para filtros de data
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [isFilterActive, setIsFilterActive] = useState(false);
+
+  // Definir datas padrão (últimos 30 dias)
+  useEffect(() => {
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
+    setStartDate(thirtyDaysAgo.toISOString().split('T')[0]);
+    setEndDate(today.toISOString().split('T')[0]);
+  }, []);
+
+  // Função para aplicar filtros de data
+  const applyDateFilter = (data: any[], dateField: string) => {
+    if (!isFilterActive || !startDate || !endDate) return data;
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999); // Incluir o dia inteiro
+    
+    return data.filter(item => {
+      const itemDate = new Date(item[dateField]);
+      return itemDate >= start && itemDate <= end;
+    });
+  };
+
   // --- CORRETIVA ---
   const { data: reports = [], isLoading: loadingReports } = useQuery({
-    queryKey: ['dashboard-reports'],
+    queryKey: ['dashboard-reports', startDate, endDate, isFilterActive],
     queryFn: async () => {
-      const { data } = await supabase
+      let query = supabase
         .from('reports')
         .select('*')
         .neq('template_id', '4b45c601-e5b7-4a33-98f9-1769aad319e9'); // exceto vistoria preventiva
+      
+      if (isFilterActive && startDate && endDate) {
+        query = query
+          .gte('created_at', `${startDate}T00:00:00`)
+          .lte('created_at', `${endDate}T23:59:59`);
+      }
+      
+      const { data } = await query;
       return data || [];
     }
   });
 
   // --- PREVENTIVA ---
   const { data: schedules = [], isLoading: loadingSchedules } = useQuery({
-    queryKey: ['dashboard-schedules'],
+    queryKey: ['dashboard-schedules', startDate, endDate, isFilterActive],
     queryFn: async () => {
-      const { data } = await supabase.from('preventive_schedule').select('*');
+      let query = supabase.from('preventive_schedule').select('*');
+      
+      if (isFilterActive && startDate && endDate) {
+        query = query
+          .gte('created_at', `${startDate}T00:00:00`)
+          .lte('created_at', `${endDate}T23:59:59`);
+      }
+      
+      const { data } = await query;
       return data || [];
     }
   });
 
   // Buscar relatórios de vistoria preventiva (substitui riscos)
   const { data: inspectionReports = [], isLoading: loadingInspectionReports } = useQuery({
-    queryKey: ['dashboard-inspection-reports'],
+    queryKey: ['dashboard-inspection-reports', startDate, endDate, isFilterActive],
     queryFn: async () => {
-      const { data } = await supabase.from('inspection_reports').select('*');
+      let query = supabase.from('inspection_reports').select('*');
+      
+      if (isFilterActive && startDate && endDate) {
+        query = query
+          .gte('created_at', `${startDate}T00:00:00`)
+          .lte('created_at', `${endDate}T23:59:59`);
+      }
+      
+      const { data } = await query;
       return data || [];
     }
   });
@@ -153,9 +209,83 @@ const Dashboard = () => {
     value: Number(count),
   }));
 
+  // Função para limpar filtros
+  const clearFilters = () => {
+    setIsFilterActive(false);
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
+    setStartDate(thirtyDaysAgo.toISOString().split('T')[0]);
+    setEndDate(today.toISOString().split('T')[0]);
+  };
+
+  // Função para aplicar filtros
+  const applyFilters = () => {
+    if (startDate && endDate) {
+      setIsFilterActive(true);
+    }
+  };
+
   // --- Renderização ---
   return (
     <div className="p-8 space-y-10">
+      {/* Filtro de Datas */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="w-5 h-5" />
+            Filtro de Período
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div className="space-y-2">
+              <Label htmlFor="startDate">Data Início</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="endDate">Data Fim</Label>
+              <Input
+                id="endDate"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={applyFilters}
+                className="flex-1"
+                disabled={!startDate || !endDate}
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                Aplicar
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={clearFilters}
+                className="flex-1"
+              >
+                Limpar
+              </Button>
+            </div>
+            {isFilterActive && (
+              <div className="text-sm text-muted-foreground">
+                Filtro ativo: {startDate} a {endDate}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Seção Corretiva */}
       <section>
         <h2 className="text-2xl font-bold mb-4">Corretiva</h2>

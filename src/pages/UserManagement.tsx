@@ -16,6 +16,7 @@ import UserModal from '@/components/users/UserModal';
 interface User {
   id: string;
   name: string;
+  username?: string; // ADICIONADO
   phone?: string;
   is_active: boolean;
   user_class_id?: string;
@@ -63,7 +64,7 @@ const UserManagement = () => {
         // Buscar usuários básicos primeiro
         let query = supabase
           .from('profiles')
-          .select('id, name, phone, is_active, user_class_id, access_profile_id, manager_id')
+          .select('id, name, username, phone, is_active, user_class_id, access_profile_id, manager_id') // ADICIONADO username
           .order('name');
 
         // Aplicar filtros
@@ -126,6 +127,7 @@ const UserManagement = () => {
         const usersWithRelations: UserWithRelations[] = profiles.map((profile) => ({
           id: profile.id,
           name: profile.name,
+          username: profile.username, // ADICIONADO
           phone: profile.phone,
           is_active: profile.is_active,
           user_class_id: profile.user_class_id,
@@ -345,6 +347,7 @@ const UserManagement = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome Completo</TableHead>
+                  <TableHead>Nome de Usuário</TableHead> {/* NOVO */}
                   <TableHead>Telefone</TableHead>
                   <TableHead>Classe</TableHead>
                   <TableHead>Perfil de Acesso</TableHead>
@@ -357,6 +360,7 @@ const UserManagement = () => {
                 {users.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell>{user.username || '-'}</TableCell> {/* NOVO */}
                     <TableCell>{user.phone || '-'}</TableCell>
                     <TableCell>{user.user_class_name || '-'}</TableCell>
                     <TableCell>{user.access_profile_name || '-'}</TableCell>
