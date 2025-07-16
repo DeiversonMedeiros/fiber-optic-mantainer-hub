@@ -110,10 +110,8 @@ const ReportValidation = () => {
 
   // Buscar relatórios para validação (tabela reports - templates de relatórios)
   const { data: reports = [], isLoading } = useQuery({
-    queryKey: ['validation-reports', filters],
+    queryKey: ['validation-reports'],
     queryFn: async () => {
-      console.log('🔍 Buscando relatórios com filtros:', filters);
-      
       let query = supabase
         .from('reports')
         .select(`
@@ -124,43 +122,25 @@ const ReportValidation = () => {
           template:report_templates(*)
         `)
         .neq('template_id', '4b45c601-e5b7-4a33-98f9-1769aad319e9');
-
-      if (filters.technician !== 'all') {
-        query = query.eq('technician_id', filters.technician);
-      }
-
-      if (filters.status !== 'all') {
-        const validStatuses = ['nao_validado', 'validado', 'pendente'];
-        if (validStatuses.includes(filters.status)) {
-          query = query.eq('status', filters.status as 'nao_validado' | 'validado' | 'pendente');
-        }
-      }
-
-      if (filters.serviceNumber) {
-        query = query.ilike('numero_servico', `%${filters.serviceNumber}%`);
-      }
-
-      if (filters.startDate) {
-        query = query.gte('created_at', filters.startDate);
-      }
-
-      if (filters.endDate) {
-        query = query.lte('created_at', filters.endDate + 'T23:59:59');
-      }
-
+      // (Opcional: filtros pesados, como datas)
       const { data, error } = await query.order('created_at', { ascending: false });
-      
-      console.log('🔍 Resultado da query:', { data, error });
-      console.log('🔍 Número de relatórios encontrados:', data?.length || 0);
-      
-      if (error) {
-        console.error('❌ Erro na query de relatórios:', error);
-        throw error;
-      }
-      
+      if (error) throw error;
       return data;
     }
   });
+
+  // Filtro local
+  const filteredReports = useMemo(() => {
+    return (reports as any[]).filter((report) => {
+      const technicianMatch = filters.technician === 'all' || report.technician_id === filters.technician;
+      const statusMatch = filters.status === 'all' || report.status === filters.status;
+      const serviceNumberMatch = !filters.serviceNumber || (report.numero_servico && report.numero_servico.toLowerCase().includes(filters.serviceNumber.toLowerCase()));
+      const userClassMatch = filters.userClass === 'all' || (report.technician?.user_class?.id === filters.userClass);
+      const dateFromMatch = !filters.startDate || (report.created_at && report.created_at >= filters.startDate);
+      const dateToMatch = !filters.endDate || (report.created_at && report.created_at <= filters.endDate + 'T23:59:59');
+      return technicianMatch && statusMatch && serviceNumberMatch && userClassMatch && dateFromMatch && dateToMatch;
+    });
+  }, [reports, filters]);
 
   // TESTE ISOLADO: Buscar apenas os report_checklist_items sem join
   React.useEffect(() => {
@@ -684,12 +664,13 @@ const ReportValidation = () => {
     exportToCSV(checklistRows, `relatorios_checklist_${startDate}_a_${endDate}`);
   }
 
+  // Use filteredReports para paginação
   const {
     visibleItems: paginatedReports,
     hasMore: hasMoreReports,
     showMore: showMoreReports,
     reset: resetReports
-  } = usePagination(reports, 10, 10);
+  } = usePagination(filteredReports, 10, 10);
 
   if (isLoading) {
     return <div>Carregando...</div>;
@@ -840,6 +821,10 @@ const ReportValidation = () => {
                 r.technician_id === report.assigned_to &&
                 r.id !== report.id
               );
+              // NOVO: Verifica se já foi validado em algum momento
+              const hasBeenValidated = Array.isArray(activities[report.id]) && activities[report.id].some(a => a.action === "validado");
+              // NOVO: Verifica se já foi adequado em algum momento
+              const hasBeenAdequado = Array.isArray(activities[report.id]) && activities[report.id].some(a => a.action === "em_adequacao");
 
               return (
                 <Card key={report.id} className="shadow-sm">
@@ -847,16 +832,18 @@ const ReportValidation = () => {
                     <CollapsibleTrigger className="w-full">
                       <CardHeader className="cursor-pointer hover:bg-gray-50 transition-colors">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
+                          <div className="flex flex-col items-start gap-1">
                             <div className="flex items-center gap-2">
                               <span className="font-mono font-medium text-primary">
                                 Nº {reportSequenceMap[report.id]}
                               </span>
-                              <span className="text-lg font-semibold">{report.title}</span>
-                            </div>
+                              <span className="text-lg font-semibold">
+                                Nº do Serviço: {report.numero_servico || 'N/A'} | Enviado por: {report.technician?.name || 'N/A'}
+                              </span>
                             <Badge className={getStatusColor(report.status)}>
                               {getStatusLabel(report.status)}
                             </Badge>
+                            </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-sm text-gray-500">
@@ -1104,7 +1091,7 @@ const ReportValidation = () => {
                             <Button
                               onClick={() => handleStatusUpdate(report.id, 'validado')}
                               className="bg-green-500 hover:bg-green-600 text-white"
-                              disabled={updateStatusMutation.isPending || isFaturado}
+                              disabled={updateStatusMutation.isPending || isFaturado || hasBeenValidated}
                             >
                               <CheckCircle className="w-4 h-4 mr-2" />
                               Validar
@@ -1112,7 +1099,7 @@ const ReportValidation = () => {
 
                             <Dialog>
                               <DialogTrigger asChild>
-                                <Button className="bg-pink-500 hover:bg-pink-600 text-white" disabled={isFaturado}>
+                                <Button className="bg-pink-500 hover:bg-pink-600 text-white" disabled={isFaturado || !hasBeenValidated || hasBeenAdequado}>
                                   <AlertTriangle className="w-4 h-4 mr-2" />
                                   Adequar
                                 </Button>
@@ -1168,7 +1155,7 @@ const ReportValidation = () => {
                                 setPendingNotes('');
                               }}
                               className="bg-orange-500 hover:bg-orange-600 text-white"
-                              disabled={updateStatusMutation.isPending || isFaturado}
+                              disabled={updateStatusMutation.isPending || isFaturado || !hasBeenValidated}
                             >
                               <AlertTriangle className="w-4 h-4 mr-2" />
                               Pendenciar
@@ -1177,7 +1164,7 @@ const ReportValidation = () => {
                             <Button
                               onClick={() => handleStatusUpdate(report.id, 'sem_pendencia')}
                               className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                              disabled={updateStatusMutation.isPending || isFaturado || String(report.status) === 'sem_pendencia'}
+                              disabled={updateStatusMutation.isPending || isFaturado || String(report.status) === 'sem_pendencia' || !hasBeenValidated}
                             >
                               <CheckCircle className="w-4 h-4 mr-2" />
                               Sem pendência
@@ -1186,7 +1173,7 @@ const ReportValidation = () => {
                             <Button
                               onClick={() => handleStatusUpdate(report.id, 'faturado')}
                               className="bg-blue-500 hover:bg-blue-600 text-white"
-                              disabled={updateStatusMutation.isPending || isFaturado}
+                              disabled={updateStatusMutation.isPending || isFaturado || !hasBeenValidated}
                             >
                               <DollarSign className="w-4 h-4 mr-2" />
                               Faturar
@@ -1218,7 +1205,7 @@ const ReportValidation = () => {
                         <SheetHeader>
                           <SheetTitle>Histórico do Relatório</SheetTitle>
                         </SheetHeader>
-                        <div className="space-y-4 mt-6">
+                        <div className="space-y-4 mt-6 max-h-[60vh] overflow-y-auto pr-2">
                           {loadingActivities[report.id] && <div>Carregando...</div>}
                           {activities[report.id] && activities[report.id].length === 0 && <div>Nenhuma atividade encontrada.</div>}
                           {activities[report.id] && activities[report.id].map((activity) => (
@@ -1249,9 +1236,6 @@ const ReportValidation = () => {
                                                 v && v.url ? (
                                                   <span key={i}>
                                                     <a href={v.url} target="_blank" rel="noopener noreferrer">{v.name || v.url}</a>
-                                                    {v.type && v.type.startsWith('image/') && (
-                                                      <img src={v.url} alt={v.name} style={{ maxWidth: 80, display: 'inline', marginLeft: 8 }} />
-                                                    )}
                                                   </span>
                                                 ) : (
                                                   <span key={i}>{JSON.stringify(v)}</span>
@@ -1282,9 +1266,6 @@ const ReportValidation = () => {
                                       {activity.details.attachments.map((att, idx) => (
                                         <li key={idx}>
                                           <a href={att.url} target="_blank" rel="noopener noreferrer">{att.name || att.url}</a>
-                                          {att.type && att.type.startsWith('image/') && (
-                                            <img src={att.url} alt={att.name} style={{ maxWidth: 80, display: 'inline', marginLeft: 8 }} />
-                                          )}
                                         </li>
                                       ))}
                                     </ul>

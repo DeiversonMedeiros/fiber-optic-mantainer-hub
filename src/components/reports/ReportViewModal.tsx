@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { OptimizedImage, ThumbnailImage, FullImage } from '@/components/ui/OptimizedImage';
+import { supabase } from "@/integrations/supabase/client";
 
 interface ReportViewModalProps {
   report: any | null;
@@ -12,31 +13,47 @@ interface ReportViewModalProps {
 const ReportViewModal: React.FC<ReportViewModalProps> = ({ report, open, onClose }) => {
   if (!report) return null;
 
+  // Log para depuração
+  console.log("Report recebido no modal:", report);
+
   // Estado para imagem ampliada
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
 
-  console.log("Attachments:", report.attachments, "First item:", report.attachments?.[0]);
-  if (Array.isArray(report.attachments)) {
-    console.log("First attachment type:", typeof report.attachments[0], "Value:", report.attachments[0]);
-  }
+  // Estado para o template
+  const [template, setTemplate] = useState<any>(report.template || null);
+
+  // Buscar template se não vier no report
+  useEffect(() => {
+    async function fetchTemplate() {
+      if (!report.template_id) return;
+      const { data, error } = await supabase
+        .from("report_templates")
+        .select("*")
+        .eq("id", report.template_id)
+        .single();
+      if (!error && data) setTemplate(data);
+    }
+    if (!report.template && report.template_id) {
+      fetchTemplate();
+    } else if (report.template) {
+      setTemplate(report.template);
+    }
+  }, [report]);
 
   let images: string[] = [];
   if (Array.isArray(report.attachments)) {
-    // Extrair a propriedade url de cada objeto
     images = report.attachments
       .map((item: any) => (item && typeof item === "object" && item.url ? item.url : null))
       .filter(Boolean);
   } else if (report.attachments && typeof report.attachments === "object" && Array.isArray(report.attachments.images)) {
     images = report.attachments.images;
   } else if (typeof report.attachments === "string") {
-    // Se for uma string, pode ser uma URL única ou um JSON stringificado
     try {
       const parsed = JSON.parse(report.attachments);
       if (Array.isArray(parsed)) images = parsed;
       else if (parsed && Array.isArray(parsed.images)) images = parsed.images;
       else if (typeof parsed === "string") images = [parsed];
     } catch {
-      // Se não for JSON, pode ser uma URL única
       images = [report.attachments];
     }
   }
@@ -54,6 +71,22 @@ const ReportViewModal: React.FC<ReportViewModalProps> = ({ report, open, onClose
             <div><strong>Data:</strong> {new Date(report.created_at).toLocaleString("pt-BR")}</div>
             <div><strong>Técnico:</strong> {report.technician?.name || "-"}</div>
             <div><strong>Descrição:</strong> {report.description}</div>
+            {/* Campos dinâmicos do relatório */}
+            {report.form_data && Array.isArray(template?.fields) && template.fields.length > 0 && (
+              <div>
+                <strong>Campos do Relatório:</strong>
+                <div className="space-y-1 mt-1">
+                  {template.fields.map((field: any, idx: number) => (
+                    <div key={idx}>
+                      <span className="font-medium">{field.label || field.name}:</span>{" "}
+                      {Array.isArray(report.form_data[field.id || field.name])
+                        ? report.form_data[field.id || field.name].join(", ")
+                        : String(report.form_data[field.id || field.name] ?? "-")}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {images.length > 0 && (
               <div>
                 <strong>Imagens:</strong>

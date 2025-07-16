@@ -108,7 +108,7 @@ const PreventiveSchedule = () => {
 
   // Buscar cronograma
   const { data: schedules = [], isLoading } = useQuery({
-    queryKey: ['preventive-schedule', filters],
+    queryKey: ['preventive-schedule'],
     queryFn: async () => {
       let query = supabase
         .from('preventive_schedule')
@@ -118,32 +118,28 @@ const PreventiveSchedule = () => {
         `)
         .order('scheduled_year', { ascending: false })
         .order('scheduled_month', { ascending: false });
-
-      if (filters.cableNumber) {
-        query = query.ilike('cable_number', `%${filters.cableNumber}%`);
-      }
-      if (filters.clientSite) {
-        query = query.ilike('client_site', `%${filters.clientSite}%`);
-      }
-      if (filters.month) {
-        query = query.eq('scheduled_month', parseInt(filters.month));
-      }
-      if (filters.year) {
-        query = query.eq('scheduled_year', parseInt(filters.year));
-      }
-      if (filters.status && filters.status !== 'all') {
-        if (filters.status === 'concluido') {
-          query = query.eq('is_completed', true);
-        } else if (filters.status === 'pendente') {
-          query = query.eq('is_completed', false);
-        }
-      }
-
+      // (Opcional: filtros pesados, como datas)
       const { data, error } = await query;
       if (error) throw error;
       return data || [];
     }
   });
+
+  // Filtro local igual ao RisksManagement
+  const filteredSchedules = useMemo(() => {
+    return schedules.filter(item => {
+      const cableNumberMatch = !filters.cableNumber || (item.cable_number && item.cable_number.toLowerCase().includes(filters.cableNumber.toLowerCase()));
+      const clientSiteMatch = !filters.clientSite || (item.client_site && item.client_site.toLowerCase().includes(filters.clientSite.toLowerCase()));
+      const monthMatch = !filters.month || item.scheduled_month === parseInt(filters.month);
+      const yearMatch = !filters.year || item.scheduled_year === parseInt(filters.year);
+      const statusMatch = filters.status === 'all' ||
+        (filters.status === 'concluido' && item.is_completed) ||
+        (filters.status === 'pendente' && !item.is_completed);
+      const dateFromMatch = !filters.dateFrom || (item.created_at && item.created_at >= filters.dateFrom);
+      const dateToMatch = !filters.dateTo || (item.created_at && item.created_at <= filters.dateTo + 'T23:59:59');
+      return cableNumberMatch && clientSiteMatch && monthMatch && yearMatch && statusMatch && dateFromMatch && dateToMatch;
+    });
+  }, [schedules, filters]);
 
   // Buscar inspetores
   const { data: inspectors = [] } = useQuery({
@@ -184,12 +180,13 @@ const PreventiveSchedule = () => {
     return counts;
   }, [inspectionReports]);
 
+  // Use filteredSchedules no lugar de schedules para paginação
   const {
     visibleItems: paginatedSchedules,
     hasMore: hasMoreSchedules,
     showMore: showMoreSchedules,
     reset: resetSchedules
-  } = usePagination(schedules, 10, 10);
+  } = usePagination(filteredSchedules, 10, 10);
 
   // Criar/Editar cronograma
   const mutation = useMutation({
@@ -309,8 +306,9 @@ const PreventiveSchedule = () => {
     return months.find(m => m.value === month)?.label || month.toString();
   };
 
+  // Use filteredSchedules no exportToExcel e handleExportCsv
   const exportToExcel = () => {
-    const exportData = schedules.map(schedule => ({
+    const exportData = filteredSchedules.map(schedule => ({
       'Nº Cabo': schedule.cable_number,
       'Cliente/Site': schedule.client_site,
       'Mês': getMonthName(schedule.scheduled_month),
@@ -442,24 +440,17 @@ const PreventiveSchedule = () => {
       return;
     }
     // Filtrar os cronogramas conforme os filtros atuais da tela
-    const filteredSchedules = (schedules as any[]).filter((item) => {
-      const cableNumberMatch = !filters.cableNumber || (item.cable_number && item.cable_number.toLowerCase().includes(filters.cableNumber.toLowerCase()));
-      const clientSiteMatch = !filters.clientSite || (item.client_site && item.client_site.toLowerCase().includes(filters.clientSite.toLowerCase()));
-      const monthMatch = !filters.month || item.scheduled_month === parseInt(filters.month);
-      const yearMatch = !filters.year || item.scheduled_year === parseInt(filters.year);
-      const statusMatch = filters.status === 'all' ||
-        (filters.status === 'concluido' && item.is_completed) ||
-        (filters.status === 'pendente' && !item.is_completed);
+    const filteredForExport = filteredSchedules.filter((item) => {
       const dateFromMatch = !filters.dateFrom || (item.created_at && item.created_at >= filters.dateFrom);
       const dateToMatch = !filters.dateTo || (item.created_at && item.created_at <= filters.dateTo + 'T23:59:59');
-      return cableNumberMatch && clientSiteMatch && monthMatch && yearMatch && statusMatch && dateFromMatch && dateToMatch;
+      return dateFromMatch && dateToMatch;
     });
-    if (!filteredSchedules || filteredSchedules.length === 0) {
+    if (!filteredForExport || filteredForExport.length === 0) {
       toast({ title: "Nenhum cronograma encontrado no período selecionado.", variant: "destructive" });
       return;
     }
     // Mapeia para substituir o inspector_id pelo nome do vistoriador e converte objetos/arrays para string JSON
-    const exportData = filteredSchedules.map((item) => {
+    const exportData = filteredForExport.map((item) => {
       const { inspector_id, inspector, ...rest } = item;
       // Converta objetos/arrays para string JSON
       const safeRest = Object.fromEntries(
@@ -572,7 +563,7 @@ const PreventiveSchedule = () => {
               Adicionar Cronograma
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingItem ? 'Editar Cronograma' : 'Adicionar Cronograma'}

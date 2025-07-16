@@ -403,6 +403,10 @@ const RisksManagement = () => {
     reset: resetReports
   } = usePagination(filteredReports, 10, 10);
 
+  // Novo estado para modal de confirmação de cancelamento
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [riskToCancel, setRiskToCancel] = useState<any | null>(null);
+
   if (isLoading) {
     return <div>Carregando riscos...</div>;
   }
@@ -574,15 +578,23 @@ const RisksManagement = () => {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => { setSelectedReport(report); setAssignDialogOpen(true); }}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => { setSelectedReport(report); setAssignDialogOpen(true); }}
+                          disabled={report.status === 'concluido' || report.status === 'cancelado'}
+                        >
                           Direcionar
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => { setSelectedReport(report); setAssignDialogOpen(false); setShowDetailsDialog(true); }}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => { setSelectedReport(report); setAssignDialogOpen(false); setShowDetailsDialog(true); }}
+                        >
                           Ver Detalhes
                         </Button>
                         {report.status === 'concluido' && (
                           <Button size="sm" variant="secondary" onClick={async () => {
-                            // Buscar relatório final na tabela reports
                             const { data, error } = await supabase
                               .from('reports')
                               .select('*')
@@ -601,18 +613,39 @@ const RisksManagement = () => {
                           </Button>
                         )}
                         {report.status !== 'cancelado' && (
-                          <Button size="sm" variant="destructive" onClick={async () => {
-                            const { error } = await supabase.from('inspection_reports').update({ status: 'cancelado' }).eq('id', report.id);
-                            if (!error) {
-                              toast({ title: 'Relatório cancelado', description: 'O relatório foi cancelado com sucesso.' });
-                              setLocalReports(reports => reports.map(r => r.id === report.id ? { ...r, status: 'cancelado' } : r));
-                              setSelectedReport(r => r && r.id === report.id ? { ...r, status: 'cancelado' } : r);
-                              queryClient.invalidateQueries({ queryKey: ['all-inspection-reports-management'] });
-                            } else {
-                              toast({ title: 'Erro ao cancelar', description: error.message, variant: 'destructive' });
-                            }
-                          }}>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => {
+                              setRiskToCancel(report);
+                              setCancelDialogOpen(true);
+                            }}
+                            disabled={report.status === 'concluido'}
+                          >
                             Cancelar
+                          </Button>
+                        )}
+                        {report.status === 'cancelado' && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="bg-green-600 text-white hover:bg-green-700"
+                            onClick={async () => {
+                              const { error } = await supabase
+                                .from('inspection_reports')
+                                .update({ status: 'pendente' })
+                                .eq('id', report.id);
+                              if (!error) {
+                                toast({ title: 'Relatório reabilitado', description: 'O relatório foi reabilitado com sucesso.' });
+                                setLocalReports(reports => reports.map(r => r.id === report.id ? { ...r, status: 'pendente' } : r));
+                                setSelectedReport(r => r && r.id === report.id ? { ...r, status: 'pendente' } : r);
+                                queryClient.invalidateQueries({ queryKey: ['all-inspection-reports-management'] });
+                              } else {
+                                toast({ title: 'Erro ao reabilitar', description: error.message, variant: 'destructive' });
+                              }
+                            }}
+                          >
+                            Reabilitar
                           </Button>
                         )}
                       </div>
@@ -795,6 +828,45 @@ const RisksManagement = () => {
         open={showFinalReportModal}
         onClose={() => setShowFinalReportModal(false)}
       />
+
+      {/* Modal de confirmação de cancelamento */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar Risco</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            Tem certeza que deseja cancelar este risco?
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
+              Voltar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!riskToCancel) return;
+                const { error } = await supabase
+                  .from('inspection_reports')
+                  .update({ status: 'cancelado' })
+                  .eq('id', riskToCancel.id);
+                if (!error) {
+                  toast({ title: 'Risco cancelado', description: 'O risco foi cancelado com sucesso.' });
+                  setLocalReports(reports => reports.map(r => r.id === riskToCancel.id ? { ...r, status: 'cancelado' } : r));
+                  setSelectedReport(r => r && r.id === riskToCancel.id ? { ...r, status: 'cancelado' } : r);
+                  queryClient.invalidateQueries({ queryKey: ['all-inspection-reports-management'] });
+                } else {
+                  toast({ title: 'Erro ao cancelar', description: error.message, variant: 'destructive' });
+                }
+                setCancelDialogOpen(false);
+                setRiskToCancel(null);
+              }}
+            >
+              Confirmar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

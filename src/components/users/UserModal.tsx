@@ -109,6 +109,7 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
         // Montar payload sem campos nulos
         const updatePayload: any = {
           name: data.name,
+          username: data.username, // <-- Adicionado para garantir atualização do nome de usuário
           phone: data.phone,
           access_profile_id: data.accessProfileId || null,
         };
@@ -127,6 +128,19 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
         }
       } else {
         // Criar novo usuário usando Edge Function
+        if (!user) {
+          // Log do payload antes de enviar para create-user
+          console.log('Payload enviado para create-user:', {
+            email: data.email,
+            password: data.password,
+            name: data.name,
+            username: data.username,
+            phone: data.phone,
+            userClassId: data.userClassId,
+            accessProfileId: data.accessProfileId,
+            managerId: data.managerId
+          });
+        }
         const { data: result, error: createError } = await supabase.functions.invoke('create-user', {
           body: {
             email: data.email,

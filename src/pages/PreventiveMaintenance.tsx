@@ -35,7 +35,7 @@ const PreventiveMaintenance = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="schedule">
+        <TabsContent value="schedule" forceMount>
           <Card>
             <CardHeader>
               <CardTitle>Cronograma de Preventiva</CardTitle>

@@ -24,7 +24,9 @@ Deno.serve(async (req) => {
       }
     )
 
-    const { email, password, name, username, phone, userClassId, accessProfileId, managerId } = await req.json()
+    const { email, password, name, username, phone, userClassId, accessProfileId, managerId } = await req.json();
+
+    console.log('Dados recebidos na função create-user:', { email, password, name, username, phone, userClassId, accessProfileId, managerId });
 
     console.log('Creating user with email:', email)
 
@@ -47,6 +49,15 @@ Deno.serve(async (req) => {
 
     // Update the profile with additional data
     if (authData.user) {
+      console.log('ID do usuário criado:', authData.user.id);
+      console.log('Atualizando perfil com:', {
+        name,
+        username,
+        phone,
+        user_class_id: userClassId,
+        access_profile_id: accessProfileId,
+        manager_id: managerId
+      });
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
         .update({
@@ -60,13 +71,13 @@ Deno.serve(async (req) => {
         .eq('id', authData.user.id)
 
       if (profileError) {
-        console.error('Profile update error:', profileError)
-        throw profileError
+        console.error('Erro ao atualizar perfil:', profileError);
+        throw profileError;
       }
-
-      console.log('Profile updated successfully')
+      console.log('Perfil atualizado com sucesso para o usuário:', authData.user.id);
     }
 
+    console.log('Retornando usuário:', authData.user);
     return new Response(
       JSON.stringify({ success: true, user: authData.user }),
       {

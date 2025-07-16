@@ -66,7 +66,7 @@ const MaterialControl = () => {
   const [dateTo, setDateTo] = useState("");
 
   const { data: userMaterials = [], isLoading } = useQuery({
-    queryKey: ['user-materials', technicianFilter, userClassFilter, serviceNumberFilter],
+    queryKey: ['user-materials'],
     queryFn: async () => {
       // Buscar todos os relatórios
       let reportsQuery = supabase
@@ -230,6 +230,17 @@ const MaterialControl = () => {
     return map;
   }, [userMaterials]);
 
+  // Filtro local
+  const filteredUserMaterials = useMemo(() => {
+    return userMaterials.filter(userData => {
+      const technicianMatch = !technicianFilter || (userData.user.name && userData.user.name.toLowerCase().includes(technicianFilter.toLowerCase()));
+      const userClassMatch = userClassFilter === 'all' || (userData.user.user_class && userData.user.user_class.name === userClassFilter);
+      const serviceNumberMatch = !serviceNumberFilter || userData.materials.some(mat => mat.id && mat.id.toLowerCase().includes(serviceNumberFilter.toLowerCase()));
+      // Filtro por código da SA (já aplicado depois, mas pode ser incluído aqui se preferir)
+      return technicianMatch && userClassMatch && serviceNumberMatch;
+    });
+  }, [userMaterials, technicianFilter, userClassFilter, serviceNumberFilter]);
+
   const toggleUserExpansion = (userId: string) => {
     const newExpanded = new Set(expandedUsers);
     if (newExpanded.has(userId)) {
@@ -299,9 +310,9 @@ const MaterialControl = () => {
   };
 
   // Filtro por código da SA
-  const filteredUserMaterials = saCodeFilter.trim() === ""
-    ? userMaterials
-    : userMaterials.filter(userData =>
+  const filteredUserMaterialsForSA = saCodeFilter.trim() === ""
+    ? filteredUserMaterials
+    : filteredUserMaterials.filter(userData =>
         userData.adjustments.some(adj => adj.sa_code && adj.sa_code.toString().includes(saCodeFilter.trim()))
       );
 
@@ -409,7 +420,7 @@ const MaterialControl = () => {
         </div>
 
         <div className="space-y-4">
-          {filteredUserMaterials.map((userData) => {
+          {filteredUserMaterialsForSA.map((userData) => {
             console.log('Entrou no map de userMaterials para usuário:', userData.user?.name || userData.user?.id);
             const sortedAdjustments = [...userData.adjustments].sort(
               (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()

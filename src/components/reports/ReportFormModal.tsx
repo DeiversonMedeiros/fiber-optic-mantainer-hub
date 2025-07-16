@@ -296,28 +296,31 @@ const ReportFormModal = ({ isOpen, onClose, templateId, scheduleId, onSuccess, p
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('📁 handleFileChange chamado');
     let files = e.target.files ? Array.from(e.target.files) : [];
-    console.log('📁 Arquivos selecionados:', files);
-    
-    // Validar arquivos usando o novo sistema
-    const validation = validateFiles(files);
-    if (!validation.valid) {
-      toast({
-        title: "Erro de validação",
-        description: validation.error,
-        variant: "destructive",
-      });
-      return;
-    }
-    
     // Filtrar apenas imagens
     files = files.filter(file => file.type.startsWith('image/'));
-    console.log('📁 Arquivos após filtro de imagem:', files);
-    
-    console.log('📁 Arquivos finais para upload:', files);
-    setFilesToUpload(files);
-    handleFieldChange('upload', files);
+
+    setFilesToUpload(prev => {
+      const total = prev.length + files.length;
+      if (total > MAX_FILES) {
+        toast({
+          title: "Limite de arquivos",
+          description: `Você pode enviar no máximo ${MAX_FILES} imagens.`,
+          variant: "destructive",
+        });
+        // Não adiciona os novos arquivos se exceder o limite
+        return prev;
+      }
+      // Evitar arquivos duplicados pelo nome
+      const prevNames = new Set(prev.map(f => f.name));
+      const newFiles = files.filter(f => !prevNames.has(f.name));
+      return [...prev, ...newFiles];
+    });
+  };
+
+  // Adicione a função de remoção de arquivo
+  const handleRemoveFile = (fileName: string) => {
+    setFilesToUpload(prev => prev.filter(file => file.name !== fileName));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -505,6 +508,14 @@ const ReportFormModal = ({ isOpen, onClose, templateId, scheduleId, onSuccess, p
                       thumbnailSize={100}
                     />
                     <p className="text-xs text-gray-500 mt-1 truncate">{file.name}</p>
+                    <button
+                      type="button"
+                      className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 hover:bg-red-100"
+                      onClick={() => handleRemoveFile(file.name)}
+                      title="Remover"
+                    >
+                      <span className="text-red-500 font-bold text-lg">×</span>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -641,7 +652,7 @@ const ReportFormModal = ({ isOpen, onClose, templateId, scheduleId, onSuccess, p
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={createReportMutation.isPending}>
+            <Button type="submit" disabled={createReportMutation.isPending || uploading}>
               Criar Relatório
             </Button>
           </div>
