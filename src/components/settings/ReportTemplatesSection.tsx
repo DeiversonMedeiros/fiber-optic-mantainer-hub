@@ -92,7 +92,7 @@ const ReportTemplatesSection = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
-                <TableHead>Descrição</TableHead>
+                <TableHead>FCA</TableHead>
                 <TableHead>Classe Vinculada</TableHead>
                 <TableHead>Checklist Habilitado</TableHead>
                 <TableHead>Campos</TableHead>

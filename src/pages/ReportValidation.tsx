@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,6 @@ import { ChecklistFormSection } from '@/components/reports/ChecklistFormSection'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { ThumbnailImage, FullImage } from '@/components/ui/OptimizedImage';
-import { useEffect } from "react";
 import { exportToCSV } from "@/utils/csvExport";
 import { usePagination } from "@/hooks/usePagination";
 
@@ -75,6 +74,7 @@ const ReportValidation = () => {
   // Adicionar estado para map de nomes de usuários
   const [userNames, setUserNames] = useState<Record<string, string>>({});
   const [assignedNames, setAssignedNames] = useState<Record<string, string>>({});
+  const [managerNames, setManagerNames] = useState<Record<string, string>>({});
 
   async function fetchActivities(reportId: string) {
     console.log('🔍 [fetchActivities] Buscando activities para reportId:', reportId);
@@ -120,6 +120,7 @@ const ReportValidation = () => {
           pending_notes,
           technician:profiles!technician_id(name, user_class:user_classes(id, name)),
           template:report_templates(*)
+          // manager:profiles!manager_id(name) // Removido para evitar erro 400
         `)
         .neq('template_id', '4b45c601-e5b7-4a33-98f9-1769aad319e9');
       // (Opcional: filtros pesados, como datas)
@@ -521,6 +522,28 @@ const ReportValidation = () => {
     });
   }, [expandedCards, reports]);
 
+  // Buscar nomes dos gestores caso não venham populados
+  useEffect(() => {
+    if (!reports || reports.length === 0) return;
+    const missingManagerIds = Array.from(new Set(
+      reports
+        .filter((r: any) => r.manager_id && (!r.manager || !r.manager.name))
+        .map((r: any) => r.manager_id)
+    ));
+    if (missingManagerIds.length === 0) return;
+    (async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .in('id', missingManagerIds);
+      if (!error && data) {
+        const map: Record<string, string> = {};
+        data.forEach((p: any) => { map[p.id] = p.name; });
+        setManagerNames((prev) => ({ ...prev, ...map }));
+      }
+    })();
+  }, [reports]);
+
   // [ADICIONAR] Montar lista de checklist para edição
   const reportChecklistMap = React.useMemo(() => {
     if (!reportToEdit || !Array.isArray(allChecklistItems)) return [];
@@ -865,7 +888,8 @@ const ReportValidation = () => {
                               <div className="space-y-2 text-sm">
                                 <div><span className="font-medium">Número do Serviço:</span> {report.numero_servico || 'N/A'}</div>
                                 <div><span className="font-medium">Título:</span> {report.title}</div>
-                                <div><span className="font-medium">Descrição:</span> {report.description}</div>
+                                <div><span className="font-medium">FCA:</span> {report.description}</div>
+                                <div><span className="font-medium">Gestor:</span> {report.manager?.name || managerNames[report.manager_id] || '-'}</div>
                                 <div><span className="font-medium">Tipo de Manutenção:</span> N/A</div>
                                 {(() => {
                                   const adequacaoActivity = activities[report.id]?.find(a => a.action === "em_adequacao");

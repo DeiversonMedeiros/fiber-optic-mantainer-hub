@@ -40,6 +40,28 @@ const ReportViewModal: React.FC<ReportViewModalProps> = ({ report, open, onClose
     }
   }, [report]);
 
+  const [managerName, setManagerName] = useState<string>("");
+
+  useEffect(() => {
+    async function fetchManager() {
+      if (report && report.manager_id) {
+        // Se já vier populado
+        if (report.manager && report.manager.name) {
+          setManagerName(report.manager.name);
+          return;
+        }
+        // Buscar do supabase
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", report.manager_id)
+          .single();
+        if (!error && data) setManagerName(data.name);
+      }
+    }
+    fetchManager();
+  }, [report]);
+
   let images: string[] = [];
   if (Array.isArray(report.attachments)) {
     images = report.attachments
@@ -70,7 +92,8 @@ const ReportViewModal: React.FC<ReportViewModalProps> = ({ report, open, onClose
             <div><strong>Status:</strong> <Badge>{report.status}</Badge></div>
             <div><strong>Data:</strong> {new Date(report.created_at).toLocaleString("pt-BR")}</div>
             <div><strong>Técnico:</strong> {report.technician?.name || "-"}</div>
-            <div><strong>Descrição:</strong> {report.description}</div>
+            <div><strong>Gestor:</strong> {managerName || "-"}</div>
+            <div><strong>FCA:</strong> {report.description}</div>
             {/* Campos dinâmicos do relatório */}
             {report.form_data && Array.isArray(template?.fields) && template.fields.length > 0 && (
               <div>

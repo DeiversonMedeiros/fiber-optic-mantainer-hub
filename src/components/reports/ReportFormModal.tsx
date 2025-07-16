@@ -30,6 +30,10 @@ const STORAGE_BUCKET = 'report-attachments';
 const MAX_FILES = 10;
 const MAX_FILE_SIZE_MB = 10;
 
+// IDs dos perfis de gestor
+const GESTOR_PROFILE_ID = '8e720f2f-a69e-4660-8f6e-e8601892dda7';
+const GESTOR_PREVENTIVA_PROFILE_ID = '93fa8f08-9666-4f96-bee7-c378398cfd76';
+
 async function uploadFiles(files: File[], userId: string) {
   console.log('🚀 uploadFiles iniciado com:', files.length, 'arquivos');
   const uploaded = [];
@@ -69,6 +73,8 @@ const ReportFormModal = ({ isOpen, onClose, templateId, scheduleId, onSuccess, p
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [numeroServico, setNumeroServico] = useState('');
+  const [managers, setManagers] = useState<any[]>([]);
+  const [managerId, setManagerId] = useState('');
 
   // Usar o hook de upload otimizado
   const {
@@ -147,6 +153,23 @@ const ReportFormModal = ({ isOpen, onClose, templateId, scheduleId, onSuccess, p
     }
   }, [template]);
 
+  // Buscar gestores ao abrir o modal
+  useEffect(() => {
+    if (!isOpen) return;
+    async function fetchManagers() {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .in('access_profile_id', [GESTOR_PROFILE_ID, GESTOR_PREVENTIVA_PROFILE_ID])
+        .eq('is_active', true);
+      if (!error && data) setManagers(data);
+    }
+    fetchManagers();
+  }, [isOpen]);
+
+  // Adicione log para depuração
+  console.log('Gestores carregados:', managers);
+
   const createReportMutation = useMutation({
     mutationFn: async (reportData: any) => {
       console.log('🗄️ createReportMutation iniciada');
@@ -163,7 +186,8 @@ const ReportFormModal = ({ isOpen, onClose, templateId, scheduleId, onSuccess, p
         attachments: Array.isArray(reportData.attachments) ? reportData.attachments : [],
           status: 'nao_validado' as const,
           schedule_id: typeof scheduleId === 'string' ? scheduleId : null,
-          parent_report_id: reportData.parent_report_id ?? parentReportId ?? null // <-- garantir preenchimento
+          parent_report_id: reportData.parent_report_id ?? parentReportId ?? null, // <-- garantir preenchimento
+          manager_id: reportData.manager_id // <-- incluir gestor
       };
       console.log('Payload para insert:', payload);
       console.log('🗄️ Attachments no payload:', payload.attachments);
@@ -256,6 +280,7 @@ const ReportFormModal = ({ isOpen, onClose, templateId, scheduleId, onSuccess, p
     setTitle('');
     setDescription('');
     setFilesToUpload([]); // Resetar arquivos selecionados
+    setManagerId(''); // Resetar gestor selecionado
   };
 
   const handleFieldChange = (fieldId: string, value: any) => {
@@ -332,10 +357,10 @@ const ReportFormModal = ({ isOpen, onClose, templateId, scheduleId, onSuccess, p
     console.log('📝 FormData:', formData);
     console.log('📝 FilesToUpload:', filesToUpload);
     
-    if (!title.trim() || !description.trim() || !numeroServico.trim() || !/^[0-9]+$/.test(numeroServico)) {
+    if (!title.trim() || !description.trim() || !numeroServico.trim() || !/^[0-9]+$/.test(numeroServico) || !managerId) {
       toast({
         title: "Campos obrigatórios",
-        description: "Preencha todos os campos obrigatórios, incluindo o Número do Serviço (apenas números).",
+        description: "Preencha todos os campos obrigatórios, incluindo o Gestor.",
         variant: "destructive",
       });
       return;
@@ -369,7 +394,8 @@ const ReportFormModal = ({ isOpen, onClose, templateId, scheduleId, onSuccess, p
       formData: newFormData,
       checklistData,
       attachments: uploadedFiles,
-      parent_report_id: parentReportId ?? null // <-- garantir passagem
+      parent_report_id: parentReportId ?? null,
+      manager_id: managerId // <-- incluir gestor
     };
     
     console.log('📤 Enviando dados do relatório:', reportData);
@@ -566,26 +592,42 @@ const ReportFormModal = ({ isOpen, onClose, templateId, scheduleId, onSuccess, p
             </CardHeader>
             <CardContent>
               <div className="flex flex-col gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Título *</Label>
-              <Input
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Título do relatório"
-                required
-              />
-            </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Descrição *</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Descrição do relatório"
-              required
-            />
-          </div>
+                <div className="space-y-2">
+                  <Label htmlFor="title">Título *</Label>
+                  <Input
+                    id="title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Título do relatório"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">FCA *</Label>
+                  <Textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="FCA do relatório"
+                    required
+                  />
+                </div>
+                {/* Dropdown de Gestor */}
+                <div className="space-y-2">
+                  <Label htmlFor="manager">Gestor *</Label>
+                  <Select value={managerId} onValueChange={setManagerId} required>
+                    <SelectTrigger id="manager">
+                      <SelectValue placeholder="Selecione o gestor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {managers.map((manager) => (
+                        <SelectItem key={manager.id} value={manager.id}>
+                          {manager.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="numero-servico">Número do Serviço *</Label>
                   <Input

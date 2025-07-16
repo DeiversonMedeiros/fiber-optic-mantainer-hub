@@ -267,12 +267,12 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Descrição</Label>
+            <Label htmlFor="description">FCA</Label>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Digite uma descrição para o template"
+              placeholder="Digite uma FCA para o template"
               rows={2}
             />
           </div>
