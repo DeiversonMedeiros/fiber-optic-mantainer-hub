@@ -120,7 +120,6 @@ const ReportValidation = () => {
           pending_notes,
           technician:profiles!technician_id(name, user_class:user_classes(id, name)),
           template:report_templates(*)
-          // manager:profiles!manager_id(name) // Removido para evitar erro 400
         `)
         .neq('template_id', '4b45c601-e5b7-4a33-98f9-1769aad319e9');
       // (Opcional: filtros pesados, como datas)
@@ -719,7 +718,7 @@ const ReportValidation = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8 space-y-6">
         
         {/* Filtros */}
         <Card>
@@ -738,7 +737,7 @@ const ReportValidation = () => {
                     value={filters.technician} 
                     onValueChange={(value) => setFilters(prev => ({...prev, technician: value}))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full" >
                       <SelectValue placeholder="Técnico" />
                     </SelectTrigger>
                     <SelectContent>
@@ -850,7 +849,7 @@ const ReportValidation = () => {
               const hasBeenAdequado = Array.isArray(activities[report.id]) && activities[report.id].some(a => a.action === "em_adequacao");
 
               return (
-                <Card key={report.id} className="shadow-sm">
+                <Card key={report.id} className="shadow-sm break-words">
                   <Collapsible open={expandedCards.has(report.id)} onOpenChange={() => toggleCardExpansion(report.id)}>
                     <CollapsibleTrigger className="w-full">
                       <CardHeader className="cursor-pointer hover:bg-gray-50 transition-colors">
@@ -885,7 +884,7 @@ const ReportValidation = () => {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                               <h4 className="font-semibold text-gray-900 mb-2">Informações Gerais</h4>
-                              <div className="space-y-2 text-sm">
+                              <div className="space-y-2 text-sm break-words whitespace-normal">
                                 <div><span className="font-medium">Número do Serviço:</span> {report.numero_servico || 'N/A'}</div>
                                 <div><span className="font-medium">Título:</span> {report.title}</div>
                                 <div><span className="font-medium">FCA:</span> {report.description}</div>
@@ -944,7 +943,7 @@ const ReportValidation = () => {
                                     <ThumbnailImage
                                       src={attachment?.url || ''} 
                                       alt={`Anexo ${index + 1}`}
-                                      className="w-full h-24 rounded-lg"
+                                      className="w-full h-24 rounded-lg object-cover"
                                       onClick={() => {
                                         // Abrir modal com imagem completa
                                         const dialog = document.createElement('dialog');
@@ -1217,10 +1216,10 @@ const ReportValidation = () => {
                       </CardContent>
                     </CollapsibleContent>
                   </Collapsible>
-                  <div className="flex justify-end items-center pt-4 border-t">
+                  <div className="flex flex-col sm:flex-row justify-end items-stretch sm:items-center pt-4 border-t gap-2">
                     <Sheet>
                       <SheetTrigger asChild>
-                        <Button variant="outline" onClick={() => fetchActivities(report.id)}>
+                        <Button variant="outline" className="min-w-[44px] min-h-[44px] w-full sm:w-auto" onClick={() => fetchActivities(report.id)}>
                           <History className="w-4 h-4 mr-2" />
                           Histórico
                         </Button>

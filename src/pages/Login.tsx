@@ -8,7 +8,7 @@ interface LoginProps {
 
 const Login = ({ onLogin }: LoginProps) => {
   return (
-    <div className="min-h-screen bg-fiber-gradient flex items-center justify-center p-4">
+    <div className="min-h-screen bg-fiber-gradient flex items-center justify-center px-2 py-4 relative overflow-hidden">
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute inset-0" style={{

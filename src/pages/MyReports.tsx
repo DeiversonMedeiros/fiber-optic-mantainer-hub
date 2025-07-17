@@ -172,7 +172,7 @@ const MyReports = () => {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       {/* Templates Disponíveis */}
       <Card>
         <CardHeader>
@@ -221,54 +221,57 @@ const MyReports = () => {
           <CardTitle>Relatórios de Campo</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nº</TableHead>
-                <TableHead>Título</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Número do Serviço</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Técnico</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedReports.length > 0 ? (
-                paginatedReports.map((report) => (
-                    <TableRow key={report.id}>
-                      <TableCell className="font-mono font-medium text-primary">
-                        {reportSequenceMap[report.id]}
-                      </TableCell>
-                      <TableCell>{report.title}</TableCell>
-                      <TableCell>{report.status}</TableCell>
-                      <TableCell>{report.numero_servico || '-'}</TableCell>
-                      <TableCell>{new Date(report.created_at).toLocaleDateString('pt-BR')}</TableCell>
-                      <TableCell>{report.technician?.name || '-'}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedReport(report);
-                            setIsViewModalOpen(true);
-                          }}
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          Visualizar
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-              ) : (
+          <div className="overflow-x-auto">
+            <Table className="min-w-full">
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-4">
-                    Nenhum relatório encontrado
-                  </TableCell>
+                  <TableHead>Nº</TableHead>
+                  <TableHead>Título</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Número do Serviço</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Técnico</TableHead>
+                  <TableHead>Ações</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {paginatedReports.length > 0 ? (
+                  paginatedReports.map((report) => (
+                      <TableRow key={report.id}>
+                        <TableCell className="font-mono font-medium text-primary">
+                          {reportSequenceMap[report.id]}
+                        </TableCell>
+                        <TableCell>{report.title}</TableCell>
+                        <TableCell>{report.status}</TableCell>
+                        <TableCell>{report.numero_servico || '-'}</TableCell>
+                        <TableCell>{new Date(report.created_at).toLocaleDateString('pt-BR')}</TableCell>
+                        <TableCell>{report.technician?.name || '-'}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full md:w-auto"
+                            onClick={() => {
+                              setSelectedReport(report);
+                              setIsViewModalOpen(true);
+                            }}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            Visualizar
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-4">
+                      Nenhum relatório encontrado
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
           {hasMoreReports && (
             <div className="flex justify-center mt-4">
               <Button onClick={showMoreReports} variant="outline">Ver mais</Button>

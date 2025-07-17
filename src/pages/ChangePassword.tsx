@@ -61,8 +61,8 @@ const ChangePassword = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-2 py-8">
+      <div className="w-full max-w-md p-4 sm:p-8 rounded-lg shadow bg-white/95 backdrop-blur">
         <Card className="shadow-2xl border-0">
           <CardHeader>
             <CardTitle className="text-2xl text-center">Alterar Senha</CardTitle>
@@ -95,7 +95,7 @@ const ChangePassword = () => {
                   disabled={isLoading}
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full min-h-[44px]" disabled={isLoading}>
                 {isLoading ? 'Salvando...' : 'Alterar Senha'}
               </Button>
             </form>

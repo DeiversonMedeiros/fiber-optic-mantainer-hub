@@ -332,8 +332,8 @@ const Vistoria = () => {
     const podeConcluir = relatoriosEnviados >= 1;
 
   return (
-      <Card key={schedule.id} className="shadow border">
-        <CardContent className="p-4 flex flex-col gap-4">
+      <Card key={schedule.id} className="shadow border w-full mb-2">
+        <CardContent className="p-2 sm:p-4 flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <FileText className="w-5 h-5 text-primary" />
@@ -368,7 +368,7 @@ const Vistoria = () => {
         key={att.url || idx}
         variant="outline"
         size="sm"
-        className="w-full flex items-center justify-center gap-2"
+        className="w-full min-w-[44px] min-h-[44px] flex items-center justify-center gap-2 break-words"
         onClick={() => handleDownloadAttachment(att)}
       >
         <Download className="w-4 h-4" />
@@ -394,7 +394,7 @@ const Vistoria = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="mt-2"
+                      className="mt-2 w-full min-w-[44px] min-h-[44]"
                       onClick={() => handleSaveObservations(schedule.id)}
                       disabled={updateObservationsMutation.isPending}
                     >
@@ -426,19 +426,19 @@ const Vistoria = () => {
             {!isCompleted && (
               <>
                     <Button
-                  className="w-full flex items-center justify-center gap-2"
+                      className="w-full min-w-[44px] min-h-[44] flex items-center justify-center gap-2"
                       onClick={() => {
                         setSelectedSchedule(schedule);
                         setReportModalOpen(true);
                       }}
                     >
-                  <AlertTriangle className="h-4 w-4 mr-2 text-yellow-600" />
-                  Enviar Formulário de Risco
+                      <AlertTriangle className="h-4 w-4 mr-2 text-yellow-600" />
+                      Enviar Formulário de Risco
                     </Button>
                 <AlertDialog open={confirmDialogOpen === schedule.id} onOpenChange={open => setConfirmDialogOpen(open ? schedule.id : null)}>
                   <AlertDialogTrigger asChild>
                     <Button
-                      className="w-full flex items-center justify-center gap-2"
+                      className="w-full min-w-[44px] min-h-[44] flex items-center justify-center gap-2"
                       variant="outline"
                       disabled={!podeConcluir || completeInspectionMutation.isPending}
                     >
@@ -494,7 +494,7 @@ const Vistoria = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-6">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 gap-2 text-xs md:text-sm mb-6">
           <TabsTrigger value="pending" className="flex items-center gap-2">
             <Clock className="w-4 h-4" />
             Vistorias Pendentes ({pendingSchedules.length})

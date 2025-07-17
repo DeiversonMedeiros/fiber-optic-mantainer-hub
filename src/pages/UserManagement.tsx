@@ -267,7 +267,7 @@ const UserManagement = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-8">
         {/* Filtros */}
         <Card className="mb-6">
           <CardHeader>
@@ -280,6 +280,7 @@ const UserManagement = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <Input
+                  className="w-full"
                   placeholder="Buscar por nome..."
                   value={filters.name}
                   onChange={(e) => setFilters(prev => ({ ...prev, name: e.target.value }))}
@@ -288,7 +289,7 @@ const UserManagement = () => {
               
               <div>
                 <Select value={filters.userClass} onValueChange={(value) => setFilters(prev => ({ ...prev, userClass: value }))}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Classe" />
                   </SelectTrigger>
                   <SelectContent>
@@ -304,7 +305,7 @@ const UserManagement = () => {
               
               <div>
                 <Select value={filters.accessProfile} onValueChange={(value) => setFilters(prev => ({ ...prev, accessProfile: value }))}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Perfil de Acesso" />
                   </SelectTrigger>
                   <SelectContent>
@@ -320,7 +321,7 @@ const UserManagement = () => {
               
               <div>
                 <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -343,67 +344,71 @@ const UserManagement = () => {
         {/* Tabela de Usuários */}
         <Card>
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome Completo</TableHead>
-                  <TableHead>Nome de Usuário</TableHead> {/* NOVO */}
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Classe</TableHead>
-                  <TableHead>Perfil de Acesso</TableHead>
-                  <TableHead>Gestor</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>{user.username || '-'}</TableCell> {/* NOVO */}
-                    <TableCell>{user.phone || '-'}</TableCell>
-                    <TableCell>{user.user_class_name || '-'}</TableCell>
-                    <TableCell>{user.access_profile_name || '-'}</TableCell>
-                    <TableCell>{user.manager_name || '-'}</TableCell>
-                    <TableCell>
-                      <Badge variant={user.is_active ? "default" : "secondary"}>
-                        {user.is_active ? "Ativo" : "Inativo"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(user)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleToggleStatus(user)}
-                          disabled={toggleUserStatusMutation.isPending}
-                        >
-                          {user.is_active ? (
-                            <Trash2 className="w-4 h-4" />
-                          ) : (
-                            <Plus className="w-4 h-4" />
-                          )}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {users.length === 0 && (
+            <div className="overflow-x-auto">
+              <Table className="min-w-full">
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-4">
-                      Nenhum usuário encontrado
-                    </TableCell>
+                    <TableHead>Nome Completo</TableHead>
+                    <TableHead>Nome de Usuário</TableHead> {/* NOVO */}
+                    <TableHead>Telefone</TableHead>
+                    <TableHead>Classe</TableHead>
+                    <TableHead>Perfil de Acesso</TableHead>
+                    <TableHead>Gestor</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.name}</TableCell>
+                      <TableCell>{user.username || '-'}</TableCell> {/* NOVO */}
+                      <TableCell>{user.phone || '-'}</TableCell>
+                      <TableCell>{user.user_class_name || '-'}</TableCell>
+                      <TableCell>{user.access_profile_name || '-'}</TableCell>
+                      <TableCell>{user.manager_name || '-'}</TableCell>
+                      <TableCell>
+                        <Badge variant={user.is_active ? "default" : "secondary"}>
+                          {user.is_active ? "Ativo" : "Inativo"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="min-w-[44px] min-h-[44px] self-center"
+                            onClick={() => handleEdit(user)}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="min-w-[44px] min-h-[44px] self-center"
+                            onClick={() => handleToggleStatus(user)}
+                            disabled={toggleUserStatusMutation.isPending}
+                          >
+                            {user.is_active ? (
+                              <Trash2 className="w-4 h-4" />
+                            ) : (
+                              <Plus className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {users.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-4">
+                        Nenhum usuário encontrado
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
 

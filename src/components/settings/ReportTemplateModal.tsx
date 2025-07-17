@@ -26,6 +26,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { v4 as uuidv4 } from 'uuid';
+import cloneDeep from 'lodash/cloneDeep';
 
 const FIELD_TYPES = {
   texto_curto: 'Texto Curto',
@@ -43,6 +45,21 @@ interface ReportTemplateModalProps {
   template?: any;
 }
 
+function FieldLogger({ field, children }: { field: any, children: React.ReactNode }) {
+  React.useEffect(() => {
+    console.log(`[MOUNT] Campo id=${field.id} | name=${field.name}`);
+    return () => {
+      console.log(`[UNMOUNT] Campo id=${field.id} | name=${field.name}`);
+    };
+  }, [field.id]);
+
+  React.useEffect(() => {
+    console.log(`[UPDATE] Campo id=${field.id} | name=${field.name}`);
+  }, [field.name, field.id]);
+
+  return <>{children}</>;
+}
+
 const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalProps) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -58,6 +75,28 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
   const [expandedFields, setExpandedFields] = useState<Set<string>>(new Set());
+  const [initialized, setInitialized] = useState(false);
+  const inputRefs = React.useRef<Record<string, HTMLInputElement | null> & { lastFocused?: string }>({});
+
+  useEffect(() => {
+    console.log('MONTADO ReportTemplateModal');
+    return () => {
+      console.log('DESMONTADO ReportTemplateModal');
+    };
+  }, []);
+
+  // Remover o useEffect de restauração de foco:
+  // React.useEffect(() => {
+  //   const last = inputRefs.current.lastFocused;
+  //   if (last && document.activeElement !== inputRefs.current[last]) {
+  //     inputRefs.current[last]?.focus();
+  //   }
+  // }, [fields]);
+
+  // LOG DE DIAGNÓSTICO DE REFERÊNCIA DO ARRAY DE FIELDS
+  console.log("FIELDS REF:", fields);
+
+  const fieldIds = React.useMemo(() => fields.map(f => f.id), [fields]);
 
   const { data: userClasses } = useQuery({
     queryKey: ['user-classes-for-template'],
@@ -73,25 +112,33 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
     }
   });
 
+  // useEffect de inicialização dos campos
   useEffect(() => {
-    if (template) {
-      setName(template.name);
-      setDescription(template.description || '');
-      setUserClassId(template.user_class_id || '');
-      setChecklistEnabled(template.checklist_enabled || false);
-      setChecklistClassId(template.checklist_class_id || '');
-      setFields(Array.isArray(template.fields) ? template.fields : []);
-      setNumeroServico(template.numero_servico || '');
-    } else {
-      setName('');
-      setDescription('');
-      setUserClassId('');
-      setChecklistEnabled(false);
-      setChecklistClassId('');
-      setFields([]);
-      setNumeroServico('');
+    if (isOpen && !initialized) {
+      if (template) {
+        setName(template.name);
+        setDescription(template.description || '');
+        setUserClassId(template.user_class_id || '');
+        setChecklistEnabled(template.checklist_enabled || false);
+        setChecklistClassId(template.checklist_class_id || '');
+        setFields(Array.isArray(template.fields) ? cloneDeep(template.fields) : []);
+        setNumeroServico(template.numero_servico || '');
+      } else {
+        setName('');
+        setDescription('');
+        setUserClassId('');
+        setChecklistEnabled(false);
+        setChecklistClassId('');
+        setFields([]);
+        setNumeroServico('');
+      }
+      setInitialized(true);
     }
-  }, [template]);
+  }, [isOpen, template?.id, initialized]);
+
+  useEffect(() => {
+    if (!isOpen) setInitialized(false);
+  }, [isOpen]);
 
   const mutation = useMutation({
     mutationFn: async (data: any) => {
@@ -127,7 +174,7 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
 
   const addField = () => {
     setFields([...fields, {
-      id: Date.now().toString(),
+      id: uuidv4(),
       name: '',
       type: 'texto_curto',
       label: '',
@@ -136,35 +183,48 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
     }]);
   };
 
-  const updateField = (index: number, key: string, value: any) => {
-    const newFields = [...fields];
-    newFields[index] = { ...newFields[index], [key]: value };
-    setFields(newFields);
+  const updateField = (id: string, key: string, value: any) => {
+    setFields(fields => fields.map(field =>
+      field.id === id ? { ...field, [key]: value } : field
+    ));
   };
 
-  const removeField = (index: number) => {
-    setFields(fields.filter((_, i) => i !== index));
+  const removeField = (id: string) => {
+    setFields(fields => fields.filter(field => field.id !== id));
   };
 
-  const addOption = (fieldIndex: number) => {
-    const newFields = [...fields];
-    if (!newFields[fieldIndex].options) {
-      newFields[fieldIndex].options = [];
-    }
-    newFields[fieldIndex].options.push('');
-    setFields(newFields);
+  const addOption = (fieldId: string) => {
+    setFields(fields => fields.map(field => {
+      if (field.id === fieldId) {
+        return {
+          ...field,
+          options: [...(field.options || []), '']
+        };
+      }
+      return field;
+    }));
   };
 
-  const updateOption = (fieldIndex: number, optionIndex: number, value: string) => {
-    const newFields = [...fields];
-    newFields[fieldIndex].options[optionIndex] = value;
-    setFields(newFields);
+  const updateOption = (fieldId: string, optionIndex: number, value: string) => {
+    setFields(fields => fields.map(field => {
+      if (field.id === fieldId) {
+        const newOptions = [...(field.options || [])];
+        newOptions[optionIndex] = value;
+        return { ...field, options: newOptions };
+      }
+      return field;
+    }));
   };
 
-  const removeOption = (fieldIndex: number, optionIndex: number) => {
-    const newFields = [...fields];
-    newFields[fieldIndex].options.splice(optionIndex, 1);
-    setFields(newFields);
+  const removeOption = (fieldId: string, optionIndex: number) => {
+    setFields(fields => fields.map(field => {
+      if (field.id === fieldId) {
+        const newOptions = [...(field.options || [])];
+        newOptions.splice(optionIndex, 1);
+        return { ...field, options: newOptions };
+      }
+      return field;
+    }));
   };
 
   const needsOptions = (fieldType: string) => {
@@ -332,31 +392,29 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={fields.map((f) => f.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {fields.map((field, index) => {
+              {fields.map((field) => {
                     const isExpanded = expandedFields.has(field.id);
                     return (
-                      <SortableFieldCard key={field.id} id={field.id}>
-                        <Card className="p-4">
+                  <Card className="p-4" key={field.id}>
                           {/* Cabeçalho do campo */}
-                          <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleFieldExpand(field.id)}>
+                    <div
+                      className="flex items-center justify-between cursor-pointer"
+                      onClick={() => toggleFieldExpand(field.id)}
+                    >
                             <div className="flex items-center gap-2">
                               {isExpanded ? <ChevronDown /> : <ChevronRight />}
-                              <span className="font-semibold">{field.label || 'Campo sem rótulo'}</span>
+                        <span className="font-semibold">
+                          {field.label || "Campo sem rótulo"}
+                        </span>
                             </div>
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={e => { e.stopPropagation(); removeField(index); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeField(field.id);
+                        }}
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
@@ -369,7 +427,9 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
                                   <Label>Nome do Campo</Label>
                                   <Input
                                     value={field.name}
-                                    onChange={(e) => updateField(index, 'name', e.target.value)}
+                              onChange={(e) =>
+                                updateField(field.id, "name", e.target.value)
+                              }
                                     placeholder="nome_do_campo"
                                   />
                                 </div>
@@ -377,7 +437,9 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
                                   <Label>Rótulo</Label>
                                   <Input
                                     value={field.label}
-                                    onChange={(e) => updateField(index, 'label', e.target.value)}
+                              onChange={(e) =>
+                                updateField(field.id, "label", e.target.value)
+                              }
                                     placeholder="Rótulo do campo"
                                   />
                                 </div>
@@ -385,7 +447,9 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
                                   <Label>Tipo</Label>
                                   <Select
                                     value={field.type}
-                                    onValueChange={(value) => updateField(index, 'type', value)}
+                              onValueChange={(value) =>
+                                updateField(field.id, "type", value)
+                              }
                                   >
                                     <SelectTrigger>
                                       <SelectValue />
@@ -409,86 +473,38 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => addOption(index)}
+                                onClick={() => addOption(field.id)}
                                     >
                                       <Plus className="w-4 h-4 mr-2" />
                                       Adicionar Opção
                                     </Button>
                                   </div>
-                                  <div className="space-y-2">
-                                    {(field.options || []).map((option: string, optionIndex: number) => (
-                                      <div key={optionIndex} className="flex gap-2">
+                            {field.options?.map((option: string, idx: number) => (
+                              <div className="flex items-center gap-2 mb-2" key={idx}>
                                         <Input
                                           value={option}
-                                          onChange={(e) => updateOption(index, optionIndex, e.target.value)}
-                                          placeholder={`Opção ${optionIndex + 1}`}
+                                  onChange={(e) =>
+                                    updateOption(field.id, idx, e.target.value)
+                                  }
+                                  placeholder={`Opção ${idx + 1}`}
                                         />
                                         <Button
                                           type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => removeOption(index, optionIndex)}
+                                  variant="destructive"
+                                  size="icon"
+                                  onClick={() => removeOption(field.id, idx)}
                                         >
-                                          <X className="w-4 h-4" />
+                                  <Trash2 className="w-4 h-4" />
                                         </Button>
                                       </div>
                                     ))}
                                   </div>
-                                  {/* Prévia visual do campo conforme o tipo */}
-                                  <div className="mt-4">
-                                    {field.type === 'radio' && (
-                                      <div className="flex flex-col gap-2">
-                                        {field.options && field.options.length > 0 ? field.options.map((opt: string, i: number) => (
-                                          <label key={i} className="flex items-center gap-2">
-                                            <input type="radio" name={`preview-radio-${field.id}`} disabled />
-                                            <span>{opt || `Opção ${i + 1}`}</span>
-                                          </label>
-                                        )) : <span className="text-gray-400">Adicione opções para visualizar</span>}
-                                      </div>
-                                    )}
-                                    {field.type === 'checkbox' && (
-                                      <div className="flex flex-col gap-2">
-                                        {field.options && field.options.length > 0 ? field.options.map((opt: string, i: number) => (
-                                          <label key={i} className="flex items-center gap-2">
-                                            <input type="checkbox" name={`preview-checkbox-${field.id}`} disabled />
-                                            <span>{opt || `Opção ${i + 1}`}</span>
-                                          </label>
-                                        )) : <span className="text-gray-400">Adicione opções para visualizar</span>}
-                                      </div>
-                                    )}
-                                    {field.type === 'dropdown' && (
-                                      <select className="border rounded px-2 py-1" disabled>
-                                        {field.options && field.options.length > 0 ? field.options.map((opt: string, i: number) => (
-                                          <option key={i} value={opt}>{opt || `Opção ${i + 1}`}</option>
-                                        )) : <option>Adicione opções para visualizar</option>}
-                                      </select>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                              <div className="flex justify-between items-center mt-4">
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    checked={field.required}
-                                    onCheckedChange={(checked) => updateField(index, 'required', checked === true)}
-                                  />
-                                  <Label>Campo obrigatório</Label>
-                                </div>
-                              </div>
+                        )}
                             </div>
                           )}
                         </Card>
-                      </SortableFieldCard>
                     );
                   })}
-                </SortableContext>
-              </DndContext>
-              
-              {fields.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  Nenhum campo adicionado. Clique em "Adicionar Campo" para começar.
-                </div>
-              )}
             </CardContent>
           </Card>
 

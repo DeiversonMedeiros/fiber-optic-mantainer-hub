@@ -7,7 +7,7 @@ import PreventiveSchedule from "@/components/preventive/PreventiveSchedule";
 
 const PreventiveMaintenance = () => {
   return (
-    <div className="container mx-auto p-6">
+    <div className="w-full max-w-5xl mx-auto px-2 py-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Gestão de Preventiva</h1>
         <p className="text-muted-foreground">
@@ -35,7 +35,7 @@ const PreventiveMaintenance = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="schedule" forceMount>
+        <TabsContent value="schedule">
           <Card>
             <CardHeader>
               <CardTitle>Cronograma de Preventiva</CardTitle>

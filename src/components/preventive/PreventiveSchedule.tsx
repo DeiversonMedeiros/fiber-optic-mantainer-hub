@@ -734,8 +734,8 @@ const PreventiveSchedule = () => {
       </div>
 
       {/* Tabela */}
-      <div className="border rounded-lg">
-        <Table>
+      <div className="border rounded-lg overflow-x-auto">
+        <Table className="min-w-full">
           <TableHeader>
             <TableRow>
               <TableHead>Nº do Cabo</TableHead>

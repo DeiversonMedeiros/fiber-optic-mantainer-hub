@@ -419,7 +419,7 @@ const RisksManagement = () => {
           Relatórios de Vistoria Enviados
         </h2>
         {/* Filtros para relatórios */}
-        <div className="flex flex-wrap gap-4 mb-4">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-4 mb-4">
               <div>
                 <Label htmlFor="filter-status">Status</Label>
                 <Select
@@ -561,24 +561,25 @@ const RisksManagement = () => {
             ) : (
               <div className="space-y-2">
                 {paginatedReports.map((report: any) => (
-                  <div key={report.id} className="border rounded-lg p-4">
+                  <div key={report.id} className="border rounded-lg p-4 mb-4">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                       <div>
                         <div className="font-semibold flex items-center gap-2">
                           Nº: <span className="text-primary font-mono">{reportSequenceMap[report.id]}</span>
                           {report.title || 'Relatório de Vistoria'}
                         </div>
-                        <div className="text-sm text-muted-foreground">
-                          <span className="mr-2">Cabo: {report.cable_number || '-'}</span>
-                          <span className="mr-2">Cliente: {report.technician?.name || '-'}</span>
-                          <span className="mr-2">Técnico: {report.technician?.name || '-'}</span>
-                          <span className="mr-2">Data: {report.created_at ? new Date(report.created_at).toLocaleDateString('pt-BR') : '-'}</span>
-                          <span className="mr-2">Status: <Badge className={getStatusColor(report.status)}>{getStatusLabel(report.status)}</Badge></span>
-                          <span className="mr-2">Técnico Direcionado: {report.assigned_profile?.name || 'Não Direcionado'}</span>
+                        <div className="text-sm text-muted-foreground flex flex-col sm:flex-row flex-wrap whitespace-normal break-words">
+                          <span>Cabo: {report.cable_number || '-'}</span>
+                          <span>Cliente: {report.technician?.name || '-'}</span>
+                          <span>Técnico: {report.technician?.name || '-'}</span>
+                          <span>Data: {report.created_at ? new Date(report.created_at).toLocaleDateString('pt-BR') : '-'}</span>
+                          <span>Status: <Badge className={getStatusColor(report.status)}>{getStatusLabel(report.status)}</Badge></span>
+                          <span>Técnico Direcionado: {report.assigned_profile?.name || 'Não Direcionado'}</span>
                         </div>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
                         <Button
+                          className="w-auto min-w-[120px] self-center"
                           size="sm"
                           variant="outline"
                           onClick={() => { setSelectedReport(report); setAssignDialogOpen(true); }}
@@ -587,6 +588,7 @@ const RisksManagement = () => {
                           Direcionar
                         </Button>
                         <Button
+                          className="w-auto min-w-[120px] self-center"
                           size="sm"
                           variant="outline"
                           onClick={() => { setSelectedReport(report); setAssignDialogOpen(false); setShowDetailsDialog(true); }}
@@ -594,26 +596,32 @@ const RisksManagement = () => {
                           Ver Detalhes
                         </Button>
                         {report.status === 'concluido' && (
-                          <Button size="sm" variant="secondary" onClick={async () => {
-                            const { data, error } = await supabase
-                              .from('reports')
-                              .select('*')
-                              .eq('schedule_id', report.schedule_id)
-                              .order('created_at', { ascending: false })
-                              .limit(1)
-                              .single();
-                            if (data) {
-                              setFinalReport(data);
-                              setShowFinalReportModal(true);
-                            } else {
-                              toast({ title: 'Relatório não encontrado', description: error?.message || 'Nenhum relatório final encontrado para esta vistoria.', variant: 'destructive' });
-                            }
-                          }}>
+                          <Button
+                            className="w-auto min-w-[120px] self-center"
+                            size="sm"
+                            variant="secondary"
+                            onClick={async () => {
+                              const { data, error } = await supabase
+                                .from('reports')
+                                .select('*')
+                                .eq('schedule_id', report.schedule_id)
+                                .order('created_at', { ascending: false })
+                                .limit(1)
+                                .single();
+                              if (data) {
+                                setFinalReport(data);
+                                setShowFinalReportModal(true);
+                              } else {
+                                toast({ title: 'Relatório não encontrado', description: error?.message || 'Nenhum relatório final encontrado para esta vistoria.', variant: 'destructive' });
+                              }
+                            }}
+                          >
                             Ver Relatório
                           </Button>
                         )}
                         {report.status !== 'cancelado' && (
                           <Button
+                            className="w-auto min-w-[120px] self-center"
                             size="sm"
                             variant="destructive"
                             onClick={() => {
@@ -627,9 +635,9 @@ const RisksManagement = () => {
                         )}
                         {report.status === 'cancelado' && (
                           <Button
+                            className="w-auto min-w-[120px] self-center bg-green-600 text-white hover:bg-green-700"
                             size="sm"
                             variant="secondary"
-                            className="bg-green-600 text-white hover:bg-green-700"
                             onClick={async () => {
                               const { error } = await supabase
                                 .from('inspection_reports')

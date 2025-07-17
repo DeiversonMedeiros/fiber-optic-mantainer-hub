@@ -362,9 +362,9 @@ const MaterialControl = () => {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-4 mb-4 items-end">
+          <div className="flex flex-col md:flex-row flex-wrap gap-4 mb-4 items-end">
             {/* Filtro por Técnico */}
-            <div className="flex flex-col w-64">
+            <div className="flex flex-col md:w-64 w-full">
               <label htmlFor="tecnicoFilter" className="block text-sm font-medium text-gray-700">Filtrar por Técnico</label>
               <Input
                 id="tecnicoFilter"
@@ -376,7 +376,7 @@ const MaterialControl = () => {
               />
             </div>
             {/* Classe do Usuário */}
-            <div className="flex flex-col w-64">
+            <div className="flex flex-col md:w-64 w-full">
               <label htmlFor="classeUsuarioFilter" className="block text-sm font-medium text-gray-700">Classe do Usuário</label>
               <Select value={userClassFilter} onValueChange={setUserClassFilter}>
                 <SelectTrigger>
@@ -393,7 +393,7 @@ const MaterialControl = () => {
               </Select>
             </div>
             {/* Número da OS */}
-            <div className="flex flex-col w-64">
+            <div className="flex flex-col md:w-64 w-full">
               <label htmlFor="osNumberFilter" className="block text-sm font-medium text-gray-700">Número da OS</label>
               <Input
                 id="osNumberFilter"
@@ -405,7 +405,7 @@ const MaterialControl = () => {
               />
             </div>
             {/* Código da SA */}
-            <div className="flex flex-col w-64">
+            <div className="flex flex-col md:w-64 w-full">
               <label htmlFor="saCodeFilter" className="block text-sm font-medium text-gray-700">Código da SA</label>
               <Input
                 id="saCodeFilter"
@@ -465,7 +465,7 @@ const MaterialControl = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <div>
                         <h3 className="font-semibold text-gray-900 mb-3">Materiais Consumidos</h3>
-                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                        <div className="space-y-2 max-h-60 overflow-y-auto break-words whitespace-normal">
                           {userData.materials.map((material) => (
                             <div key={material.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
                               <div className="flex-1">
@@ -479,11 +479,11 @@ const MaterialControl = () => {
                               <Button
                                 size="sm"
                                 variant="outline"
+                                className="min-w-[44px] min-h-[44px] self-center ml-2"
                                 onClick={() => {
                                   setSelectedUser(userData.user.id);
                                   setSelectedMaterial(material.id);
                                 }}
-                                className="ml-2"
                               >
                                 <Minus className="w-4 h-4" />
                               </Button>
@@ -526,7 +526,7 @@ const MaterialControl = () => {
                             </Dialog>
                           )}
                         </div>
-                        <div className="flex flex-col space-y-2 max-h-60 overflow-y-auto">
+                        <div className="flex flex-col space-y-2 max-h-60 overflow-y-auto break-words whitespace-normal">
                           {(sortedAdjustments.slice(0, 3)).map((adjustment) => (
                             <div key={adjustment.id} className="p-3 bg-red-50 rounded border-l-4 border-red-400">
                               <p className="font-medium">{adjustment.checklist_item.name}</p>

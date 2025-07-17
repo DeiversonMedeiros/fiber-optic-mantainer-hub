@@ -7,7 +7,7 @@ export interface ChecklistItem {
   id: string;
   name: string;
   category: string;
-  quantity?: number;
+  quantity?: number | "";
   notes?: string;
 }
 
@@ -42,8 +42,10 @@ export const ChecklistFormSection: React.FC<ChecklistFormSectionProps> = ({
   const isChecked = (id: string) => value.some((v) => v.id === id);
 
   // Retorna a quantidade do item selecionado
-  const getQuantity = (id: string) =>
-    value.find((v) => v.id === id)?.quantity || 1;
+  const getQuantity = (id: string) => {
+    const q = value.find((v) => v.id === id)?.quantity;
+    return q === undefined ? "" : q;
+  };
 
   // Retorna as observações do item selecionado
   const getNotes = (id: string) =>
@@ -125,12 +127,27 @@ export const ChecklistFormSection: React.FC<ChecklistFormSectionProps> = ({
                         type="number"
                         min={1}
                         value={getQuantity(item.id)}
-                        onChange={(e) =>
-                          handleQuantity(
-                            item.id,
-                            parseInt(e.target.value) || 1
-                          )
-                        }
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "") {
+                            // Permite string vazia durante digitação
+                            onChange(
+                              value.map((v) =>
+                                v.id === item.id ? { ...v, quantity: "" as const } : v
+                              ) as ChecklistItem[]
+                            );
+                          } else {
+                            const num = parseInt(val, 10);
+                            if (!isNaN(num) && num > 0) {
+                              handleQuantity(item.id, num);
+                            }
+                          }
+                        }}
+                        onBlur={(e) => {
+                          if (e.target.value === "") {
+                            handleQuantity(item.id, 1);
+                          }
+                        }}
                         className="w-16 text-center border rounded ml-2"
                       />
                       <input

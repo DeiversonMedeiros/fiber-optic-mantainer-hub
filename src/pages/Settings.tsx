@@ -37,7 +37,7 @@ const Settings = () => {
               <span className="text-sm text-gray-600">
                 Bem-vindo, {user?.email}
               </span>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
+              <Button variant="outline" size="sm" className="min-w-[44px] min-h-[44px]" onClick={handleLogout}>
                 <LogOut className="w-4 h-4 mr-2" />
                 Sair
               </Button>
@@ -47,11 +47,11 @@ const Settings = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
         <Card className="shadow-lg">
           <CardContent className="p-6">
             <Tabs defaultValue="access-profiles" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-2 text-xs md:text-sm">
                 <TabsTrigger value="access-profiles" className="flex items-center space-x-2">
                   <Shield className="w-4 h-4" />
                   <span>Perfis de Acesso</span>

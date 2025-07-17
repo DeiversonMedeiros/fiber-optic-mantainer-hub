@@ -80,6 +80,14 @@ const ReportViewModal: React.FC<ReportViewModalProps> = ({ report, open, onClose
     }
   }
 
+  // Função utilitária para formatar o status
+  function formatStatus(status: string) {
+    if (!status) return "-";
+    return status
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
@@ -89,7 +97,7 @@ const ReportViewModal: React.FC<ReportViewModalProps> = ({ report, open, onClose
           </DialogHeader>
           <div className="space-y-2">
             <div><strong>Título:</strong> {report.title}</div>
-            <div><strong>Status:</strong> <Badge>{report.status}</Badge></div>
+            <div><strong>Status:</strong> <Badge>{formatStatus(report.status)}</Badge></div>
             <div><strong>Data:</strong> {new Date(report.created_at).toLocaleString("pt-BR")}</div>
             <div><strong>Técnico:</strong> {report.technician?.name || "-"}</div>
             <div><strong>Gestor:</strong> {managerName || "-"}</div>
@@ -108,6 +116,23 @@ const ReportViewModal: React.FC<ReportViewModalProps> = ({ report, open, onClose
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+            {/* Checklist do relatório */}
+            {Array.isArray(report.checklist_data) && report.checklist_data.length > 0 && (
+              <div>
+                <strong>Checklist enviado:</strong>
+                <ul className="mt-1 space-y-1">
+                  {report.checklist_data.map((item: any, idx: number) => (
+                    <li key={item.id || idx} className="flex flex-col md:flex-row md:items-center md:gap-2">
+                      <span className="font-medium">{item.name}</span>
+                      <span className="text-xs text-gray-500 ml-2">Qtd: {item.quantity || 1}</span>
+                      {item.notes && (
+                        <span className="text-xs text-gray-400 ml-2">Obs: {item.notes}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
             {images.length > 0 && (
