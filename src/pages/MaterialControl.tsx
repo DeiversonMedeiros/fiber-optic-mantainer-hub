@@ -1,574 +1,603 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronUp, Download, Minus } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { ChevronDown, ChevronRight, Package, PackageX, Scissors, Download } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import MaterialAdjustmentModal from '@/components/materials/MaterialAdjustmentModal';
+import MaterialChargeModal from '@/components/materials/MaterialChargeModal';
+import MaterialChargeWithdrawalModal from '@/components/materials/MaterialChargeWithdrawalModal';
+import { useToast } from '@/components/ui/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { exportToCSV } from '@/utils/csvExport';
-import { ChecklistFormSection, ChecklistItem } from "@/components/reports/ChecklistFormSection";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-
-interface MaterialConsumption {
-  id: string;
-  checklist_item: {
-    id: string;
-    name: string;
-  };
-  quantity: number;
-  created_at: string;
-}
-
-interface MaterialAdjustment {
-  id: string;
-  checklist_item: {
-    id: string;
-    name: string;
-  };
-  quantity_reduced: number;
-  sa_code: string;
-  reason?: string;
-  created_at: string;
-}
-
-interface UserMaterials {
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    user_class?: {
-      name: string;
-    };
-  };
-  materials: MaterialConsumption[];
-  adjustments: MaterialAdjustment[];
-  totalQuantity: number;
-  adjustedQuantity: number;
-  currentQuantity: number;
-}
 
 const MaterialControl = () => {
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   const [technicianFilter, setTechnicianFilter] = useState('');
   const [userClassFilter, setUserClassFilter] = useState('all');
-  const [serviceNumberFilter, setServiceNumberFilter] = useState('');
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
-  const [selectedMaterial, setSelectedMaterial] = useState<string | null>(null);
+  const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
   const { toast } = useToast();
   const [openAdjustmentsModal, setOpenAdjustmentsModal] = useState<string | null>(null);
-  const [saCodeFilter, setSaCodeFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [isChargeModalOpen, setIsChargeModalOpen] = useState(false);
+  const [selectedChargeItem, setSelectedChargeItem] = useState<any>(null);
+  const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
+  const [selectedWithdrawalItem, setSelectedWithdrawalItem] = useState<any>(null);
+  
+  // 🆕 Estados para lazy loading e paginação
+  const [loadedUsers, setLoadedUsers] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [usersPerPage] = useState(15);
 
-  const { data: userMaterials = [], isLoading } = useQuery({
-    queryKey: ['user-materials'],
+  // 🆕 Query para buscar apenas lista básica de usuários
+  const { data: userList = [], isLoading: isLoadingUsers } = useQuery({
+    queryKey: ['users-basic'],
     queryFn: async () => {
-      // Buscar todos os relatórios
-      let reportsQuery = supabase
-        .from('reports')
-        .select('id, technician_id, created_at, title, description');
-      const { data: reports } = await reportsQuery;
-      console.log('DEBUG reports (simplificado):', reports);
-      if (!reports) return [];
-
-      // Buscar todos os itens de checklist dos relatórios
-      const reportIds = reports.map((r: any) => r.id);
-      console.log('DEBUG reportIds:', reportIds);
-      // Consulta com filtro para diagnosticar
-      const { data: checklistItemsFiltered } = await supabase
-        .from('report_checklist_items')
-        .select('id, report_id, checklist_item_id, quantity')
-        .in('report_id', reportIds);
-      console.log('DEBUG checklistItems (com filtro):', checklistItemsFiltered);
-      if (!checklistItemsFiltered) return [];
-
-      // Buscar dados dos técnicos
-      const technicianIds = Array.from(new Set(reports.map((r: any) => r.technician_id)));
-      const { data: technicians } = await supabase
+      console.log('👥 Carregando lista básica de usuários...');
+      
+      const { data: activeUsers, error: usersError } = await supabase
         .from('profiles')
-        .select('id, name, email, user_class:user_classes(name)')
-        .in('id', technicianIds);
-      const technicianMap = new Map<string, any>();
-      (technicians || []).forEach((t: any) => {
-        technicianMap.set(t.id, t);
-      });
-
-      // Agrupar por técnico e por checklist_item
-      const userMap = new Map<string, UserMaterials>();
-      reports.forEach((report: any) => {
-        const userId = report.technician_id;
-        if (!userMap.has(userId)) {
-          userMap.set(userId, {
-            user: technicianMap.get(userId) || { id: userId, name: 'Técnico desconhecido', email: '', user_class: { name: '' } },
-            materials: [],
-            adjustments: [],
-            totalQuantity: 0,
-            adjustedQuantity: 0,
-            currentQuantity: 0
-          });
-        }
-      });
-      // Processar materiais usados por técnico
-      checklistItemsFiltered.forEach((item: any) => {
-        const report = reports.find((r: any) => r.id === item.report_id);
-        if (!report) return;
-        const userId = report.technician_id;
-        const checklistItemId = item.checklist_item_id;
-        if (!checklistItemId) return;
-        const userData = userMap.get(userId)!;
-        let mat = userData.materials.find((m: any) => m.checklist_item && m.checklist_item.id === checklistItemId);
-        if (!mat) {
-          mat = {
-            id: checklistItemId,
-            checklist_item: { id: checklistItemId, name: checklistItemId }, // nome será ajustado abaixo
-            quantity: 0,
-            created_at: report.created_at
-          };
-          userData.materials.push(mat);
-        }
-        mat.quantity += item.quantity || 1;
-        userData.totalQuantity += item.quantity || 1;
-      });
-      // Buscar nomes e categorias dos checklist_items
-      const checklistItemIds = Array.from(new Set(checklistItemsFiltered.map((item: any) => item.checklist_item_id)));
-      const { data: checklistItemsData } = await supabase
-        .from('checklist_items')
-        .select('id, name, category')
-        .in('id', checklistItemIds);
-      console.log('DEBUG checklistItemsData:', checklistItemsData);
-      // Filtrar apenas os itens de categoria 'materiais' (case insensitive)
-      const materialChecklistItemIds = new Set(
-        (checklistItemsData || [])
-          .filter((ci: any) => ci.category && ci.category.toLowerCase() === 'materiais')
-          .map((ci: any) => ci.id)
-      );
-      // Map para nomes dos checklist_items
-      const checklistItemMap = new Map<string, string>();
-      (checklistItemsData || []).forEach((ci: any) => {
-        checklistItemMap.set(ci.id, ci.name);
-      });
-      // Atualizar nomes dos materiais e filtrar só materiais
-      userMap.forEach((userData) => {
-        // Filtrar só materiais
-        userData.materials = userData.materials.filter((mat: any) =>
-          materialChecklistItemIds.has(mat.id)
-        );
-        userData.materials.forEach((mat: any) => {
-          const ci = (checklistItemsData || []).find((ci: any) => ci.id === mat.id);
-          mat.checklist_item.name = ci ? ci.name : mat.id;
-        });
-        // Corrigir cálculo: zerar e somar só os materiais filtrados
-        userData.totalQuantity = 0;
-        userData.adjustedQuantity = 0;
-        userData.currentQuantity = 0;
-        userData.materials.forEach((mat: any) => {
-          userData.totalQuantity += mat.quantity;
-        });
-      });
-      // Buscar baixas já registradas
-      const { data: adjustments } = await supabase
-        .from('material_adjustments')
-        .select('id, user_id, checklist_item_id, quantity_reduced, sa_code, reason, created_at');
-      adjustments?.forEach((adj: any) => {
-        if (!userMap.has(adj.user_id)) return;
-        if (!materialChecklistItemIds.has(adj.checklist_item_id)) return; // só materiais
-        const userData = userMap.get(adj.user_id)!;
-        userData.adjustments.push({
-          id: adj.id,
-          checklist_item: { id: adj.checklist_item_id, name: checklistItemMap.get(adj.checklist_item_id) || adj.checklist_item_id },
-          quantity_reduced: adj.quantity_reduced,
-          sa_code: adj.sa_code,
-          reason: adj.reason,
-          created_at: adj.created_at
-        });
-        userData.adjustedQuantity += adj.quantity_reduced;
-        // Subtrai do material correspondente
-        const mat = userData.materials.find((m: any) => m.checklist_item.id === adj.checklist_item_id);
-        if (mat) {
-          mat.quantity -= adj.quantity_reduced;
-        }
-      });
-      userMap.forEach((userData) => {
-        userData.currentQuantity = userData.totalQuantity - userData.adjustedQuantity;
-      });
-      const result = Array.from(userMap.values());
-      console.log('DEBUG userMaterials result:', result);
-      return result;
-    }
-  });
-
-  const { data: userClasses = [] } = useQuery({
-    queryKey: ['user-classes'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('user_classes')
-        .select('name')
+        .select('id, name, email, user_class:user_classes(id, name)')
         .eq('is_active', true);
-      return data || [];
-    }
+
+      if (usersError) throw usersError;
+      console.log(`✅ ${activeUsers?.length || 0} usuários ativos carregados`);
+      
+      return activeUsers || [];
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    gcTime: 10 * 60 * 1000,   // 10 minutos
   });
 
-  // Numeração sequencial global dos relatórios (mais antigo = 1)
-  const reportSequenceMap = useMemo(() => {
-    // Buscar todos os relatórios para criar a numeração sequencial
-    const allReports = userMaterials.flatMap(userData => 
-      userData.materials.map(material => ({
-        id: material.id,
-        created_at: material.created_at
-      }))
-    );
-    const sorted = [...allReports].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    const map: Record<string, number> = {};
-    sorted.forEach((report, idx) => {
-      map[report.id] = idx + 1;
-    });
-    return map;
-  }, [userMaterials]);
+  // 🆕 Resetar página e usuários expandidos quando filtros mudarem
+  useEffect(() => {
+    setCurrentPage(1);
+    setExpandedUsers(new Set());
+  }, [technicianFilter, userClassFilter]);
 
-  // Filtro local
-  const filteredUserMaterials = useMemo(() => {
-    return userMaterials.filter(userData => {
-      const technicianMatch = !technicianFilter || (userData.user.name && userData.user.name.toLowerCase().includes(technicianFilter.toLowerCase()));
-      const userClassMatch = userClassFilter === 'all' || (userData.user.user_class && userData.user.user_class.name === userClassFilter);
-      const serviceNumberMatch = !serviceNumberFilter || userData.materials.some(mat => mat.id && mat.id.toLowerCase().includes(serviceNumberFilter.toLowerCase()));
-      // Filtro por código da SA (já aplicado depois, mas pode ser incluído aqui se preferir)
-      return technicianMatch && userClassMatch && serviceNumberMatch;
-    });
-  }, [userMaterials, technicianFilter, userClassFilter, serviceNumberFilter]);
+  // 🆕 Função para processar dados de um usuário específico
+  const processUserData = (userId: string, validatedAgg: any[], chargesAgg: any[], adjustmentsAgg: any[], classMaterials: any[]) => {
+    const user = userList.find((u: any) => u.id === userId);
+    if (!user) return null;
 
-  const toggleUserExpansion = (userId: string) => {
+    const userData = {
+      user,
+      materials: [],
+      adjustments: [],
+      charges: [],
+      totalQuantity: 0,
+      adjustedQuantity: 0,
+      currentQuantity: 0,
+      chargeQuantity: 0,
+      withdrawnQuantity: 0,
+      balance: 0,
+      requestQuantity: 0
+    };
+
+    // Criar materiais da classe
+    classMaterials.forEach((materialData) => {
+      const material = {
+        id: materialData.id,
+        checklist_item: { id: materialData.id, name: materialData.name },
+        quantity: 0,
+        chargeQuantity: 0,
+        withdrawnQuantity: 0,
+        netChargeQuantity: 0,
+        balance: 0,
+        requestQuantity: 0,
+        standard_quantity: materialData.standard_quantity || 0,
+        created_at: new Date().toISOString()
+      };
+      userData.materials.push(material);
+    });
+
+    // Processar validados
+    (validatedAgg || []).forEach((row: any) => {
+      if (row.technician_id === userId) {
+        const material = userData.materials.find((m: any) => m.checklist_item.id === row.checklist_item_id);
+        if (material) {
+          material.quantity += Number(row.total_quantity) || 0;
+          userData.totalQuantity += Number(row.total_quantity) || 0;
+        }
+      }
+    });
+
+    // Processar cargas
+    (chargesAgg || []).forEach((row: any) => {
+      if (row.user_id === userId) {
+        const material = userData.materials.find((m: any) => m.checklist_item.id === row.checklist_item_id);
+        if (material) {
+          material.chargeQuantity = Number(row.total_quantity_added) || 0;
+          material.withdrawnQuantity = Number(row.total_quantity_withdrawn) || 0;
+          material.netChargeQuantity = Number(row.net_charge_quantity) || 0;
+          
+          userData.chargeQuantity += Number(row.total_quantity_added) || 0;
+          userData.withdrawnQuantity += Number(row.total_quantity_withdrawn) || 0;
+        }
+      }
+    });
+
+    // Processar ajustes
+    (adjustmentsAgg || []).forEach((row: any) => {
+      if (row.user_id === userId) {
+        const material = userData.materials.find((m: any) => m.checklist_item.id === row.checklist_item_id);
+        if (material) {
+          userData.adjustedQuantity += Number(row.total_reduced) || 0;
+        }
+      }
+    });
+
+    // Calcular saldos
+    userData.materials.forEach((material: any) => {
+      material.balance = material.netChargeQuantity - material.quantity;
+      const standardQty = material.standard_quantity || 0;
+      userData.requestQuantity += Math.max(0, standardQty - material.balance);
+    });
+    
+    userData.balance = userData.chargeQuantity - userData.withdrawnQuantity - userData.totalQuantity;
+    userData.currentQuantity = userData.totalQuantity - userData.adjustedQuantity;
+
+    return userData;
+  };
+
+  // 🆕 Estado para armazenar dados dos usuários carregados
+  const [userMaterialsData, setUserMaterialsData] = useState<Map<string, any>>(new Map());
+
+  // 🆕 Função para obter dados de um usuário (carregados ou vazios)
+  const getUserData = (userId: string) => {
+    if (userMaterialsData.has(userId)) {
+      return userMaterialsData.get(userId);
+    }
+    
+    // Retornar dados básicos se não carregados
+    const user = userList.find((u: any) => u.id === userId);
+    if (!user) return null;
+    
+    return {
+      user,
+      materials: [],
+      adjustments: [],
+      charges: [],
+      totalQuantity: 0,
+      adjustedQuantity: 0,
+      currentQuantity: 0,
+      chargeQuantity: 0,
+      withdrawnQuantity: 0,
+      balance: 0,
+      requestQuantity: 0
+    };
+  };
+
+  // 🆕 Função para expandir usuário (com lazy loading)
+  const handleToggleUser = async (userId: string) => {
     const newExpanded = new Set(expandedUsers);
+    
     if (newExpanded.has(userId)) {
+      // Fechar usuário
       newExpanded.delete(userId);
     } else {
+      // Abrir usuário - carregar dados se necessário
       newExpanded.add(userId);
+      if (!loadedUsers.has(userId)) {
+        await loadUserData(userId);
+      }
     }
+    
     setExpandedUsers(newExpanded);
   };
 
-  const handleAdjustmentSuccess = () => {
-    setSelectedUser(null);
-    setSelectedMaterial(null);
-    toast({
-      title: "Baixa registrada",
-      description: "A baixa do material foi registrada com sucesso",
-    });
+  // 🆕 Função para carregar dados completos de um usuário específico
+  const loadUserData = async (userId: string) => {
+    if (loadedUsers.has(userId)) return; // Já carregado
+    
+    console.log(`🔄 Carregando dados completos para usuário ${userId}...`);
+    
+    try {
+      // Buscar dados do usuário específico
+      const [
+        { data: validatedAgg, error: validatedErr },
+        { data: chargesAgg, error: chargesErr },
+        { data: adjustmentsAgg, error: adjustmentsErr }
+      ] = await Promise.all([
+        (supabase as any).rpc('get_validated_materials_by_technicians', { tech_ids: [userId] }),
+        (supabase as any).rpc('get_charges_by_users', { user_ids: [userId] }),
+        (supabase as any).rpc('get_adjustments_by_users', { user_ids: [userId] })
+      ]);
+
+      if (validatedErr) throw validatedErr;
+      if (chargesErr || adjustmentsErr) throw chargesErr || adjustmentsErr;
+
+      // Buscar materiais da classe do usuário
+      const user = userList.find((u: any) => u.id === userId);
+      if (!user?.user_class?.id) return;
+
+      const { data: classMaterials, error: materialsErr } = await supabase
+        .from('checklist_items')
+        .select('id, name, category, standard_quantity')
+        .eq('is_active', true)
+        .eq('category', 'materiais')
+        .eq('user_class_id', user.user_class.id);
+      
+      if (materialsErr) throw materialsErr;
+
+      // Processar dados do usuário
+      const userData = processUserData(userId, validatedAgg, chargesAgg, adjustmentsAgg, classMaterials);
+      
+      if (userData) {
+        // 🆕 Armazenar dados processados no estado
+        setUserMaterialsData(prev => new Map(prev).set(userId, userData));
+      }
+      
+      // Atualizar estado global
+      setLoadedUsers(prev => new Set(prev).add(userId));
+      
+      console.log(`✅ Dados do usuário ${userId} carregados com sucesso`);
+      
+    } catch (error) {
+      console.error(`❌ Erro ao carregar dados do usuário ${userId}:`, error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os dados do usuário.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // 🆕 Filtrar TODOS os usuários ANTES da paginação
+  const filteredUsers = userList.filter((userData: any) => {
+    const matchesTechnician = userData.name.toLowerCase().includes(technicianFilter.toLowerCase()) ||
+      userData.email.toLowerCase().includes(technicianFilter.toLowerCase());
+    const matchesUserClass = userClassFilter === 'all' || userData.user_class?.name === userClassFilter;
+    return matchesTechnician && matchesUserClass;
+  });
+
+  // 🆕 Paginação com usuários FILTRADOS
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+  const startIndex = (currentPage - 1) * usersPerPage;
+  const endIndex = startIndex + usersPerPage;
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Resetar usuários expandidos ao mudar de página
+    setExpandedUsers(new Set());
   };
 
   const handleExportCSV = () => {
-    if (!dateFrom || !dateTo) {
-      toast({ title: "Selecione as duas datas.", variant: "destructive" });
-      return;
-    }
-    const start = new Date(dateFrom);
-    const end = new Date(dateTo);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = diffTime / (1000 * 60 * 60 * 24);
-    if (diffDays > 92) {
-      toast({ title: "O intervalo máximo permitido é de 3 meses.", variant: "destructive" });
-      return;
-    }
-    if (end < start) {
-      toast({ title: "A data final deve ser maior que a inicial.", variant: "destructive" });
-      return;
-    }
-    // Exportar apenas movimentações (ajustes) dentro do intervalo de datas
-    const adjustments = userMaterials.flatMap(userData =>
-      userData.adjustments
-        .filter(adj => adj.created_at >= dateFrom && adj.created_at <= dateTo + 'T23:59:59')
-        .map(adj => {
-          // Converta objetos/arrays para string JSON
-          const safeAdj = Object.fromEntries(
-            Object.entries(adj).map(([key, value]) => {
-              if (typeof value === "object" && value !== null) {
-                return [key, JSON.stringify(value)];
-              }
-              return [key, value];
-            })
-          );
-          return {
-            ...safeAdj,
-            tecnico_nome: userData.user.name || "",
-            material_nome: adj.checklist_item?.name || ""
-          };
-        })
+    // 🆕 Exportar apenas usuários carregados
+    const loadedUserData = Array.from(loadedUsers).map(userId => getUserData(userId)).filter(Boolean);
+    
+    const csvData = loadedUserData.flatMap((userData: any) =>
+      userData.materials.map((material: any) => ({
+        'Técnico': userData.user.name,
+        'Email': userData.user.email,
+        'Classe': userData.user.user_class?.name || 'N/A',
+        'Material': material.checklist_item.name,
+        'Baixados': material.quantity,
+        'Carregados': material.chargeQuantity,
+        'Retiradas da Carga': material.withdrawnQuantity || 0,
+        'Saldo': material.balance,
+        'Solicitar': Math.max(0, (material.standard_quantity || 0) - material.balance)
+      }))
     );
-    if (!adjustments || adjustments.length === 0) {
-      toast({ title: "Nenhuma movimentação encontrada no período selecionado.", variant: "destructive" });
-      return;
-    }
-    exportToCSV(adjustments, `movimentacoes_materiais_${dateFrom}_a_${dateTo}`);
+
+    exportToCSV(csvData, 'controle_materiais');
     toast({
-      title: "Exportação concluída",
-      description: "O arquivo CSV foi baixado com sucesso",
+      title: "Exportação realizada",
+      description: "Os dados foram exportados para CSV com sucesso.",
     });
   };
 
-  // Filtro por código da SA
-  const filteredUserMaterialsForSA = saCodeFilter.trim() === ""
-    ? filteredUserMaterials
-    : filteredUserMaterials.filter(userData =>
-        userData.adjustments.some(adj => adj.sa_code && adj.sa_code.toString().includes(saCodeFilter.trim()))
-      );
-
-  if (isLoading) {
+  if (isLoadingUsers) {
     return (
-      <div className="min-h-screen bg-fiber-gradient flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse-glow">
-            <div className="w-8 h-8 bg-primary rounded-full"></div>
-          </div>
-          <p className="text-white">Carregando controle de materiais...</p>
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg">Carregando lista de usuários...</div>
         </div>
       </div>
     );
   }
 
-  console.log('userMaterials antes do map:', userMaterials);
   return (
-    <div className="min-h-screen bg-fiber-gradient p-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-            <h1 className="text-3xl font-bold text-gray-900">Controle de Materiais</h1>
-            <div className="flex gap-2 items-end">
-              <div>
-                <label className="block text-xs">Data Início</label>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={e => setDateFrom(e.target.value)}
-                  className="border rounded px-2 py-1"
-                />
-              </div>
-              <div>
-                <label className="block text-xs">Data Fim</label>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={e => setDateTo(e.target.value)}
-                  className="border rounded px-2 py-1"
-                />
-              </div>
-              <Button onClick={handleExportCSV} className="flex items-center gap-2">
-                <Download className="w-4 h-4" />
-                Exportar CSV
-              </Button>
-            </div>
-          </div>
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Controle de Materiais</h1>
+        <Button onClick={handleExportCSV} variant="outline">
+          <Download className="w-4 h-4 mr-2" />
+          Exportar CSV
+        </Button>
+      </div>
 
-          <div className="flex flex-col md:flex-row flex-wrap gap-4 mb-4 items-end">
-            {/* Filtro por Técnico */}
-            <div className="flex flex-col md:w-64 w-full">
-              <label htmlFor="tecnicoFilter" className="block text-sm font-medium text-gray-700">Filtrar por Técnico</label>
-              <Input
-                id="tecnicoFilter"
-                type="text"
-                placeholder="Nome do técnico..."
-                value={technicianFilter}
-                onChange={(e) => setTechnicianFilter(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              />
-            </div>
-            {/* Classe do Usuário */}
-            <div className="flex flex-col md:w-64 w-full">
-              <label htmlFor="classeUsuarioFilter" className="block text-sm font-medium text-gray-700">Classe do Usuário</label>
-              <Select value={userClassFilter} onValueChange={setUserClassFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todas as classes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as classes</SelectItem>
-                  {userClasses.map((userClass) => (
-                    <SelectItem key={userClass.name} value={userClass.name}>
-                      {userClass.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {/* Número da OS */}
-            <div className="flex flex-col md:w-64 w-full">
-              <label htmlFor="osNumberFilter" className="block text-sm font-medium text-gray-700">Número da OS</label>
-              <Input
-                id="osNumberFilter"
-                type="text"
-                placeholder="Número da ordem de serviço..."
-                value={serviceNumberFilter}
-                onChange={(e) => setServiceNumberFilter(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              />
-            </div>
-            {/* Código da SA */}
-            <div className="flex flex-col md:w-64 w-full">
-              <label htmlFor="saCodeFilter" className="block text-sm font-medium text-gray-700">Código da SA</label>
-              <Input
-                id="saCodeFilter"
-                type="text"
-                value={saCodeFilter}
-                onChange={e => setSaCodeFilter(e.target.value)}
-                placeholder="Filtrar por código da SA"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              />
-            </div>
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Input
+          placeholder="Filtrar por técnico..."
+          value={technicianFilter}
+          onChange={(e) => setTechnicianFilter(e.target.value)}
+        />
+        <Select value={userClassFilter} onValueChange={setUserClassFilter}>
+          <SelectTrigger>
+            <SelectValue placeholder="Filtrar por classe" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as classes</SelectItem>
+            {Array.from(new Set(userList.map((u: any) => u.user_class?.name).filter(Boolean))).map((className) => (
+              <SelectItem key={className} value={className!}>
+                {className}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* 🆕 Contador de usuários e paginação */}
+      <div className="flex justify-between items-center">
+        <div className="text-sm text-muted-foreground">
+          Mostrando {paginatedUsers.length} de {filteredUsers.length} usuários filtrados (total: {userList.length})
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              Anterior
+            </Button>
+            <span className="text-sm">
+              Página {currentPage} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Próxima
+            </Button>
+          </div>
+        )}
+      </div>
 
-        <div className="space-y-4">
-          {filteredUserMaterialsForSA.map((userData) => {
-            console.log('Entrou no map de userMaterials para usuário:', userData.user?.name || userData.user?.id);
-            const sortedAdjustments = [...userData.adjustments].sort(
-              (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-            );
-            console.log('Ordem final dos ajustes para usuário', userData.user.name, ':', sortedAdjustments.map(a => a.created_at));
+      <div className="space-y-4">
+        {paginatedUsers.length === 0 ? (
+          <div className="text-center p-8">
+            <p className="text-lg text-gray-500">Nenhum usuário encontrado com materiais.</p>
+            <p className="text-sm text-gray-400">Verifique o console para logs detalhados.</p>
+          </div>
+        ) : (
+          paginatedUsers.map((userData: any) => {
+            // 🆕 Obter dados do usuário (carregados ou vazios)
+            const userMaterials = getUserData(userData.id);
+            
             return (
-              <Card key={userData.user.id} className="bg-white shadow-md">
-                <CardHeader 
-                  className="cursor-pointer"
-                  onClick={() => toggleUserExpansion(userData.user.id)}
-                >
+              <Card key={userData.id} className="w-full">
+                <CardHeader>
                   <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg font-semibold">
-                        {userData.user.name}
-                      </CardTitle>
-                      <p className="text-sm text-gray-600">{userData.user.email}</p>
-                      {userData.user.user_class && (
-                        <Badge variant="secondary" className="mt-1">
-                          {userData.user.user_class.name}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="text-sm text-gray-600">Quantidade Atual</p>
-                        <p className="text-xl font-bold text-blue-600">
-                          {userData.currentQuantity}
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleToggleUser(userData.id)}
+                      >
+                        {expandedUsers.has(userData.id) ? (
+                          <ChevronDown className="w-4 h-4" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" />
+                        )}
+                      </Button>
+                      <div>
+                        <CardTitle className="text-lg">{userData.name}</CardTitle>
+                        <p className="text-sm text-muted-foreground">
+                          {userData.email} • {userData.user_class?.name || 'Sem classe'}
                         </p>
                       </div>
-                      {expandedUsers.has(userData.user.id) ? (
-                        <ChevronUp className="w-5 h-5" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5" />
-                      )}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm text-muted-foreground">
+                        {loadedUsers.has(userData.id) ? (
+                          <>
+                            Baixados: {userMaterials?.totalQuantity || 0} | 
+                            Carregados: {userMaterials?.chargeQuantity || 0} | 
+                            Retiradas: {userMaterials?.withdrawnQuantity || 0} | 
+                            Saldo: {userMaterials?.balance || 0}
+                          </>
+                        ) : (
+                          <span className="text-gray-400">Clique para carregar dados</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
 
-                {expandedUsers.has(userData.user.id) && (
+                {expandedUsers.has(userData.id) && (
                   <CardContent>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div>
-                        <h3 className="font-semibold text-gray-900 mb-3">Materiais Consumidos</h3>
-                        <div className="space-y-2 max-h-60 overflow-y-auto break-words whitespace-normal">
-                          {userData.materials.map((material) => (
-                            <div key={material.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                              <div className="flex-1">
-                                <p className="font-medium">
-                                  Nº {reportSequenceMap[material.id]}: {material.checklist_item.name}
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  Quantidade: {material.quantity}
-                                </p>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="min-w-[44px] min-h-[44px] self-center ml-2"
-                                onClick={() => {
-                                  setSelectedUser(userData.user.id);
-                                  setSelectedMaterial(material.id);
-                                }}
-                              >
-                                <Minus className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
+                    {!loadedUsers.has(userData.id) ? (
+                      <div className="flex items-center justify-center h-32">
+                        <div className="text-lg">Carregando dados do usuário...</div>
                       </div>
+                    ) : userMaterials?.materials?.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse border border-gray-300">
+                          <thead>
+                            <tr className="bg-gray-50">
+                              <th className="border border-gray-300 p-2 text-left">Material</th>
+                              <th className="border border-gray-300 p-2 text-center">Padrão</th>
+                              <th className="border border-gray-300 p-2 text-center">Carga</th>
+                              <th className="border border-gray-300 p-2 text-center">Retiradas</th>
+                              <th className="border border-gray-300 p-2 text-center">Baixados</th>
+                              <th className="border border-gray-300 p-2 text-center">Saldo</th>
+                              <th className="border border-gray-300 p-2 text-center">Solicitar</th>
+                              <th className="border border-gray-300 p-2 text-center">Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {userMaterials.materials.map((material: any) => {
+                              const standardQty = material.standard_quantity || 0;
+                              const finalRequestQty = Math.max(0, standardQty - material.balance);
 
-                      <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="font-semibold text-gray-900">Baixas Registradas</h3>
-                          {userData.adjustments.length > 3 && (
-                            <Dialog open={openAdjustmentsModal === userData.user.id} onOpenChange={open => setOpenAdjustmentsModal(open ? userData.user.id : null)}>
-                              <DialogTrigger asChild>
-                                <button className="text-blue-600 underline text-sm ml-2">Ver todas</button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Todas as Baixas Registradas</DialogTitle>
-                                </DialogHeader>
-                                <div className="flex flex-col max-h-96 overflow-y-auto space-y-2 mt-2">
-                                  {sortedAdjustments.map((adjustment) => (
-                                    <div key={adjustment.id} className="p-3 bg-red-50 rounded border-l-4 border-red-400">
-                                      <p className="font-medium">{adjustment.checklist_item.name}</p>
-                                      <p className="text-sm text-gray-600">
-                                        Redução: {adjustment.quantity_reduced} | SA: {adjustment.sa_code}
-                                      </p>
-                                      {adjustment.reason && (
-                                        <p className="text-xs text-gray-500">
-                                          Motivo: {adjustment.reason}
-                                        </p>
-                                      )}
-                                      <p className="text-xs text-gray-400">
-                                        {new Date(adjustment.created_at).toLocaleString('pt-BR')}
-                                      </p>
+                              return (
+                                <tr key={material.checklist_item.id}>
+                                  <td className="border border-gray-300 p-2">
+                                    <div className="font-medium">{material.checklist_item.name}</div>
+                                  </td>
+                                  <td className="border border-gray-300 p-2 text-center">{standardQty}</td>
+                                  <td className="border border-gray-300 p-2 text-center text-blue-600">{material.chargeQuantity}</td>
+                                  <td className="border border-gray-300 p-2 text-center text-orange-600">{material.withdrawnQuantity || 0}</td>
+                                  <td className="border border-gray-300 p-2 text-center text-red-600">{material.quantity}</td>
+                                  <td className={`border border-gray-300 p-2 text-center ${material.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{material.balance}</td>
+                                  <td className={`border border-gray-300 p-2 text-center ${finalRequestQty > 0 ? 'text-red-600' : 'text-green-600'}`}>{finalRequestQty}</td>
+                                  <td className="border border-gray-300 p-2 text-center">
+                                    <div className="flex gap-1 justify-center">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setSelectedChargeItem({
+                                            userId: userData.id,
+                                            checklistItem: {
+                                              id: material.checklist_item.id,
+                                              name: material.checklist_item.name,
+                                              category: 'materiais'
+                                            }
+                                          });
+                                          setIsChargeModalOpen(true);
+                                        }}
+                                        className="text-green-600 hover:text-green-700"
+                                        title="Adicionar Carga"
+                                      >
+                                        <Package className="w-4 h-4" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setSelectedWithdrawalItem({
+                                            userId: userData.id,
+                                            checklistItem: {
+                                              id: material.checklist_item.id,
+                                              name: material.checklist_item.name,
+                                              currentCharge: material.netChargeQuantity
+                                            }
+                                          });
+                                          setIsWithdrawalModalOpen(true);
+                                        }}
+                                        className="text-orange-600 hover:text-orange-700"
+                                        title="Retirar da Carga"
+                                        disabled={material.netChargeQuantity <= 0}
+                                      >
+                                        <PackageX className="w-4 h-4" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setSelectedUser(userData.id);
+                                          setSelectedMaterial(material);
+                                          setOpenAdjustmentsModal(userData.id);
+                                        }}
+                                        className="text-red-600 hover:text-red-700"
+                                        title="Reduzir Baixa"
+                                      >
+                                        <Scissors className="w-4 h-4" />
+                                      </Button>
                                     </div>
-                                  ))}
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                          )}
-                        </div>
-                        <div className="flex flex-col space-y-2 max-h-60 overflow-y-auto break-words whitespace-normal">
-                          {(sortedAdjustments.slice(0, 3)).map((adjustment) => (
-                            <div key={adjustment.id} className="p-3 bg-red-50 rounded border-l-4 border-red-400">
-                              <p className="font-medium">{adjustment.checklist_item.name}</p>
-                              <p className="text-sm text-gray-600">
-                                Redução: {adjustment.quantity_reduced} | SA: {adjustment.sa_code}
-                              </p>
-                              {adjustment.reason && (
-                                <p className="text-xs text-gray-500">
-                                  Motivo: {adjustment.reason}
-                                </p>
-                              )}
-                              <p className="text-xs text-gray-400">
-                                {new Date(adjustment.created_at).toLocaleString('pt-BR')}
-                              </p>
-                            </div>
-                          ))}
-                          {userData.adjustments.length === 0 && (
-                            <p className="text-sm text-gray-500">Nenhuma baixa registrada.</p>
-                          )}
-                        </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="text-center p-8">
+                        <p className="text-lg text-gray-500">Nenhum material encontrado para este usuário.</p>
+                      </div>
+                    )}
                   </CardContent>
                 )}
               </Card>
             );
-          })}
-        </div>
-
-        {selectedUser && selectedMaterial && (
-          <MaterialAdjustmentModal
-            isOpen={true}
-            onClose={() => {
-              setSelectedUser(null);
-              setSelectedMaterial(null);
-            }}
-            userId={selectedUser}
-            checklistItemId={selectedMaterial}
-            onSuccess={handleAdjustmentSuccess}
-          />
+          })
         )}
       </div>
+
+      {/* 🆕 Paginação inferior */}
+      {totalPages > 1 && (
+        <div className="flex justify-center">
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+            >
+              Primeira
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              Anterior
+            </Button>
+            <span className="px-4 py-2 text-sm">
+              Página {currentPage} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Próxima
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages}
+            >
+              Última
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {openAdjustmentsModal && selectedMaterial && (
+        <MaterialAdjustmentModal
+          isOpen={!!openAdjustmentsModal}
+          onClose={() => setOpenAdjustmentsModal(null)}
+          userId={selectedUser!}
+          checklistItemId={selectedMaterial.checklist_item.id}
+          onSuccess={() => {
+            setOpenAdjustmentsModal(null);
+            window.location.reload();
+          }}
+        />
+      )}
+
+      {isChargeModalOpen && selectedChargeItem && (
+        <MaterialChargeModal
+          isOpen={isChargeModalOpen}
+          onClose={() => {
+            setIsChargeModalOpen(false);
+            setSelectedChargeItem(null);
+          }}
+          userId={selectedChargeItem.userId}
+          checklistItem={selectedChargeItem.checklistItem}
+        />
+      )}
+
+      {isWithdrawalModalOpen && selectedWithdrawalItem && (
+        <MaterialChargeWithdrawalModal
+          isOpen={isWithdrawalModalOpen}
+          onClose={() => {
+            setIsWithdrawalModalOpen(false);
+            setSelectedWithdrawalItem(null);
+          }}
+          userId={selectedWithdrawalItem.userId}
+          checklistItem={selectedWithdrawalItem.checklistItem}
+        />
+      )}
     </div>
   );
 };

@@ -19,7 +19,12 @@ import { Button } from "@/components/ui/button";
 
 const Preventivas = () => {
   const [photoDialog, setPhotoDialog] = useState<{ open: boolean; url: string | null }>({ open: false, url: null });
-  const [reportModal, setReportModal] = useState<{ open: boolean; templateId: string | null; scheduleId: string | null }>({ open: false, templateId: null, scheduleId: null });
+  const [reportModal, setReportModal] = useState<{ 
+    open: boolean; 
+    templateId: string | null; 
+    scheduleId: string | null;
+    inspectionReportId: string | null; // <-- NOVO
+  }>({ open: false, templateId: null, scheduleId: null, inspectionReportId: null });
   const [userClassId, setUserClassId] = useState<string | null>(null);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [finalizingReportId, setFinalizingReportId] = useState<string | null>(null);
@@ -231,7 +236,12 @@ const Preventivas = () => {
                             .single();
                           setLoadingTemplate(false);
                           if (template?.id) {
-                            setReportModal({ open: true, templateId: template.id, scheduleId: report.schedule_id });
+                            setReportModal({ 
+                              open: true, 
+                              templateId: template.id, 
+                              scheduleId: report.schedule_id,
+                              inspectionReportId: report.id // <-- PASSAR O ID DO RISCO
+                            });
                           } else {
                             alert('Nenhum template de relatório vinculado à sua classe.');
                             setFinalizingReportId(null);
@@ -444,9 +454,10 @@ const Preventivas = () => {
       </Dialog>
       <ReportFormModal
         isOpen={reportModal.open}
-        onClose={() => setReportModal({ open: false, templateId: null, scheduleId: null })}
+        onClose={() => setReportModal({ open: false, templateId: null, scheduleId: null, inspectionReportId: null })}
         templateId={reportModal.templateId || ''}
         scheduleId={reportModal.scheduleId || null}
+        inspectionReportId={reportModal.inspectionReportId || null} // <-- NOVO
         onSuccess={async () => {
           console.log('onSuccess chamado, finalizingReportId:', finalizingReportId);
           if (finalizingReportId) {

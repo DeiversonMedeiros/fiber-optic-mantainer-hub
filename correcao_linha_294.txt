@@ -1,0 +1,19 @@
+CORREÇÃO PARA LINHA 294 - ReportValidation.tsx
+
+ANTES (problemático):
+const queryWithFilter = formDataQuery.ilike('form_data::text', `%${searchTerm}%`);
+
+DEPOIS (correto):
+// CORREÇÃO: Filtro removido temporariamente devido a erro PostgreSQL
+// const queryWithFilter = formDataQuery.ilike('form_data::text', `%${searchTerm}%`);
+console.log('🔍 Filtro em form_data DESABILITADO - Erro: operator does not exist: jsonb ~~* unknown');
+
+E também alterar a linha seguinte:
+ANTES:
+const queryWithOrder = queryWithFilter.order('created_at', { ascending: false });
+
+DEPOIS:
+const queryWithOrder = formDataQuery.order('created_at', { ascending: false });
+
+
+

@@ -173,7 +173,7 @@ const Vistoria = () => {
     });
   }, [preventiveReports, riskTabFilters]);
 
-  // Numeração sequencial global dos relatórios preventivos
+  // Numeração sequencial global dos relatórios preventivos - Fallback para relatórios antigos
   const preventiveReportSequenceMap = useMemo(() => {
     const sorted = [...preventiveReports].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     const map: Record<string, number> = {};
@@ -182,6 +182,24 @@ const Vistoria = () => {
     });
     return map;
   }, [preventiveReports]);
+
+  // Função para obter o número do relatório com prefixo REL-
+  const getReportNumber = (report: any) => {
+    if (report.report_number) {
+      return `REL-${report.report_number}`;
+    }
+    // Fallback para relatórios antigos que não têm report_number
+    return `REL-${preventiveReportSequenceMap[report.id] || 'N/A'}`;
+  };
+
+  // Função para obter o número do relatório de vistoria com prefixo RIS-
+  const getInspectionReportNumber = (report: any) => {
+    if (report.report_number) {
+      return `RIS-${report.report_number}`;
+    }
+    // Fallback para relatórios antigos que não têm report_number
+    return `RIS-${preventiveReportSequenceMap[report.id] || 'N/A'}`;
+  };
 
   // Atualizar observações
   const updateObservationsMutation = useMutation({
@@ -577,7 +595,7 @@ const Vistoria = () => {
                     <CardContent className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-4">
                       <div>
                         <div className="font-semibold flex items-center gap-2">
-                          Nº: <span className="text-primary font-mono">{preventiveReportSequenceMap[report.id]}</span>
+                                                        Nº: <span className="text-primary font-mono">{getInspectionReportNumber(report)}</span>
                           {report.risk_type || 'Relatório de Vistoria Preventiva'}
                         </div>
                         <div className="text-sm text-muted-foreground">
@@ -626,7 +644,7 @@ const Vistoria = () => {
           </DialogHeader>
           {selectedReport ? (
             <div className="space-y-2">
-              <div><b>Nº:</b> {preventiveReportSequenceMap[selectedReport.id]}</div>
+                                          <div><b>Nº:</b> {getInspectionReportNumber(selectedReport)}</div>
               <div><b>Status:</b> <span className={`inline-block align-middle px-2 py-0.5 rounded ${getStatusColor(selectedReport.status)}`}>{getStatusLabel(selectedReport.status)}</span></div>
               <div><b>Técnico:</b> {selectedReport.technician?.name || '-'}</div>
               <div><b>Data:</b> {selectedReport.created_at ? new Date(selectedReport.created_at).toLocaleDateString('pt-BR') : '-'}</div>

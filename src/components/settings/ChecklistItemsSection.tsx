@@ -7,16 +7,27 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, Edit } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 type ChecklistCategory = 'servicos' | 'materiais';
 
+interface ChecklistItem {
+  id: string;
+  name: string;
+  category: ChecklistCategory;
+  user_class_id: string;
+  standard_quantity: number | null;
+  user_classes?: { name: string };
+}
+
 const ChecklistItemsSection = () => {
   const [newItemName, setNewItemName] = useState('');
   const [newItemCategory, setNewItemCategory] = useState<ChecklistCategory>('materiais');
+  const [newItemStandard, setNewItemStandard] = useState(0);
   const [selectedClass, setSelectedClass] = useState('');
+  const [editingItem, setEditingItem] = useState<ChecklistItem | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -41,6 +52,7 @@ const ChecklistItemsSection = () => {
   const { data: checklistItems = [] } = useQuery({
     queryKey: ['checklist-items'],
     queryFn: async () => {
+      console.log('🔎 Buscando checklist items...');
       const { data, error } = await supabase
         .from('checklist_items')
         .select(`
@@ -50,16 +62,26 @@ const ChecklistItemsSection = () => {
         .eq('is_active', true)
         .order('category', { ascending: true })
         .order('name', { ascending: true });
-      if (error) throw error;
+      console.log('📋 Checklist items carregados:', data);
+      if (error) {
+        console.error('❌ Erro ao carregar checklist items:', error);
+        throw error;
+      }
       return data;
-    }
+    },
+    staleTime: 0
   });
 
   const createMutation = useMutation({
-    mutationFn: async (items: Array<{ name: string; category: ChecklistCategory; user_class_id: string }>) => {
+    mutationFn: async (item: {
+      name: string;
+      category: ChecklistCategory;
+      user_class_id: string;
+      standard_quantity: number;
+    }) => {
       const { error } = await supabase
         .from('checklist_items')
-        .insert(items);
+        .insert(item);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -69,11 +91,60 @@ const ChecklistItemsSection = () => {
         description: "O item foi adicionado com sucesso.",
       });
       setNewItemName('');
+      setNewItemStandard(0);
     },
     onError: () => {
       toast({
         title: "Erro",
         description: "Não foi possível criar o item.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (item: {
+      id: string;
+      name: string;
+      category: ChecklistCategory;
+      user_class_id: string;
+      standard_quantity: number;
+    }) => {
+      console.log('🔄 Iniciando updateMutation com dados:', item);
+      const updateData = {
+        name: item.name,
+        category: item.category,
+        user_class_id: item.user_class_id,
+        standard_quantity: item.standard_quantity,
+      };
+      console.log('📝 Dados para atualização:', updateData);
+      const { data, error } = await supabase
+        .from('checklist_items')
+        .update(updateData)
+        .eq('id', item.id)
+        .select();
+      console.log('📊 Resposta do Supabase:', { data, error });
+      if (error) {
+        console.error('❌ Erro na atualização:', error);
+        throw error;
+      }
+      console.log('✅ Atualização bem-sucedida:', data);
+      return data;
+    },
+    onSuccess: (data) => {
+      console.log('🎉 onSuccess chamado com dados:', data);
+      queryClient.invalidateQueries({ queryKey: ['checklist-items'] });
+      toast({
+        title: "Item atualizado",
+        description: "O item foi atualizado com sucesso.",
+      });
+      setEditingItem(null);
+    },
+    onError: (error) => {
+      console.error('💥 onError chamado com erro:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o item.",
         variant: "destructive",
       });
     }
@@ -107,11 +178,33 @@ const ChecklistItemsSection = () => {
     e.preventDefault();
     if (!newItemName.trim() || !selectedClass) return;
 
-    createMutation.mutate([{
+    createMutation.mutate({
       name: newItemName.trim(),
       category: newItemCategory,
-      user_class_id: selectedClass
-    }]);
+      user_class_id: selectedClass,
+      standard_quantity: newItemStandard,
+    });
+  };
+
+  const handleEditItem = (item: ChecklistItem) => {
+    setEditingItem(item);
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem) return;
+
+    updateMutation.mutate({
+      id: editingItem.id,
+      name: editingItem.name,
+      category: editingItem.category,
+      user_class_id: editingItem.user_class_id,
+      standard_quantity: editingItem.standard_quantity,
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItem(null);
   };
 
   const groupedItems = checklistItems.reduce((acc, item) => {
@@ -126,12 +219,6 @@ const ChecklistItemsSection = () => {
     return acc;
   }, {} as Record<string, Record<string, any[]>>);
 
-  // Logs de debug para diagnóstico
-  console.log('userClasses:', userClasses);
-  console.log('checklistItems:', checklistItems);
-  console.log('groupedItems:', JSON.stringify(groupedItems, null, 2));
-
-  // Estado para controlar a aba ativa
   const [activeTab, setActiveTab] = useState(Object.keys(groupedItems)[0] || '');
 
   useEffect(() => {
@@ -147,7 +234,7 @@ const ChecklistItemsSection = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreateItem} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="item-name">Nome do Item</Label>
                 <Input
@@ -188,6 +275,17 @@ const ChecklistItemsSection = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="item-standard">Padrão</Label>
+                <Input
+                  id="item-standard"
+                  type="number"
+                  min="0"
+                  value={newItemStandard}
+                  onChange={(e) => setNewItemStandard(parseInt(e.target.value) || 0)}
+                  placeholder="0"
+                />
+              </div>
             </div>
             <Button type="submit" disabled={createMutation.isPending}>
               <Plus className="w-4 h-4 mr-2" />
@@ -202,57 +300,101 @@ const ChecklistItemsSection = () => {
           <CardTitle>Itens do Checklist</CardTitle>
         </CardHeader>
         <CardContent>
-        <div className="checklist-tabs">
-          {Object.keys(groupedItems).length === 0 ? (
-            <p className="text-gray-500 text-center py-8">Nenhum checklist cadastrado para as classes ativas.</p>
-          ) : (
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className="flex w-full">
-                {Object.keys(groupedItems).map(className => (
-                  <TabsTrigger key={className} value={className}>
-                    {className}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+          <div className="checklist-tabs">
+            {Object.keys(groupedItems).length === 0 ? (
+              <p className="text-gray-500 text-center py-8">Nenhum checklist cadastrado para as classes ativas.</p>
+            ) : (
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+                <TabsList className="flex w-full">
+                  {Object.keys(groupedItems).map(className => (
+                    <TabsTrigger key={className} value={className}>
+                      {className}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
 
-              {Object.entries(groupedItems).map(([className, categoriesData]) => (
-                <TabsContent key={className} value={className} className="space-y-4 checklist-tab-content">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {Object.entries(categoriesData).map(([category, items]) => (
-                      <Card key={category}>
-                        <CardHeader>
-                          <CardTitle className="text-lg">
-                            {categories.find(cat => cat.value === category)?.label || category}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-2">
-                            {items.map(item => (
-                              <div key={item.id} className="flex items-center justify-between p-2 border rounded">
-                                <span>{item.name}</span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => deleteMutation.mutate(item.id)}
-                                  disabled={deleteMutation.isPending}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            ))}
-                            {items.length === 0 && (
-                              <p className="text-gray-500 text-sm">Nenhum item nesta categoria</p>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </TabsContent>
-              ))}
-            </Tabs>
-          )}
-        </div>
+                {Object.entries(groupedItems).map(([className, categoriesData]) => (
+                  <TabsContent key={className} value={className} className="space-y-4 checklist-tab-content">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {Object.entries(categoriesData).map(([category, items]) => (
+                        <Card key={category}>
+                          <CardHeader>
+                            <CardTitle className="text-lg">
+                              {categories.find(cat => cat.value === category)?.label || category}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-2">
+                              {items.map((item: ChecklistItem) => (
+                                <div key={item.id} className="border rounded p-3">
+                                  {editingItem?.id === item.id ? (
+                                    <form onSubmit={handleSaveEdit} className="space-y-3">
+                                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                                        <Input
+                                          value={editingItem.name}
+                                          onChange={(e) => setEditingItem({...editingItem, name: e.target.value})}
+                                          placeholder="Nome do item"
+                                          required
+                                        />
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          value={editingItem.standard_quantity}
+                                          onChange={(e) => setEditingItem({...editingItem, standard_quantity: parseInt(e.target.value) || 0})}
+                                          placeholder="Padrão"
+                                        />
+                                        <div className="flex gap-1">
+                                          <Button type="submit" size="sm" disabled={updateMutation.isPending}>
+                                            Salvar
+                                          </Button>
+                                          <Button type="button" size="sm" variant="outline" onClick={handleCancelEdit}>
+                                            Cancelar
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </form>
+                                  ) : (
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex-1">
+                                        <div className="font-medium">{item.name}</div>
+                                        <div className="text-sm text-gray-500 flex gap-4">
+                                          <span>Padrão: {item.standard_quantity}</span>
+                                        </div>
+                                      </div>
+                                      <div className="flex gap-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleEditItem(item)}
+                                        >
+                                          <Edit className="w-4 h-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => deleteMutation.mutate(item.id)}
+                                          disabled={deleteMutation.isPending}
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                              {items.length === 0 && (
+                                <p className="text-gray-500 text-sm">Nenhum item nesta categoria</p>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </TabsContent>
+                ))}
+              </Tabs>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

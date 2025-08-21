@@ -19,4 +19,25 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // Otimizações para produção
+  build: {
+    target: 'esnext',
+    minify: 'terser',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-dropdown-menu'],
+          charts: ['recharts'],
+          utils: ['@tanstack/react-query', 'date-fns']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000,
+    assetsInlineLimit: 4096, // Inline assets menores que 4KB
+  },
+  // Otimizações de assets
+  assetsInclude: ['**/*.png', '**/*.jpg', '**/*.jpeg', '**/*.gif', '**/*.svg', '**/*.webp'],
+  // Configurações de cache
+  cacheDir: '.vite',
 }));

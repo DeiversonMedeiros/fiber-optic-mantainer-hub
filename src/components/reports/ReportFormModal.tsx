@@ -24,6 +24,7 @@ interface ReportFormModalProps {
   scheduleId?: string | null;
   onSuccess?: () => void;
   parentReportId?: string | null; // <-- nova prop
+  inspectionReportId?: string | null; // <-- NOVO
 }
 
 const STORAGE_BUCKET = 'report-attachments';
@@ -63,7 +64,7 @@ async function uploadFiles(files: File[], userId: string) {
   return uploaded;
 }
 
-const ReportFormModal = ({ isOpen, onClose, templateId, scheduleId, onSuccess, parentReportId }: ReportFormModalProps) => {
+const ReportFormModal = ({ isOpen, onClose, templateId, scheduleId, onSuccess, parentReportId, inspectionReportId }: ReportFormModalProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -187,7 +188,8 @@ const ReportFormModal = ({ isOpen, onClose, templateId, scheduleId, onSuccess, p
           status: 'nao_validado' as const,
           schedule_id: typeof scheduleId === 'string' ? scheduleId : null,
           parent_report_id: reportData.parent_report_id ?? parentReportId ?? null, // <-- garantir preenchimento
-          manager_id: reportData.manager_id // <-- incluir gestor
+          manager_id: reportData.manager_id, // <-- incluir gestor
+          inspection_report_id: inspectionReportId ?? null // <-- incluir inspection_report_id
       };
       console.log('Payload para insert:', payload);
       console.log('🗄️ Attachments no payload:', payload.attachments);
@@ -297,7 +299,7 @@ const ReportFormModal = ({ isOpen, onClose, templateId, scheduleId, onSuccess, p
     const existingItem = checklistData.find(i => i.id === itemId);
     if (existingItem) {
       setChecklistData(prev => prev.map(i => 
-        i.id === itemId ? { ...i, quantity: i.quantity + 1 } : i
+        i.id === itemId ? { ...i, quantity: (typeof i.quantity === 'number' ? i.quantity : 0) + 1 } : i
       ));
     } else {
       setChecklistData(prev => [...prev, {
@@ -395,6 +397,7 @@ const ReportFormModal = ({ isOpen, onClose, templateId, scheduleId, onSuccess, p
       checklistData,
       attachments: uploadedFiles,
       parent_report_id: parentReportId ?? null,
+      inspection_report_id: inspectionReportId ?? null, // <-- NOVO
       manager_id: managerId // <-- incluir gestor
     };
     

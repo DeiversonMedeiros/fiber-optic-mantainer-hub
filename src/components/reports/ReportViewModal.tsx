@@ -88,15 +88,22 @@ const ReportViewModal: React.FC<ReportViewModalProps> = ({ report, open, onClose
       .replace(/\b\w/g, (l) => l.toUpperCase());
   }
 
+  // Função para formatar o número do relatório
+  function formatReportNumber(reportNumber: string | number | null) {
+    if (!reportNumber) return "-";
+    return `REL-${reportNumber}`;
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Detalhes do Relatório</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             <div><strong>Título:</strong> {report.title}</div>
+            <div><strong>Número do Relatório:</strong> {formatReportNumber(report.report_number)}</div>
             <div><strong>Status:</strong> <Badge>{formatStatus(report.status)}</Badge></div>
             <div><strong>Data:</strong> {new Date(report.created_at).toLocaleString("pt-BR")}</div>
             <div><strong>Técnico:</strong> {report.technician?.name || "-"}</div>

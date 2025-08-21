@@ -5,21 +5,58 @@ export const exportToCSV = (data: any[], filename: string) => {
   }
 
   const headers = Object.keys(data[0]);
-  const csvContent = [
-    headers.join(','),
-    ...data.map(row => 
-      headers.map(header => {
-        const value = row[header];
-        // Escape values that contain commas or quotes
-        if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
-          return `"${value.replace(/"/g, '""')}"`;
+  
+  // Função para escapar valores CSV adequadamente
+  const escapeCSVValue = (value: any): string => {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    
+    // Se é um objeto, tentar serializar adequadamente
+    if (typeof value === 'object' && value !== null) {
+      try {
+        // Se é um array, juntar com ponto e vírgula
+        if (Array.isArray(value)) {
+          return value.map(item => {
+            if (typeof item === 'object' && item !== null) {
+              if (item.url) return item.url;
+              if (item.name) return item.name;
+              if (item.id) return String(item.id);
+              return JSON.stringify(item);
+            }
+            return String(item);
+          }).join('; ');
         }
-        return value;
-      }).join(',')
-    )
-  ].join('\n');
+        // Se é um objeto, tentar extrair informações úteis
+        if (value.url) return value.url;
+        if (value.name) return value.name;
+        if (value.id) return String(value.id);
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    }
+    
+    const stringValue = String(value);
+    
+    // Se contém ponto e vírgula, aspas ou quebra de linha, envolver em aspas
+    if (stringValue.includes(';') || stringValue.includes('"') || stringValue.includes('\n') || stringValue.includes('\r')) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    
+    return stringValue;
+  };
 
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const csvContent = [
+    headers.map(header => escapeCSVValue(header)).join(';'),
+    ...data.map(row => 
+      headers.map(header => escapeCSVValue(row[header])).join(';')
+    )
+  ].join('\r\n');
+
+  // Adicionar BOM para UTF-8 (importante para Excel)
+  const BOM = '\uFEFF';
+  const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   
   if (link.download !== undefined) {
@@ -30,5 +67,6 @@ export const exportToCSV = (data: any[], filename: string) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 };

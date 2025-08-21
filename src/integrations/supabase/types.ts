@@ -90,6 +90,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          standard_quantity: number | null
           updated_at: string
           user_class_id: string | null
         }
@@ -99,6 +100,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          standard_quantity?: number | null
           updated_at?: string
           user_class_id?: string | null
         }
@@ -108,6 +110,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          standard_quantity?: number | null
           updated_at?: string
           user_class_id?: string | null
         }
@@ -175,6 +178,67 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      material_charges: {
+        Row: {
+          id: string;
+          checklist_item_id: string;
+          quantity_added: number;
+          quantity_withdrawn: number;
+          operation_type: string;
+          sa_code: string;
+          reason: string | null;
+          created_by: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          checklist_item_id: string;
+          quantity_added: number;
+          quantity_withdrawn?: number;
+          operation_type?: string;
+          sa_code: string;
+          reason?: string | null;
+          created_by: string;
+          user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          checklist_item_id?: string;
+          quantity_added?: number;
+          quantity_withdrawn?: number;
+          operation_type?: string;
+          sa_code?: string;
+          reason?: string | null;
+          created_by?: string;
+          user_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "material_charges_checklist_item_id_fkey",
+            columns: ["checklist_item_id"],
+            isOneToOne: false,
+            referencedRelation: "checklist_items",
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_charges_created_by_fkey",
+            columns: ["created_by"],
+            isOneToOne: false,
+            referencedRelation: "profiles",
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_charges_user_id_fkey",
+            columns: ["user_id"],
+            isOneToOne: false,
+            referencedRelation: "profiles",
+            referencedColumns: ["id"]
+          }
+        ];
       }
       material_consumption: {
         Row: {
@@ -517,6 +581,7 @@ export type Database = {
           pending_reason: string | null
           pending_notes: string | null
           parent_report_id: string | null
+          report_number: number | null
         }
         Insert: {
           attachments?: Json | null
@@ -538,6 +603,7 @@ export type Database = {
           pending_reason?: string | null
           pending_notes?: string | null
           parent_report_id?: string | null
+          report_number?: number | null
         }
         Update: {
           attachments?: Json | null
@@ -559,6 +625,7 @@ export type Database = {
           pending_reason?: string | null
           pending_notes?: string | null
           parent_report_id?: string | null
+          report_number?: number | null
         }
         Relationships: [
           {
@@ -727,7 +794,8 @@ export type Database = {
           created_at: string;
           updated_at: string;
           assigned_to: string | null;
-          status: 'pendente' | 'concluido' | 'cancelado'; // novo campo
+          status: 'pendente' | 'concluido' | 'cancelado';
+          report_number: number | null;
         };
         Insert: {
           id?: string;
@@ -745,7 +813,8 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           assigned_to?: string | null;
-          status?: 'pendente' | 'concluido' | 'cancelado'; // novo campo
+          status?: 'pendente' | 'concluido' | 'cancelado';
+          report_number?: number | null;
         };
         Update: {
           id?: string;
@@ -763,7 +832,8 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           assigned_to?: string | null;
-          status?: 'pendente' | 'concluido' | 'cancelado'; // novo campo
+          status?: 'pendente' | 'concluido' | 'cancelado';
+          report_number?: number | null;
         };
         Relationships: [
           {
@@ -778,6 +848,56 @@ export type Database = {
             columns: ["schedule_id"],
             isOneToOne: false,
             referencedRelation: "preventive_schedule",
+            referencedColumns: ["id"]
+          }
+        ];
+      },
+      cities: {
+        Row: {
+          id: number;
+          name: string;
+          state: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          name: string;
+          state: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          name?: string;
+          state?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      },
+      neighborhoods: {
+        Row: {
+          id: number;
+          name: string;
+          city_id: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          name: string;
+          city_id: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          name?: string;
+          city_id?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "neighborhoods_city_id_fkey",
+            columns: ["city_id"],
+            isOneToOne: false,
+            referencedRelation: "cities",
             referencedColumns: ["id"]
           }
         ];

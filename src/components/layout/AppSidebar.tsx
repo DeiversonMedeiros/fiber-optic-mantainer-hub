@@ -11,6 +11,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { 
   LayoutDashboard, 
@@ -28,6 +29,7 @@ import {
   Lock
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { usePendingCounts } from '@/hooks/usePendingCounts';
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -62,6 +64,7 @@ const menuItems = [
     title: 'Minhas Adequações',
     url: '/my-adjustments',
     icon: Settings,
+    showBadge: true,
   },
   {
     id: 'users',
@@ -86,12 +89,14 @@ const menuItems = [
     title: 'Preventivas',
     url: '/preventivas',
     icon: ClipboardList,
+    showBadge: true,
   },
   {
     id: 'vistoria',
     title: 'Vistoria',
     url: '/vistoria',
     icon: Eye,
+    showBadge: true,
   },
   {
     id: 'change-password',
@@ -105,6 +110,8 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
+  const { isMobile, setOpenMobile } = useSidebar();
+  const { data: pendingCounts } = usePendingCounts();
   
   // Buscar perfil do usuário logado
   const { data: profile } = useQuery({
@@ -161,6 +168,22 @@ export function AppSidebar() {
   console.log('Permissões carregadas:', permissionsArr);
   console.log('IDs do menu:', menuItems.map(i => i.id));
 
+  // Função para obter a contagem pendente para um item específico
+  const getPendingCount = (itemId: string) => {
+    if (!pendingCounts) return 0;
+    
+    switch (itemId) {
+      case 'my-adjustments':
+        return pendingCounts.adjustments;
+      case 'preventivas':
+        return pendingCounts.preventivas;
+      case 'vistoria':
+        return pendingCounts.vistoria;
+      default:
+        return 0;
+    }
+  };
+
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
@@ -189,16 +212,28 @@ export function AppSidebar() {
                 filteredMenuItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = location.pathname === item.url;
+                  const pendingCount = getPendingCount(item.id);
+                  
                   return (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton 
                         asChild 
                         isActive={isActive}
-                        onClick={() => navigate(item.url)}
+                        onClick={() => {
+                          if (isMobile) setOpenMobile(false);
+                          navigate(item.url);
+                        }}
                       >
-                        <button className="w-full">
-                          <Icon className="w-4 h-4" />
-                          <span>{item.title}</span>
+                        <button className="w-full flex items-center justify-between">
+                          <div className="flex items-center">
+                            <Icon className="w-4 h-4" />
+                            <span>{item.title}</span>
+                          </div>
+                          {item.showBadge && pendingCount > 0 && (
+                            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-xs font-medium">
+                              {pendingCount}
+                            </div>
+                          )}
                         </button>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

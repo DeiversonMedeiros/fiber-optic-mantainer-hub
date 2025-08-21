@@ -393,118 +393,133 @@ const ReportTemplateModal = ({ isOpen, onClose, template }: ReportTemplateModalP
             </CardHeader>
             <CardContent className="space-y-4">
               {fields.map((field) => {
-                    const isExpanded = expandedFields.has(field.id);
-                    return (
+                const isExpanded = expandedFields.has(field.id);
+                // Log para inspecionar o campo
+                console.log("Renderizando campo:", field);
+
+                return (
                   <Card className="p-4" key={field.id}>
-                          {/* Cabeçalho do campo */}
+                    {/* Cabeçalho do campo */}
                     <div
                       className="flex items-center justify-between cursor-pointer"
                       onClick={() => toggleFieldExpand(field.id)}
                     >
-                            <div className="flex items-center gap-2">
-                              {isExpanded ? <ChevronDown /> : <ChevronRight />}
+                      <div className="flex items-center gap-2">
+                        {isExpanded ? <ChevronDown /> : <ChevronRight />}
                         <span className="font-semibold">
                           {field.label || "Campo sem rótulo"}
                         </span>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
                           removeField(field.id);
                         }}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          {/* Corpo do campo, só aparece se expandido */}
-                          {isExpanded && (
-                            <div className="mt-4">
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="space-y-2">
-                                  <Label>Nome do Campo</Label>
-                                  <Input
-                                    value={field.name}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    {/* Corpo do campo, só aparece se expandido */}
+                    {isExpanded && (
+                      <div className="mt-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="space-y-2">
+                            <Label>Nome do Campo</Label>
+                            <Input
+                              value={field.name}
                               onChange={(e) =>
                                 updateField(field.id, "name", e.target.value)
                               }
-                                    placeholder="nome_do_campo"
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label>Rótulo</Label>
-                                  <Input
-                                    value={field.label}
+                              placeholder="nome_do_campo"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Rótulo</Label>
+                            <Input
+                              value={field.label}
                               onChange={(e) =>
                                 updateField(field.id, "label", e.target.value)
                               }
-                                    placeholder="Rótulo do campo"
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label>Tipo</Label>
-                                  <Select
-                                    value={field.type}
+                              placeholder="Rótulo do campo"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Tipo</Label>
+                            <Select
+                              value={field.type}
                               onValueChange={(value) =>
                                 updateField(field.id, "type", value)
                               }
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {Object.entries(FIELD_TYPES).map(([key, label]) => (
-                                        <SelectItem key={key} value={key}>
-                                          {label}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </div>
-                              {/* Opções para campos que precisam */}
-                              {needsOptions(field.type) && (
-                                <div className="mt-4">
-                                  <div className="flex justify-between items-center mb-2">
-                                    <Label>Opções</Label>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(FIELD_TYPES).map(([key, label]) => (
+                                  <SelectItem key={key} value={key}>
+                                    {label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex items-center space-x-2 mt-6">
+                            {/* Log para garantir que o checkbox está sendo processado */}
+                            {console.log("Renderizando checkbox para campo:", field.name, "required:", field.required)}
+                            <Checkbox
+                              id={`required-${field.id}`}
+                              checked={field.required}
+                              onCheckedChange={(checked) =>
+                                updateField(field.id, "required", checked === true)
+                              }
+                            />
+                            <Label htmlFor={`required-${field.id}`}>Campo obrigatório</Label>
+                          </div>
+                        </div>
+                        {/* Opções para campos que precisam */}
+                        {needsOptions(field.type) && (
+                          <div className="mt-4">
+                            <div className="flex justify-between items-center mb-2">
+                              <Label>Opções</Label>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
                                 onClick={() => addOption(field.id)}
-                                    >
-                                      <Plus className="w-4 h-4 mr-2" />
-                                      Adicionar Opção
-                                    </Button>
-                                  </div>
+                              >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Adicionar Opção
+                              </Button>
+                            </div>
                             {field.options?.map((option: string, idx: number) => (
                               <div className="flex items-center gap-2 mb-2" key={idx}>
-                                        <Input
-                                          value={option}
+                                <Input
+                                  value={option}
                                   onChange={(e) =>
                                     updateOption(field.id, idx, e.target.value)
                                   }
                                   placeholder={`Opção ${idx + 1}`}
-                                        />
-                                        <Button
-                                          type="button"
+                                />
+                                <Button
+                                  type="button"
                                   variant="destructive"
                                   size="icon"
                                   onClick={() => removeOption(field.id, idx)}
-                                        >
+                                >
                                   <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                      </div>
-                                    ))}
-                                  </div>
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
                         )}
-                            </div>
-                          )}
-                        </Card>
-                    );
-                  })}
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
             </CardContent>
           </Card>
 

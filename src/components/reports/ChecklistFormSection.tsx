@@ -9,6 +9,7 @@ export interface ChecklistItem {
   category: string;
   quantity?: number | "";
   notes?: string;
+  standard_quantity?: number | null;
 }
 
 interface ChecklistFormSectionProps {
@@ -54,9 +55,12 @@ export const ChecklistFormSection: React.FC<ChecklistFormSectionProps> = ({
   // Lida com seleção/deseleção
   const handleCheck = (item: ChecklistItem, checked: boolean) => {
     if (checked) {
+      // Sempre usar quantidade padrão 1 para todos os itens
+      const defaultQuantity = 1;
+      
       onChange([
         ...value,
-        { ...item, quantity: 1, notes: "" },
+        { ...item, quantity: defaultQuantity, notes: "" },
       ]);
     } else {
       onChange(value.filter((v) => v.id !== item.id));
@@ -120,12 +124,19 @@ export const ChecklistFormSection: React.FC<ChecklistFormSectionProps> = ({
                     }
                     className="mr-2"
                   />
-                  <span className="flex-1">{item.name}</span>
+                  <div className="flex-1">
+                    <span className="block">{item.name}</span>
+                    {item.category === "materiais" && (
+                      <span className="text-xs text-gray-500">
+                        Padrão: {item.standard_quantity || 0}
+                      </span>
+                    )}
+                  </div>
                   {isChecked(item.id) && (
                     <>
                       <input
                         type="number"
-                        min={1}
+                        min="1"
                         value={getQuantity(item.id)}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -145,7 +156,8 @@ export const ChecklistFormSection: React.FC<ChecklistFormSectionProps> = ({
                         }}
                         onBlur={(e) => {
                           if (e.target.value === "") {
-                            handleQuantity(item.id, 1);
+                            const defaultQty = 1;
+                            handleQuantity(item.id, defaultQty);
                           }
                         }}
                         className="w-16 text-center border rounded ml-2"

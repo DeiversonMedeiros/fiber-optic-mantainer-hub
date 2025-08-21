@@ -5,6 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useCitiesNeighborhoods } from "@/hooks/useCitiesNeighborhoods";
+import { SearchSelect } from "@/components/ui/search-select";
 
 const RISK_TYPES = [
   "Adequação / Acomodação Caixa De Emenda",
@@ -29,7 +31,8 @@ const RISK_TYPES = [
   "Rede Próximo A Rede Elétrica (Concessionária Energia)",
   "Rede Próximo A Iluminação Pública (Concessionária Energia)",
   "Existência Pragas Urbanas (Ratos, Abelhas, Formigas, Etc...)",
-  "Aterramento Danificado / Inexistente"
+  "Aterramento Danificado / Inexistente",
+  "Instalação de PEAD"
 ];
 
 const RISK_LEVELS = ["Alto", "Médio", "Baixo"];
@@ -54,13 +57,24 @@ export default function InspectionReportForm({ onSubmit, loading, cableNumber = 
   cableNumber?: string
 }) {
   const { toast } = useToast();
+  const { 
+    cities, 
+    neighborhoods, 
+    selectedCityId, 
+    setSelectedCityId, 
+    citiesLoading, 
+    neighborhoodsLoading 
+  } = useCitiesNeighborhoods();
+
   const [form, setForm] = useState({
     risk_type: "",
     risk_level: "",
     address: "",
     city: "",
+    city_id: null as number | null,
     neighborhood: "",
-    cable_number: cableNumber, // inicializa com o valor vindo da prop
+    neighborhood_id: null as number | null,
+    cable_number: cableNumber,
     network_type: "",
     description: "",
     photos: [] as File[]
@@ -72,6 +86,41 @@ export default function InspectionReportForm({ onSubmit, loading, cableNumber = 
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: "" }));
   }
+
+  // Função para lidar com mudança de cidade
+  const handleCityChange = (cityId: string) => {
+    const cityIdNum = parseInt(cityId);
+    const selectedCity = cities.find(city => city.id === cityIdNum);
+    
+    setForm(prev => ({
+      ...prev,
+      city: selectedCity?.name || "",
+      city_id: cityIdNum,
+      neighborhood: "",
+      neighborhood_id: null
+    }));
+    
+    setSelectedCityId(cityIdNum);
+    setErrors(prev => ({ ...prev, city: "", neighborhood: "" }));
+  };
+
+  // Função para lidar com mudança de bairro
+  const handleNeighborhoodChange = (neighborhoodId: string) => {
+    console.log('🔍 handleNeighborhoodChange chamado:', neighborhoodId);
+    const neighborhoodIdNum = parseInt(neighborhoodId);
+    const selectedNeighborhood = neighborhoods.find(n => n.id === neighborhoodIdNum);
+    
+    console.log('🎯 Bairro encontrado:', selectedNeighborhood);
+    console.log('📋 Total de bairros disponíveis:', neighborhoods.length);
+    
+    setForm(prev => ({
+      ...prev,
+      neighborhood: selectedNeighborhood?.name || "",
+      neighborhood_id: neighborhoodIdNum
+    }));
+    
+    setErrors(prev => ({ ...prev, neighborhood: "" }));
+  };
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
@@ -153,23 +202,57 @@ export default function InspectionReportForm({ onSubmit, loading, cableNumber = 
       </div>
       <div>
         <Label>Cidade *</Label>
-        <Select value={form.city} onValueChange={v => handleChange("city", v)}>
+        <Select 
+          value={form.city_id?.toString() || ""} 
+          onValueChange={handleCityChange}
+          disabled={citiesLoading}
+        >
           <SelectTrigger>
-            <SelectValue placeholder="Selecione a cidade" />
+            <SelectValue placeholder={citiesLoading ? "Carregando..." : "Selecione a cidade"} />
           </SelectTrigger>
           <SelectContent>
-            {CITY_OPTIONS.map((city) => (
-              <SelectItem key={city} value={city}>{city}</SelectItem>
+            {cities.map((city) => (
+              <SelectItem key={city.id} value={city.id.toString()}>
+                {city.name} - {city.state}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
         {errors.city && <span className="text-red-500 text-xs">{errors.city}</span>}
       </div>
+      
       <div>
-        <Label>Bairro *</Label>
-        <Input value={form.neighborhood} onChange={e => handleChange("neighborhood", e.target.value)} />
+        {(() => {
+          const neighborhoodOptions = neighborhoods.map(n => ({
+            id: n.id,
+            name: n.name,
+            value: n.id.toString()
+          }));
+          
+          console.log('🏘️ Opções de bairro passadas para SearchSelect:', neighborhoodOptions.length);
+          console.log('🏘️ Primeiros 3 bairros:', neighborhoodOptions.slice(0, 3));
+          
+          return (
+            <SearchSelect
+              label="Bairro *"
+              placeholder={
+                !selectedCityId 
+                  ? "Selecione uma cidade primeiro" 
+                  : neighborhoodsLoading 
+                    ? "Carregando..." 
+                    : "Selecione o bairro"
+              }
+              options={neighborhoodOptions}
+              value={form.neighborhood_id?.toString() || ""}
+              onValueChange={handleNeighborhoodChange}
+              disabled={!selectedCityId || neighborhoodsLoading}
+              loading={neighborhoodsLoading}
+            />
+          );
+        })()}
         {errors.neighborhood && <span className="text-red-500 text-xs">{errors.neighborhood}</span>}
       </div>
+      
       <div>
         <Label>Número do Cabo *</Label>
         <Input value={form.cable_number} readOnly />

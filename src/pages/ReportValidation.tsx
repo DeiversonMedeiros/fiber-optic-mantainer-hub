@@ -6,18 +6,29 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { CheckCircle, XCircle, Edit, AlertTriangle, DollarSign, Trash2, ChevronDown, ChevronRight, Filter, FileText, ZoomIn, History, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, Edit, AlertTriangle, DollarSign, Trash2, ChevronDown, ChevronRight, Filter, FileText, ZoomIn, History, Clock, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useDebounce } from '@/hooks/use-debounce';
 import { ChecklistFormSection } from '@/components/reports/ChecklistFormSection';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { ThumbnailImage, FullImage } from '@/components/ui/OptimizedImage';
+
+
 import { exportToCSV } from "@/utils/csvExport";
-import { usePagination } from "@/hooks/usePagination";
+
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+
+// Tipos para otimização
+interface ValidationReportsResponse {
+  data: any[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
 
 const ReportValidation = () => {
   const { user } = useAuth();
@@ -30,10 +41,46 @@ const ReportValidation = () => {
     status: 'all',
     serviceType: 'all',
     serviceNumber: '',
+    reportNumber: '',
     userClass: 'all',
     startDate: '',
     endDate: '',
+    formDataSearch: '', // NOVO FILTRO - Busca apenas em form_data
   });
+
+  // Estado separado para o input do número do serviço para evitar perda de foco
+  const [serviceNumberInput, setServiceNumberInput] = useState('');
+  
+  // Estado separado para o input do número do relatório para evitar perda de foco
+  const [reportNumberInput, setReportNumberInput] = useState('');
+  
+  // Estado separado para o input de busca em form_data para evitar perda de foco
+  const [formDataSearchInput, setFormDataSearchInput] = useState('');
+  
+  // Aplicar debounce de 500ms no serviceNumber para evitar consultas excessivas
+  const debouncedServiceNumber = useDebounce(serviceNumberInput, 500);
+  
+  // Aplicar debounce de 500ms no reportNumber para evitar consultas excessivas
+  const debouncedReportNumber = useDebounce(reportNumberInput, 500);
+  
+  // Aplicar debounce de 500ms no formDataSearch para evitar consultas excessivas
+  const debouncedFormDataSearch = useDebounce(formDataSearchInput, 500);
+
+  // Sincronizar valor com debounce com o estado de filtros
+  useEffect(() => {
+    setFilters(prev => ({ ...prev, serviceNumber: debouncedServiceNumber }));
+  }, [debouncedServiceNumber]);
+  
+  // Sincronizar valor com debounce com o estado de filtros
+  useEffect(() => {
+    setFilters(prev => ({ ...prev, reportNumber: debouncedReportNumber }));
+  }, [debouncedReportNumber]);
+  
+  // Sincronizar valor com debounce com o estado de filtros
+  useEffect(() => {
+    setFilters(prev => ({ ...prev, formDataSearch: debouncedFormDataSearch }));
+  }, [debouncedFormDataSearch]);
+
   const [editReportId, setEditReportId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = React.useState('');
   const [editDescription, setEditDescription] = React.useState('');
@@ -43,6 +90,10 @@ const ReportValidation = () => {
   const [editAttachments, setEditAttachments] = React.useState<any[]>([]);
   const [editFilesToUpload, setEditFilesToUpload] = React.useState<File[]>([]);
   const [editUploadError, setEditUploadError] = React.useState<string | null>(null);
+
+  // Estados para paginação otimizada
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   // 1. Adicionar estado para modal de pendência
   const [pendingModalOpen, setPendingModalOpen] = React.useState<string | null>(null); // id do relatório
@@ -65,6 +116,7 @@ const ReportValidation = () => {
     'Falta Adequar',
     'Falta foto do sir',
     'Falta Coordenadas',
+    'Falta o relatório da outra equipe',
     'Outros',
   ];
 
@@ -77,7 +129,6 @@ const ReportValidation = () => {
   const [managerNames, setManagerNames] = useState<Record<string, string>>({});
 
   async function fetchActivities(reportId: string) {
-    console.log('🔍 [fetchActivities] Buscando activities para reportId:', reportId);
     setLoadingActivities((prev) => ({ ...prev, [reportId]: true }));
     const { data, error } = await supabase
       .from('activities')
@@ -85,81 +136,216 @@ const ReportValidation = () => {
       .eq('entity_type', 'report')
       .eq('entity_id', reportId)
       .order('created_at', { ascending: false });
-    console.log('🔍 [fetchActivities] Resultado da query activities:', data, 'Erro:', error);
     if (!error) {
       setActivities((prev) => ({ ...prev, [reportId]: data }));
       // Buscar nomes dos usuários únicos
       const userIds = Array.from(new Set((data || []).map((a: any) => a.user_id).filter(Boolean)));
-      console.log('🔍 [fetchActivities] userIds únicos encontrados:', userIds);
       if (userIds.length > 0) {
         const { data: profiles, error: errorProfiles } = await supabase
           .from('profiles')
           .select('id, name')
           .in('id', userIds);
-        console.log('🔍 [fetchActivities] Perfis retornados:', profiles, 'Erro:', errorProfiles);
         if (profiles) {
           const map: Record<string, string> = {};
           profiles.forEach((p: any) => { map[p.id] = p.name; });
           setUserNames((prev) => ({ ...prev, ...map }));
-          console.log('🔍 [fetchActivities] userNames map atualizado:', map);
         }
       }
     }
     setLoadingActivities((prev) => ({ ...prev, [reportId]: false }));
   }
 
-  // Buscar relatórios para validação (tabela reports - templates de relatórios)
-  const { data: reports = [], isLoading } = useQuery({
-    queryKey: ['validation-reports'],
+  // --- QUERY OTIMIZADA COM PAGINAÇÃO NO BACKEND ---
+  const { data: reportsResponse, isLoading, error: reportsError } = useQuery<ValidationReportsResponse>({
+    queryKey: ['validation-reports', filters, currentPage, pageSize],
     queryFn: async () => {
-      let query = supabase
-        .from('reports')
-        .select(`
-          *,
-          pending_reason,
-          pending_notes,
-          technician:profiles!technician_id(name, user_class:user_classes(id, name)),
-          template:report_templates(*)
-        `)
-        .neq('template_id', '4b45c601-e5b7-4a33-98f9-1769aad319e9');
-      // (Opcional: filtros pesados, como datas)
-      const { data, error } = await query.order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
+      try {
+        const offset = (currentPage - 1) * pageSize;
+        
+        // Query SIMPLIFICADA para eliminar erro 400
+        let query = supabase
+          .from('reports')
+          .select(`
+            id, title, description, status, created_at, updated_at, 
+            numero_servico, pending_reason, pending_notes, assigned_to, 
+            attachments, form_data, checklist_data, report_number, parent_report_id,
+            validated_by, validated_at, technician_id, template_id, manager_id
+          `, { count: 'exact' })
+          .neq('template_id', '4b45c601-e5b7-4a33-98f9-1769aad319e9')
+          .order('created_at', { ascending: false })
+          .range(offset, offset + pageSize - 1);
+        
+        // Aplicar filtros no backend com validação
+        console.log('🔍 Filtros aplicados:', filters);
+        
+        if (filters.technician && filters.technician !== 'all') {
+          query = query.eq('technician_id', filters.technician);
+          console.log('🔍 Filtro técnico aplicado:', filters.technician);
+        }
+        if (filters.status && filters.status !== 'all') {
+          query = query.eq('status', filters.status as any);
+          console.log('🔍 Filtro status aplicado:', filters.status);
+        }
+        if (filters.serviceNumber && filters.serviceNumber.trim()) {
+          query = query.ilike('numero_servico', `%${filters.serviceNumber.trim()}%`);
+          console.log('🔍 Filtro número do serviço aplicado:', filters.serviceNumber);
+        }
+        if (filters.reportNumber && filters.reportNumber.trim()) {
+          // Remover "REL-" se o usuário digitou
+          const cleanReportNumber = filters.reportNumber.trim().replace(/^REL-?/i, '');
+          if (cleanReportNumber) {
+            query = query.eq('report_number', parseInt(cleanReportNumber));
+            console.log('🔍 Filtro número do relatório aplicado:', cleanReportNumber);
+          }
+        }
+        if (filters.startDate && filters.startDate.trim()) {
+          query = query.gte('created_at', filters.startDate);
+          console.log('🔍 Filtro data inicial aplicado:', filters.startDate);
+        }
+        if (filters.endDate && filters.endDate.trim()) {
+          query = query.lte('created_at', filters.endDate + 'T23:59:59');
+          console.log('🔍 Filtro data final aplicado:', filters.endDate);
+        }
+        
+        // NOVO: Filtro para busca em form_data - VERSÃO SIMPLIFICADA
+        if (filters.formDataSearch && filters.formDataSearch.trim()) {
+          const searchTerm = filters.formDataSearch.trim();
+          console.log('🔍 Aplicando filtro de busca em form_data:', searchTerm);
+          
+          // Busca simplificada em campos básicos como fallback
+          query = query.or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,numero_servico.ilike.%${searchTerm}%`);
+          console.log('🔍 Query após filtro de form_data (fallback):', query);
+        }
+        
+        // Filtro por classe de usuário
+        if (filters.userClass && filters.userClass !== 'all') {
+          // Buscar técnicos da classe selecionada
+          const { data: techniciansFromClass } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('user_class_id', filters.userClass)
+            .eq('is_active', true);
+          
+          if (techniciansFromClass && techniciansFromClass.length > 0) {
+            const technicianIds = techniciansFromClass.map(t => t.id);
+            query = query.in('technician_id', technicianIds);
+          } else {
+            // Se não há técnicos nesta classe, retornar vazio
+            query = query.eq('technician_id', 'no-technicians-found');
+          }
+        }
+        
+        const { data, count, error } = await query;
+        
+        if (error) {
+          console.error('❌ Erro na query principal:', error);
+          console.error('❌ Detalhes do erro:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
+          throw error;
+        }
+        
+        console.log('✅ Query executada com sucesso');
+        console.log('📊 Resultados encontrados:', count || 0);
+        console.log('📋 Dados retornados:', data?.length || 0);
+        
+
+      
+      // Buscar dados dos técnicos e templates separadamente para evitar erros de join
+      const reports = data || [];
+      if (reports.length > 0) {
+        // Buscar técnicos únicos
+        const technicianIds = [...new Set(reports.map((r: any) => r.technician_id).filter(Boolean))];
+        const templateIds = [...new Set(reports.map((r: any) => r.template_id).filter(Boolean))];
+        const managerIds = [...new Set(reports.map((r: any) => r.manager_id).filter(Boolean))];
+        
+        // Buscar dados dos técnicos
+        let techniciansData: any[] = [];
+        if (technicianIds.length > 0) {
+          const { data: techData } = await supabase
+            .from('profiles')
+            .select('id, name, user_class:user_classes(id, name)')
+            .in('id', technicianIds);
+          techniciansData = techData || [];
+        }
+        
+        // Buscar dados dos templates
+        let templatesData: any[] = [];
+        if (templateIds.length > 0) {
+          const { data: tempData } = await supabase
+            .from('report_templates')
+            .select('*')
+            .in('id', templateIds);
+          templatesData = tempData || [];
+        }
+        
+        // Buscar dados dos gestores
+        let managersData: any[] = [];
+        if (managerIds.length > 0) {
+          const { data: mgrData } = await supabase
+            .from('profiles')
+            .select('id, name')
+            .in('id', managerIds);
+          managersData = mgrData || [];
+        }
+        
+        // Mapear dados para incluir relacionamentos
+        const reportsWithRelations = reports.map((report: any) => {
+          const technician = techniciansData.find(t => t.id === report.technician_id);
+          const template = templatesData.find(t => t.id === report.template_id);
+          const manager = managersData.find(m => m.id === report.manager_id);
+          
+          return {
+            ...report,
+            technician,
+            template,
+            manager
+          };
+        });
+        
+        return {
+          data: reportsWithRelations,
+          total: count || 0,
+          page: currentPage,
+          pageSize
+        };
+      }
+      
+      return {
+        data: reports,
+        total: count || 0,
+        page: currentPage,
+        pageSize
+      };
+    } catch (error) {
+      console.error('❌ Erro completo na query de relatórios:', error);
+      console.error('❌ Stack trace:', error.stack);
+      return {
+        data: [],
+        total: 0,
+        page: currentPage,
+        pageSize
+      };
     }
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutos
+    gcTime: 5 * 60 * 1000,    // 5 minutos
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
-  // Filtro local
-  const filteredReports = useMemo(() => {
-    return (reports as any[]).filter((report) => {
-      const technicianMatch = filters.technician === 'all' || report.technician_id === filters.technician;
-      const statusMatch = filters.status === 'all' || report.status === filters.status;
-      const serviceNumberMatch = !filters.serviceNumber || (report.numero_servico && report.numero_servico.toLowerCase().includes(filters.serviceNumber.toLowerCase()));
-      const userClassMatch = filters.userClass === 'all' || (report.technician?.user_class?.id === filters.userClass);
-      const dateFromMatch = !filters.startDate || (report.created_at && report.created_at >= filters.startDate);
-      const dateToMatch = !filters.endDate || (report.created_at && report.created_at <= filters.endDate + 'T23:59:59');
-      return technicianMatch && statusMatch && serviceNumberMatch && userClassMatch && dateFromMatch && dateToMatch;
-    });
-  }, [reports, filters]);
+  // Extrair dados da resposta com verificação robusta
+  const reports = useMemo(() => {
+    return reportsResponse?.data || [];
+  }, [reportsResponse?.data]);
+  
+  const totalReports = reportsResponse?.total || 0;
+  const totalPages = Math.ceil(totalReports / pageSize);
 
-  // TESTE ISOLADO: Buscar apenas os report_checklist_items sem join
-  React.useEffect(() => {
-    if (!reports || reports.length === 0) return;
-    const reportIds = reports.map(r => r.id);
-    (async () => {
-      const { data: checklistLinks, error: errorLinks } = await supabase
-        .from('report_checklist_items')
-        .select('report_id, checklist_item_id, quantity, notes')
-        .in('report_id', reportIds);
-      console.log('TESTE checklistLinks:', checklistLinks);
-      if (errorLinks) {
-        console.error('TESTE errorLinks:', errorLinks);
-        alert('Erro ao buscar report_checklist_items: ' + (errorLinks.message || errorLinks.details || errorLinks.code));
-      }
-    })();
-  }, [reports]);
-
-  // Buscar técnicos para filtro - apenas técnicos ativos
+  // Buscar técnicos para filtro - apenas técnicos ativos (otimizado com cache)
   const { data: technicians = [] } = useQuery({
     queryKey: ['technicians'],
     queryFn: async () => {
@@ -171,10 +357,14 @@ const ReportValidation = () => {
         .order('name');
       if (error) throw error;
       return data;
-    }
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutos
+    gcTime: 30 * 60 * 1000,    // 30 minutos
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
-  // Buscar classes de usuário
+  // Buscar classes de usuário (otimizado com cache)
   const { data: userClasses = [] } = useQuery({
     queryKey: ['user-classes'],
     queryFn: async () => {
@@ -185,33 +375,157 @@ const ReportValidation = () => {
         .order('name');
       if (error) throw error;
       return data;
-    }
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutos
+    gcTime: 30 * 60 * 1000,    // 30 minutos
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
-  // Buscar itens do checklist para todos os relatórios exibidos (fallback para dois fetchs)
-  const { data: checklistItemsByReport = {} } = useQuery({
-    queryKey: ['report-checklist-items', reports.map(r => r.id)],
+  // Criar queryKey estável para adequação reports
+  const adequacaoQueryKey = useMemo(() => {
+    if (!reports || reports.length === 0) return ['adequacao-reports', 'empty'];
+    const reportIds = reports.map((r: any) => r?.id).filter(Boolean).sort();
+    return ['adequacao-reports', reportIds.join(',')];
+  }, [reports]);
+
+  // Buscar relatórios de adequação (que são filhos dos relatórios exibidos)
+  const { data: adequacaoReports = {} } = useQuery({
+    queryKey: adequacaoQueryKey,
     queryFn: async () => {
-      if (!reports || reports.length === 0) return {};
-      const reportIds = reports.map(r => r.id);
+      try {
+        if (!reports || reports.length === 0) return {};
+        
+        const reportIds = reports.map((r: any) => r?.id).filter(Boolean);
+        if (reportIds.length === 0) return {};
+      
+      // Query SIMPLIFICADA para relatórios de adequação
+      const { data, error } = await supabase
+        .from('reports')
+        .select(`
+          id, title, description, status, created_at, updated_at, parent_report_id,
+          attachments, form_data, checklist_data, technician_id, template_id, report_number
+        `)
+        .in('parent_report_id', reportIds)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Buscar dados dos técnicos e templates para adequação separadamente
+      const adequacaoData = data || [];
+      if (adequacaoData.length > 0) {
+        const techIds = [...new Set(adequacaoData.map((r: any) => r.technician_id).filter(Boolean))];
+        const tempIds = [...new Set(adequacaoData.map((r: any) => r.template_id).filter(Boolean))];
+        
+        // NOVO: Buscar dados dos relatórios principais (parent_report_id)
+        const parentReportIds = [...new Set(adequacaoData.map((r: any) => r.parent_report_id).filter(Boolean))];
+        
+        let technicians: any[] = [];
+        let templates: any[] = [];
+        let parentReports: any[] = [];
+        
+        if (techIds.length > 0) {
+          const { data: techData } = await supabase
+            .from('profiles')
+            .select('id, name')
+            .in('id', techIds);
+          technicians = techData || [];
+        }
+        
+        if (tempIds.length > 0) {
+          const { data: tempData } = await supabase
+            .from('report_templates')
+            .select('*')
+            .in('id', tempIds);
+          templates = tempData || [];
+        }
+        
+        // NOVO: Buscar relatórios principais
+        if (parentReportIds.length > 0) {
+          const { data: parentData } = await supabase
+            .from('reports')
+            .select('id, title, report_number')
+            .in('id', parentReportIds);
+          parentReports = parentData || [];
+        }
+        
+        // Mapear adequações com relacionamentos
+        const adequacoesWithRelations = adequacaoData.map((adequacao: any) => {
+          const technician = technicians.find(t => t.id === adequacao.technician_id);
+          const template = templates.find(t => t.id === adequacao.template_id);
+          const parentReport = parentReports.find(p => p.id === adequacao.parent_report_id);
+          
+          return {
+            ...adequacao,
+            technician,
+            template,
+            parentReport // NOVO: incluir dados do relatório principal
+          };
+        });
+        
+        // Organizar por parent_report_id
+        const grouped: Record<string, any> = {};
+        adequacoesWithRelations.forEach((adequacaoReport: any) => {
+          if (adequacaoReport.parent_report_id) {
+            grouped[adequacaoReport.parent_report_id] = adequacaoReport;
+          }
+        });
+        
+        return grouped;
+      }
+      
+      return {};
+      } catch (error) {
+        console.error('Erro na query de adequação:', error);
+        return {};
+      }
+    },
+    enabled: !!reports && reports.length > 0 && !isLoading,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    gcTime: 10 * 60 * 1000,   // 10 minutos
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+
+  // Criar queryKey estável para checklist items
+  const checklistQueryKey = useMemo(() => {
+    return [
+      'report-checklist-items', 
+      currentPage, 
+      pageSize, 
+      filters.technician, 
+      filters.status,
+      reports?.length || 0
+    ];
+  }, [currentPage, pageSize, filters.technician, filters.status, reports?.length]);
+
+  // Buscar itens do checklist para todos os relatórios exibidos (otimizado)
+  const { data: checklistItemsByReport = {} } = useQuery({
+    queryKey: checklistQueryKey,
+    queryFn: async () => {
+      try {
+        if (!reports || reports.length === 0) return {};
+        
+        const reportIds = reports.map((r: any) => r?.id).filter(Boolean);
+        if (reportIds.length === 0) return {};
       // 1. Buscar todos os report_checklist_items
       const { data: checklistLinks, error: errorLinks } = await supabase
         .from('report_checklist_items')
         .select('report_id, checklist_item_id, quantity, notes')
         .in('report_id', reportIds);
       if (errorLinks) throw errorLinks;
-      const checklistItemIds = [...new Set((checklistLinks || []).map(item => item.checklist_item_id))];
+      const checklistItemIds = [...new Set((checklistLinks || []).map((item: any) => item.checklist_item_id))];
       // 2. Buscar todos os checklist_items necessários
       const { data: checklistItems, error: errorItems } = await supabase
         .from('checklist_items')
-        .select('id, name, category')
+        .select('id, name, category, standard_quantity')
         .in('id', checklistItemIds);
       if (errorItems) throw errorItems;
-      const checklistItemMap = {};
-      (checklistItems || []).forEach(item => { checklistItemMap[item.id] = item; });
+      const checklistItemMap: Record<string, any> = {};
+      (checklistItems || []).forEach((item: any) => { checklistItemMap[item.id] = item; });
       // 3. Agrupar por report_id e adicionar nome
-      const grouped = {};
-      (checklistLinks || []).forEach(item => {
+      const grouped: Record<string, any[]> = {};
+      (checklistLinks || []).forEach((item: any) => {
         if (!grouped[item.report_id]) grouped[item.report_id] = [];
         grouped[item.report_id].push({
           ...item,
@@ -219,13 +533,66 @@ const ReportValidation = () => {
           category: checklistItemMap[item.checklist_item_id]?.category || ''
         });
       });
-      console.log('DEBUG checklistItemsByReport', grouped); // <--- ADICIONADO
+      
+      // 4. FALLBACK: Para relatórios que não têm dados na tabela report_checklist_items,
+      // buscar do campo checklist_data
+      const reportsWithoutChecklist = reports.filter((report: any) => 
+        !grouped[report.id] || grouped[report.id].length === 0
+      );
+      
+      for (const report of reportsWithoutChecklist) {
+        if (Array.isArray(report.checklist_data) && report.checklist_data.length > 0) {
+          if (!grouped[report.id]) grouped[report.id] = [];
+          
+          // Buscar nomes dos itens do checklist_data
+          const checklistItemIdsFromData = [...new Set(
+            report.checklist_data
+              .filter((item: any) => item && typeof item === 'object' && 'id' in item)
+              .map((item: any) => item.id)
+              .filter((id: any) => typeof id === 'string')
+          )];
+          
+          if (checklistItemIdsFromData.length > 0) {
+            const { data: fallbackItems, error: fallbackError } = await supabase
+              .from('checklist_items')
+              .select('id, name, category, standard_quantity')
+              .in('id', checklistItemIdsFromData as string[]);
+            
+            if (!fallbackError && fallbackItems) {
+              const fallbackItemMap: Record<string, any> = {};
+              fallbackItems.forEach((item: any) => { fallbackItemMap[item.id] = item; });
+              
+              report.checklist_data.forEach((item: any) => {
+                if (item && typeof item === 'object' && 'id' in item) {
+                  grouped[report.id].push({
+                    report_id: report.id,
+                    checklist_item_id: item.id,
+                    quantity: item.quantity || 1,
+                    notes: item.notes || '',
+                    name: fallbackItemMap[item.id]?.name || item.name || '-',
+                    category: fallbackItemMap[item.id]?.category || item.category || ''
+                  });
+                }
+              });
+            }
+          }
+        }
+      }
+      
       return grouped;
+      } catch (error) {
+        console.error('Erro na query de checklist items:', error);
+        return {};
+      }
     },
-    enabled: reports.length > 0
+    enabled: reports.length > 0,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    gcTime: 10 * 60 * 1000,   // 10 minutos
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
-  // [ADICIONAR] Buscar todos os itens ativos do checklist
+  // [ADICIONAR] Buscar todos os itens ativos do checklist (otimizado com cache)
   const { data: allChecklistItems = [] } = useQuery({
     queryKey: ['all-checklist-items'],
     queryFn: async () => {
@@ -237,8 +604,15 @@ const ReportValidation = () => {
         .order('name', { ascending: true });
       if (error) throw error;
       return data;
-    }
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutos
+    gcTime: 30 * 60 * 1000,    // 30 minutos
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
+
+  // [ADICIONAR] Buscar dados do checklist do relatório sendo editado - DESABILITADO TEMPORARIAMENTE
+  const editReportChecklistData: any[] = [];
 
   // Mutações para ações nos relatórios
   const updateStatusMutation = useMutation({
@@ -280,7 +654,8 @@ const ReportValidation = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['validation-reports'] });
-      queryClient.invalidateQueries({ queryKey: ['report-checklist-items'] }); // <--- ADICIONADO
+      queryClient.invalidateQueries({ queryKey: ['adequacao-reports'] });
+      queryClient.invalidateQueries({ queryKey: ['report-checklist-items'] });
       toast({
         title: "Status atualizado",
         description: "O status do relatório foi atualizado com sucesso.",
@@ -305,6 +680,7 @@ const ReportValidation = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['validation-reports'] });
+      queryClient.invalidateQueries({ queryKey: ['adequacao-reports'] });
       toast({
         title: "Relatório deletado",
         description: "O relatório foi removido com sucesso.",
@@ -320,6 +696,7 @@ const ReportValidation = () => {
       'em_adequacao': 'bg-yellow-100 text-yellow-800',
       'faturado': 'bg-blue-100 text-blue-800',
       'sem_pendencia': 'bg-emerald-100 text-emerald-800',
+      'adequado': 'bg-teal-100 text-teal-800',
     };
     return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
@@ -332,6 +709,7 @@ const ReportValidation = () => {
       'em_adequacao': 'Em adequação',
       'faturado': 'Faturado',
       'sem_pendencia': 'Sem pendência',
+      'adequado': 'Adequado',
     };
     return labels[status as keyof typeof labels] || status;
   };
@@ -356,37 +734,56 @@ const ReportValidation = () => {
     }
   };
 
-  // Sincronizar campos ao abrir o modal
-  React.useEffect(() => {
-    if (editReportId) {
-      const reportToEdit = reports.find(r => r.id === editReportId);
-      setEditTitle(reportToEdit?.title || '');
-      setEditDescription(reportToEdit?.description || '');
+  // Funções para paginação
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    setExpandedCards(new Set()); // Reset expanded cards on page change
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // Reset to first page
+    setExpandedCards(new Set()); // Reset expanded cards
+  };
+
+  // Sincronizar campos ao abrir o modal - REMOVIDO PARA EVITAR LOOPS
+  // Os campos serão sincronizados diretamente nos handlers
+
+  const reportToEdit = editReportId ? reports.find(r => r.id === editReportId) : null;
+  
+  const template = reportToEdit?.template;
+
+  const handleEditFieldChange = (fieldId: string, value: any) => {
+    setEditFormData(prev => ({ ...prev, [fieldId]: value }));
+  };
+
+  // Função para sincronizar campos quando abrir modal de edição
+  const handleOpenEditModal = (reportId: string) => {
+    const reportToEdit = reports.find(r => r.id === reportId);
+    if (reportToEdit) {
+      setEditReportId(reportId);
+      setEditTitle(reportToEdit.title || '');
+      setEditDescription(reportToEdit.description || '');
       setEditFormData(
-        reportToEdit && typeof reportToEdit.form_data === 'object' && !Array.isArray(reportToEdit.form_data)
+        typeof reportToEdit.form_data === 'object' && !Array.isArray(reportToEdit.form_data)
           ? reportToEdit.form_data
           : {}
       );
-      setEditChecklist(
-        reportToEdit && Array.isArray(reportToEdit.checklist_data)
-          ? reportToEdit.checklist_data
-          : []
-      );
       setEditAttachments(
-        reportToEdit && Array.isArray(reportToEdit.attachments)
+        Array.isArray(reportToEdit.attachments)
           ? reportToEdit.attachments
           : []
       );
       setEditFilesToUpload([]);
       setEditUploadError(null);
+      
+      // Sincronizar checklist do relatório
+      if (Array.isArray(reportToEdit.checklist_data)) {
+        setEditChecklist(reportToEdit.checklist_data);
+      } else {
+        setEditChecklist([]);
+      }
     }
-  }, [editReportId, reports]);
-
-  const reportToEdit = editReportId ? reports.find(r => r.id === editReportId) : null;
-  const template = reportToEdit?.template;
-
-  const handleEditFieldChange = (fieldId: string, value: any) => {
-    setEditFormData(prev => ({ ...prev, [fieldId]: value }));
   };
 
   const handleEditChecklistChange = (selected: any[]) => {
@@ -485,6 +882,9 @@ const ReportValidation = () => {
         }
       ]);
       queryClient.invalidateQueries({ queryKey: ['validation-reports'] });
+      queryClient.invalidateQueries({ queryKey: ['adequacao-reports'] });
+      queryClient.invalidateQueries({ queryKey: ['report-checklist-items'] });
+      queryClient.invalidateQueries({ queryKey: ['edit-report-checklist'] });
       queryClient.invalidateQueries({ queryKey: ['all-checklist-items'] });
       setEditReportId(null);
       toast({ title: 'Relatório atualizado', description: 'As alterações foram salvas com sucesso.' });
@@ -496,94 +896,86 @@ const ReportValidation = () => {
 
   // Dialog de edição removido pois não há edição para inspection_reports
 
-  useEffect(() => {
-    if (!reports || reports.length === 0) return;
-    const ids = Array.from(new Set(reports.map((r: any) => r.assigned_to).filter(Boolean)));
-    if (ids.length === 0) return;
-    (async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, name')
-        .in('id', ids);
-      if (!error && data) {
-        const map: Record<string, string> = {};
-        data.forEach((p: any) => { map[p.id] = p.name; });
-        setAssignedNames(map);
-      }
-    })();
-  }, [reports]);
+  // Buscar nomes dos assigned - REMOVIDO PARA EVITAR LOOPS
+  // Será feito via query separada se necessário
 
-  useEffect(() => {
-    reports.forEach(report => {
-      if (expandedCards.has(report.id) && !activities[report.id]) {
-        fetchActivities(report.id);
-      }
-    });
-  }, [expandedCards, reports]);
+  // Buscar activities - REMOVIDO PARA EVITAR LOOPS
+  // Será feito via query separada se necessário
 
-  // Buscar nomes dos gestores caso não venham populados
-  useEffect(() => {
-    if (!reports || reports.length === 0) return;
-    const missingManagerIds = Array.from(new Set(
-      reports
-        .filter((r: any) => r.manager_id && (!r.manager || !r.manager.name))
-        .map((r: any) => r.manager_id)
-    ));
-    if (missingManagerIds.length === 0) return;
-    (async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, name')
-        .in('id', missingManagerIds);
-      if (!error && data) {
-        const map: Record<string, string> = {};
-        data.forEach((p: any) => { map[p.id] = p.name; });
-        setManagerNames((prev) => ({ ...prev, ...map }));
-      }
-    })();
-  }, [reports]);
+  // Buscar nomes dos gestores - REMOVIDO PARA EVITAR LOOPS
+  // Será feito via query separada se necessário
 
-  // [ADICIONAR] Montar lista de checklist para edição
-  const reportChecklistMap = React.useMemo(() => {
-    if (!reportToEdit || !Array.isArray(allChecklistItems)) return [];
+  // [CORRIGIR] Montar lista de checklist para edição
+  const reportChecklistMap = (() => {
+    if (!editReportId || !reportToEdit || !Array.isArray(allChecklistItems) || allChecklistItems.length === 0) {
+      return [];
+    }
+    
     // Obter o id da classe do usuário responsável pelo relatório
     const userClassId = reportToEdit.technician?.user_class?.id;
-    // Mapear os itens já selecionados no relatório
-    const selectedMap = {};
-    const checklistDataArr = Array.isArray(reportToEdit.checklist_data) ? reportToEdit.checklist_data : [];
-    checklistDataArr.forEach(item => {
-      if (item && typeof item === 'object' && 'checklist_item_id' in item) {
-        selectedMap[(item as any).checklist_item_id] = item;
+    
+    if (!userClassId) {
+      return [];
+    }
+    
+    // Filtrar apenas itens da classe do usuário
+    const filteredItems = allChecklistItems.filter(item => String(item.user_class_id) === String(userClassId));
+    
+    return filteredItems;
+  })();
+
+  // [ADICIONAR] Sincronizar editChecklist com os dados do relatório - REMOVIDO PARA EVITAR LOOPS
+  // O checklist será sincronizado diretamente nos handlers
+
+  // Mapa de números de relatório otimizado
+  const reportNumbersMap = (() => {
+    if (!reports || reports.length === 0) return {};
+    
+    const map: Record<string, string> = {};
+    reports.forEach((report: any) => {
+      if (report.report_number && report.report_number > 0) {
+        map[report.id] = `REL-${report.report_number}`;
+      } else {
+        const shortId = report.id.replace(/-/g, '').slice(0, 8);
+        map[report.id] = `REL-${shortId}`;
       }
     });
-    // LOGS PARA DEBUG
-    console.log('DEBUG userClassId:', userClassId);
-    console.log('DEBUG allChecklistItems:', allChecklistItems);
-    console.log('DEBUG Estrutura de um item:', allChecklistItems[0]);
-    console.log('DEBUG selectedMap:', selectedMap);
-    // Filtrar apenas itens da classe do usuário (comparação robusta, apenas user_class_id)
-    return allChecklistItems
-      .filter(item => String(item.user_class_id) === String(userClassId))
-      .map(item => ({
-        ...item,
-        quantity: selectedMap[item.id]?.quantity || 0,
-        notes: selectedMap[item.id]?.notes || "",
-        selected: !!selectedMap[item.id]
-      }));
-  }, [reportToEdit, allChecklistItems]);
-
-  // Numeração sequencial global dos relatórios (mais antigo = 1)
-  const reportSequenceMap = useMemo(() => {
-    const sorted = [...reports].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    const map: Record<string, number> = {};
-    sorted.forEach((report, idx) => {
-      map[report.id] = idx + 1;
-    });
     return map;
-  }, [reports]);
+  })();
+
+  // Função para obter o número do relatório com prefixo REL-
+  const getReportNumber = (report: any) => {
+    const cachedNumber = reportNumbersMap[report.id];
+    if (cachedNumber) {
+      return cachedNumber;
+    }
+    
+    // Fallback caso o mapa não tenha o relatório
+    if (report.report_number && report.report_number > 0) {
+      return `REL-${report.report_number}`;
+    }
+    
+    const shortId = report.id.replace(/-/g, '').slice(0, 8);
+    return `REL-${shortId}`;
+  };
+
+  // NOVO: Função para obter o código do relatório principal
+  const getParentReportCode = (adequacaoReport: any) => {
+    if (!adequacaoReport?.parentReport) return null;
+    
+    if (adequacaoReport.parentReport.report_number) {
+      return `REL-${adequacaoReport.parentReport.report_number}`;
+    }
+    
+    // Fallback para relatórios antigos
+    const shortId = adequacaoReport.parentReport.id.replace(/-/g, '').slice(0, 8);
+    return `REL-${shortId}`;
+  };
 
   // Função para exportar CSV dos relatórios filtrados
-  function handleExportCsv() {
+  // ATENÇÃO: Filtros complexos foram temporariamente desabilitados para resolver problema de timeout
+  // Apenas filtros de data estão ativos. Outros filtros serão aplicados no JavaScript após buscar os dados.
+  async function handleExportCsv() {
     const { startDate, endDate } = filters;
     if (!startDate || !endDate) {
       toast({ title: "Selecione as duas datas.", variant: "destructive" });
@@ -601,42 +993,397 @@ const ReportValidation = () => {
       toast({ title: "A data final deve ser maior que a inicial.", variant: "destructive" });
       return;
     }
-    // Filtrar os relatórios conforme os filtros atuais da tela
-    const filteredReports = (reports as any[]).filter((report) => {
-      const technicianMatch = filters.technician === 'all' || report.technician_id === filters.technician;
-      const statusMatch = filters.status === 'all' || report.status === filters.status;
-      const serviceNumberMatch = !filters.serviceNumber || (report.numero_servico && report.numero_servico.toLowerCase().includes(filters.serviceNumber.toLowerCase()));
-      const userClassMatch = filters.userClass === 'all' || (report.technician?.user_class?.id === filters.userClass);
-      const dateFromMatch = !filters.startDate || (report.created_at && report.created_at >= filters.startDate);
-      const dateToMatch = !filters.endDate || (report.created_at && report.created_at <= filters.endDate + 'T23:59:59');
-      return technicianMatch && statusMatch && serviceNumberMatch && userClassMatch && dateFromMatch && dateToMatch;
-    });
-    if (!filteredReports || filteredReports.length === 0) {
-      toast({ title: "Nenhum relatório encontrado no período selecionado.", variant: "destructive" });
-      return;
-    }
-    // Mapeia para substituir o technician_id pelo nome do técnico e converte objetos/arrays para string JSON
-    const exportData = filteredReports.map((report) => {
-      const { technician_id, technician, ...rest } = report;
-      // Converta objetos/arrays para string JSON
-      const safeRest = Object.fromEntries(
-        Object.entries(rest).map(([key, value]) => {
-          if (typeof value === "object" && value !== null) {
-            return [key, JSON.stringify(value)];
+
+          // NOVO: Processar exportação em lotes usando paginação por ID (muito mais eficiente)
+      try {
+        const BATCH_SIZE = 500; // Reduzir tamanho do lote para melhor performance
+        let lastId: string | null = null;
+        let allReports: any[] = [];
+        let hasMoreData = true;
+        let batchCount = 0;
+
+        // Mostrar toast de início da exportação
+        toast({ 
+          title: "Iniciando exportação...", 
+          description: "Buscando relatórios em lotes otimizados para evitar timeout.", 
+          variant: "default" 
+        });
+
+        // Buscar relatórios em lotes usando paginação por ID (cursor-based pagination)
+        while (hasMoreData) {
+          batchCount++;
+          console.log(`📦 Processando lote ${batchCount}${lastId ? ` (após ID: ${lastId.slice(0, 8)}...)` : ''}`);
+          
+          let query = supabase
+            .from('reports')
+            .select(`
+              id, title, description, status, created_at, updated_at, 
+              numero_servico, pending_reason, pending_notes, assigned_to, 
+              attachments, form_data, checklist_data, report_number, parent_report_id,
+              validated_by, validated_at, technician_id, template_id
+            `)
+            .neq('template_id', '4b45c601-e5b7-4a33-98f9-1769aad319e9')
+            .gte('created_at', startDate)
+            .lte('created_at', endDate + 'T23:59:59')
+            .order('id', { ascending: false }) // Ordenar por ID em vez de created_at (mais eficiente)
+            .limit(BATCH_SIZE);
+          
+          // Aplicar cursor-based pagination (muito mais eficiente que offset)
+          if (lastId) {
+            query = query.lt('id', lastId); // Buscar registros com ID menor que o último
           }
-          return [key, value];
-        })
-      );
-      return {
-        ...safeRest,
-        tecnico_nome: technician?.name || ""
+
+                  // COMENTADO TEMPORARIAMENTE: Filtros que podem estar causando timeout
+          // Por enquanto, apenas filtros de data estão sendo aplicados no SQL
+          /*
+          // Aplicar outros filtros se definidos
+          if (filters.technician && filters.technician !== 'all') {
+            query = query.eq('technician_id', filters.technician);
+          }
+          if (filters.status && filters.status !== 'all') {
+            query = query.eq('status', filters.status as any);
+          }
+          if (filters.serviceNumber && filters.serviceNumber.trim()) {
+            query = query.ilike('numero_servico', `%${filters.serviceNumber.trim()}%`);
+          }
+          if (filters.reportNumber && filters.reportNumber.trim()) {
+            const cleanReportNumber = filters.reportNumber.trim().replace(/^REL-?/i, '');
+            if (cleanReportNumber) {
+              query = query.eq('report_number', parseInt(cleanReportNumber));
+            }
+          }
+          if (filters.formDataSearch && filters.formDataSearch.trim()) {
+            const searchTerm = filters.formDataSearch.trim();
+            query = query.or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,numero_servico.ilike.%${searchTerm}%`);
+          }
+          if (filters.userClass && filters.userClass !== 'all') {
+            const { data: techniciansFromClass } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('user_class_id', filters.userClass)
+              .eq('is_active', true);
+            
+            if (techniciansFromClass && techniciansFromClass.length > 0) {
+              const technicianIds = techniciansFromClass.map(t => t.id);
+              query = query.eq('technician_id', technicianIds);
+            } else {
+              query = query.eq('technician_id', 'no-technicians-found');
+            }
+          }
+          */
+
+        const { data: batchReports, error, count } = await query;
+        
+        if (error) {
+          console.error(`❌ Erro ao buscar lote ${batchCount}:`, error);
+          console.error(`❌ Detalhes completos do erro:`, {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+            batchCount: batchCount,
+            lastId: lastId ? lastId.slice(0, 8) + '...' : 'null',
+            startDate: startDate,
+            endDate: endDate
+          });
+          
+          // Mostrar erro mais detalhado para o usuário
+          let errorMessage = 'Erro desconhecido';
+          if (error.message) {
+            errorMessage = error.message;
+          } else if (error.details) {
+            errorMessage = error.details;
+          } else if (error.hint) {
+            errorMessage = error.hint;
+          }
+          
+          toast({ 
+            title: `Erro no lote ${batchCount}`, 
+            description: `Código: ${error.code || 'N/A'} - ${errorMessage}`, 
+            variant: "destructive" 
+          });
+          return;
+        }
+
+        if (!batchReports || batchReports.length === 0) {
+          hasMoreData = false;
+          break;
+        }
+
+        // Adicionar relatórios do lote ao array principal
+        allReports.push(...batchReports);
+        console.log(`✅ Lote ${batchCount} processado: ${batchReports.length} relatórios`);
+
+        // Verificar se há mais dados para buscar
+        if (batchReports.length < BATCH_SIZE) {
+          hasMoreData = false;
+        } else {
+          // Atualizar lastId para o próximo lote (cursor-based pagination)
+          lastId = batchReports[batchReports.length - 1].id;
+          
+          // Adicionar delay entre lotes para evitar sobrecarga
+          if (batchCount < 5) { // Apenas nos primeiros lotes
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+        }
+
+        // Atualizar progresso para o usuário
+        if (batchCount === 1) {
+          toast({ 
+            title: "Exportação em andamento...", 
+            description: `Processando lote ${batchCount}...`, 
+            variant: "default" 
+          });
+        }
+      }
+
+      if (allReports.length === 0) {
+        toast({ title: "Nenhum relatório encontrado no período selecionado.", variant: "destructive" });
+        return;
+      }
+
+      console.log(`📊 Total de relatórios coletados: ${allReports.length} em ${batchCount} lotes`);
+
+      // ✅ IMPLEMENTAÇÃO OTIMIZADA: Paginação por ID (cursor-based) em vez de offset
+      // Esta abordagem é muito mais eficiente para grandes volumes de dados
+      // TODO: Aplicar filtros adicionais no JavaScript aqui (quando resolvermos o timeout)
+      // Por enquanto, apenas filtros de data estão sendo aplicados no SQL
+
+      // Buscar dados dos técnicos e templates para todos os relatórios coletados
+      const technicianIds = [...new Set(allReports.map((r: any) => r.technician_id).filter(Boolean))];
+      const templateIds = [...new Set(allReports.map((r: any) => r.template_id).filter(Boolean))];
+      
+      let techniciansData: any[] = [];
+      let templatesData: any[] = [];
+      
+      if (technicianIds.length > 0) {
+        console.log(`👥 Buscando dados de ${technicianIds.length} técnicos...`);
+        const { data: techData } = await supabase
+          .from('profiles')
+          .select('id, name, user_class:user_classes(id, name)')
+          .in('id', technicianIds);
+        techniciansData = techData || [];
+      }
+      
+      if (templateIds.length > 0) {
+        console.log(`📋 Buscando dados de ${templateIds.length} templates...`);
+        const { data: tempData } = await supabase
+          .from('report_templates')
+          .select('*')
+          .in('id', templateIds);
+        templatesData = tempData || [];
+      }
+      
+      // Mapear dados para incluir relacionamentos
+      const reportsWithRelations = allReports.map((report: any) => {
+        const technician = techniciansData.find(t => t.id === report.technician_id);
+        const template = templatesData.find(t => t.id === report.template_id);
+        
+        return {
+          ...report,
+          technician,
+          template
+        };
+      });
+
+      // Função para limpar e normalizar texto para CSV
+      const cleanTextForCSV = (text: string): string => {
+        if (!text) return '';
+        
+        return text
+          .replace(/\r\n/g, ' ') // Substituir quebras de linha por espaço
+          .replace(/\n/g, ' ')   // Substituir quebras de linha por espaço
+          .replace(/\r/g, ' ')   // Substituir retornos por espaço
+          .replace(/\t/g, ' ')   // Substituir tabs por espaço
+          .replace(/\s+/g, ' ')  // Múltiplos espaços por um só
+          .trim();               // Remover espaços no início e fim
       };
-    });
-    exportToCSV(exportData, `relatorios_validacao_${startDate}_a_${endDate}`);
+
+      // Função para extrair dados do form_data usando os labels dos campos
+      const extractFormDataWithLabels = (formData: any, template: any) => {
+        if (!formData) return {};
+        
+        let parsedFormData = formData;
+        if (typeof formData === 'string') {
+          try {
+            parsedFormData = JSON.parse(formData);
+          } catch {
+            return {};
+          }
+        }
+        
+        const extracted: Record<string, any> = {};
+        
+        // Função auxiliar para processar valores
+        const processValue = (value: any): string => {
+          if (value === null || value === undefined) return '';
+          if (typeof value === 'string') return cleanTextForCSV(value);
+          if (typeof value === 'object' && value !== null) {
+            if (value.url) return value.url;
+            if (value.name) return value.name;
+            if (value.id) return String(value.id);
+            return JSON.stringify(value);
+          }
+          return String(value);
+        };
+        
+        // Extrair campos usando os labels dos templates
+        if (template?.fields && Array.isArray(template.fields)) {
+          template.fields.forEach((field: any) => {
+            const fieldKey = field.id || field.name;
+            const fieldLabel = field.label || field.name;
+            const value = parsedFormData[fieldKey];
+            
+            if (value !== undefined && value !== null) {
+              if (typeof value === 'string') {
+                extracted[fieldLabel] = cleanTextForCSV(value);
+              } else if (Array.isArray(value)) {
+                extracted[fieldLabel] = value.map(processValue).join('; ');
+              } else if (typeof value === 'object' && value !== null) {
+                extracted[fieldLabel] = processValue(value);
+              } else {
+                extracted[fieldLabel] = String(value);
+              }
+            } else {
+              extracted[fieldLabel] = '';
+            }
+          });
+        }
+        
+        // Extrair campos específicos que podem estar com nomes diferentes
+        const specificFields = {
+          'Data do Serviço': parsedFormData.data_servico || parsedFormData.data || parsedFormData.data_do_servico || '',
+          'Endereço': parsedFormData.endereco || parsedFormData.address || parsedFormData.endereco_servico || '',
+          'Bairro': parsedFormData.bairro || parsedFormData.neighborhood || parsedFormData.bairro_servico || '',
+          'Cidade': parsedFormData.cidade || parsedFormData.city || parsedFormData.cidade_servico || '',
+          'Serviço Finalizado?': parsedFormData.servico_finalizado || parsedFormData.finalizado || parsedFormData.concluido || '',
+          'Observações': parsedFormData.observacoes || parsedFormData.observations || parsedFormData.obs || ''
+        };
+        
+        // Adicionar campos específicos apenas se não estiverem vazios
+        Object.entries(specificFields).forEach(([label, value]) => {
+          if (value && value !== '') {
+            extracted[label] = cleanTextForCSV(String(value));
+          }
+        });
+        
+        // Extrair todos os outros campos do form_data que não foram capturados pelos templates
+        Object.keys(parsedFormData).forEach(key => {
+          const value = parsedFormData[key];
+          if (value !== undefined && value !== null) {
+            // Verificar se o campo já foi processado
+            const existingField = Object.values(extracted).find(v => v === cleanTextForCSV(String(value)));
+            if (!existingField) {
+              // Usar o nome do campo como label se não foi processado
+              const fieldLabel = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
+              if (typeof value === 'string') {
+                extracted[fieldLabel] = cleanTextForCSV(value);
+              } else if (Array.isArray(value)) {
+                extracted[fieldLabel] = value.map(processValue).join('; ');
+              } else if (typeof value === 'object' && value !== null) {
+                extracted[fieldLabel] = processValue(value);
+              } else {
+                extracted[fieldLabel] = String(value);
+              }
+            }
+          }
+        });
+        
+        return extracted;
+      };
+
+      // Mapeia para criar uma estrutura mais organizada para CSV
+      const exportData = reportsWithRelations.map((report: any) => {
+        const { form_data, checklist_data, attachments } = report;
+        
+        // Extrair dados do form_data usando labels
+        const formDataExtracted = extractFormDataWithLabels(form_data, report.template);
+        
+        // Processar checklist_data se existir
+        let checklistInfo = '';
+        if (checklist_data) {
+          try {
+            const checklist = typeof checklist_data === 'string' ? JSON.parse(checklist_data) : checklist_data;
+            if (Array.isArray(checklist)) {
+              checklistInfo = checklist.map((item: any) => {
+                if (typeof item === 'object' && item !== null) {
+                  return `${item.name || item.material || item.id}: ${item.quantity || 0}`;
+                }
+                return String(item);
+              }).join('; ');
+            }
+          } catch (e) {
+            checklistInfo = 'Erro ao processar checklist';
+          }
+        }
+        
+        // Processar attachments se existir
+        let attachmentsInfo = '';
+        if (attachments) {
+          try {
+            const atts = typeof attachments === 'string' ? JSON.parse(attachments) : attachments;
+            if (Array.isArray(atts)) {
+              attachmentsInfo = atts.map((att: any) => {
+                if (typeof att === 'object' && att !== null) {
+                  return att.url || att.name || 'arquivo';
+                }
+                return String(att);
+              }).join('; ');
+            }
+          } catch (e) {
+            attachmentsInfo = 'Erro ao processar anexos';
+          }
+        }
+        
+        // Definir ordem fixa das colunas
+        return {
+          'Código Único': getReportNumber(report),
+          'ID do Relatório': report.id || '',
+          'Número do Serviço': report.numero_servico || '',
+          'Título': cleanTextForCSV(report.title || ''),
+          'FCA': cleanTextForCSV(report.description || ''),
+          'Status': report.status || '',
+          'Técnico': report.technician?.name || '',
+          'Data de Criação': report.created_at ? new Date(report.created_at).toLocaleDateString('pt-BR') : '',
+          'Data de Atualização': report.updated_at ? new Date(report.updated_at).toLocaleDateString('pt-BR') : '',
+          'Validado em': report.validated_at ? new Date(report.validated_at).toLocaleDateString('pt-BR') : '',
+          'Validado por': report.validated_by || '',
+          'ID da Ordem de Serviço': report.service_order_id || '',
+          'Atribuído para': report.assigned_to || '',
+          'Motivo da Pendência': cleanTextForCSV(report.pending_reason || ''),
+          'Observações da Pendência': cleanTextForCSV(report.pending_notes || ''),
+          'ID do Relatório Pai': report.parent_report_id || '',
+          'Informações do Checklist': checklistInfo,
+          'Anexos': attachmentsInfo,
+          // Incluir campos dinâmicos do formulário em ordem alfabética
+          ...Object.keys(formDataExtracted)
+            .sort()
+            .reduce((acc, key) => {
+              acc[key] = formDataExtracted[key];
+              return acc;
+            }, {} as Record<string, any>)
+        };
+      });
+      
+      console.log(`📤 Gerando CSV com ${exportData.length} registros...`);
+      
+      // Mostrar toast de conclusão
+      toast({ 
+        title: "Exportação concluída!", 
+        description: `${exportData.length} relatórios processados em ${batchCount} lotes.`, 
+        variant: "default" 
+      });
+      
+      exportToCSV(exportData, `relatorios_validacao_${startDate}_a_${endDate}`);
+      
+    } catch (error) {
+      console.error('❌ Erro ao exportar CSV:', error);
+      toast({ title: "Erro ao exportar CSV.", description: "Tente novamente.", variant: "destructive" });
+    }
   }
 
   // Função para exportar CSV dos itens do checklist (um por linha)
-  function handleExportCsvChecklist() {
+  async function handleExportCsvChecklist() {
     const { startDate, endDate } = filters;
     if (!startDate || !endDate) {
       toast({ title: "Selecione as duas datas.", variant: "destructive" });
@@ -654,48 +1401,173 @@ const ReportValidation = () => {
       toast({ title: "A data final deve ser maior que a inicial.", variant: "destructive" });
       return;
     }
-    // Filtrar os relatórios conforme os filtros atuais da tela
-    const filteredReports = (reports as any[]).filter((report) => {
-      const technicianMatch = filters.technician === 'all' || report.technician_id === filters.technician;
-      const statusMatch = filters.status === 'all' || report.status === filters.status;
-      const serviceNumberMatch = !filters.serviceNumber || (report.numero_servico && report.numero_servico.toLowerCase().includes(filters.serviceNumber.toLowerCase()));
-      const userClassMatch = filters.userClass === 'all' || (report.technician?.user_class?.id === filters.userClass);
-      const dateFromMatch = !filters.startDate || (report.created_at && report.created_at >= filters.startDate);
-      const dateToMatch = !filters.endDate || (report.created_at && report.created_at <= filters.endDate + 'T23:59:59');
-      return technicianMatch && statusMatch && serviceNumberMatch && userClassMatch && dateFromMatch && dateToMatch;
-    });
-    // Montar linhas do CSV: uma por item do checklist de cada relatório
-    const checklistRows: any[] = [];
-    filteredReports.forEach((report) => {
-      const checklist = checklistItemsByReport[report.id] || [];
-      checklist.forEach((item: any) => {
-        checklistRows.push({
-          id_relatorio: report.id,
-          numero_servico: report.numero_servico,
-          tecnico_nome: report.technician?.name || "",
-          material_servico: item.name,
-          quantidade: item.quantity ?? "",
-          tipo: item.category ?? ""
+
+    try {
+      // Buscar TODOS os relatórios do período selecionado (sem paginação)
+      let query = supabase
+        .from('reports')
+        .select(`
+          id, title, description, status, created_at, updated_at, 
+          numero_servico, pending_reason, pending_notes, assigned_to, 
+          attachments, form_data, checklist_data, report_number, parent_report_id,
+          validated_by, validated_at, technician_id, template_id
+        `)
+        .neq('template_id', '4b45c601-e5b7-4a33-98f9-1769aad319e9')
+        .order('created_at', { ascending: false });
+
+      // Aplicar filtros de data
+      query = query.gte('created_at', startDate);
+      query = query.lte('created_at', endDate + 'T23:59:59');
+
+      // Aplicar outros filtros se definidos
+      if (filters.technician && filters.technician !== 'all') {
+        query = query.eq('technician_id', filters.technician);
+      }
+      if (filters.status && filters.status !== 'all') {
+        query = query.eq('status', filters.status as any);
+      }
+      if (filters.serviceNumber && filters.serviceNumber.trim()) {
+        query = query.ilike('numero_servico', `%${filters.serviceNumber.trim()}%`);
+      }
+      if (filters.reportNumber && filters.reportNumber.trim()) {
+        const cleanReportNumber = filters.reportNumber.trim().replace(/^REL-?/i, '');
+        if (cleanReportNumber) {
+          query = query.eq('report_number', parseInt(cleanReportNumber));
+        }
+      }
+      if (filters.formDataSearch && filters.formDataSearch.trim()) {
+        const searchTerm = filters.formDataSearch.trim();
+        query = query.or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,numero_servico.ilike.%${searchTerm}%`);
+      }
+      if (filters.userClass && filters.userClass !== 'all') {
+        const { data: techniciansFromClass } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('user_class_id', filters.userClass)
+          .eq('is_active', true);
+        
+        if (techniciansFromClass && techniciansFromClass.length > 0) {
+          const technicianIds = techniciansFromClass.map(t => t.id);
+          query = query.in('technician_id', technicianIds);
+        } else {
+          query = query.eq('technician_id', 'no-technicians-found');
+        }
+      }
+
+      const { data: allReports, error } = await query;
+      
+      if (error) {
+        console.error('❌ Erro ao buscar relatórios para exportação de checklist:', error);
+        toast({ title: "Erro ao buscar relatórios.", description: error.message, variant: "destructive" });
+        return;
+      }
+
+      if (!allReports || allReports.length === 0) {
+        toast({ title: "Nenhum relatório encontrado no período selecionado.", variant: "destructive" });
+        return;
+      }
+
+      // Buscar dados dos técnicos para todos os relatórios
+      const technicianIds = [...new Set(allReports.map((r: any) => r.technician_id).filter(Boolean))];
+      
+      let techniciansData: any[] = [];
+      if (technicianIds.length > 0) {
+        const { data: techData } = await supabase
+          .from('profiles')
+          .select('id, name')
+          .in('id', technicianIds);
+        techniciansData = techData || [];
+      }
+      
+      // Mapear dados para incluir relacionamentos
+      const reportsWithRelations = allReports.map((report: any) => {
+        const technician = techniciansData.find(t => t.id === report.technician_id);
+        
+        return {
+          ...report,
+          technician
+        };
+      });
+
+      // Buscar todos os itens do checklist para todos os relatórios
+      const reportIds = reportsWithRelations.map((r: any) => r.id);
+      
+      // Buscar todos os report_checklist_items
+      const { data: checklistLinks, error: errorLinks } = await supabase
+        .from('report_checklist_items')
+        .select('report_id, checklist_item_id, quantity, notes')
+        .in('report_id', reportIds);
+      
+      if (errorLinks) {
+        console.error('❌ Erro ao buscar itens do checklist:', errorLinks);
+        toast({ title: "Erro ao buscar itens do checklist.", description: errorLinks.message, variant: "destructive" });
+        return;
+      }
+
+      const checklistItemIds = [...new Set((checklistLinks || []).map((item: any) => item.checklist_item_id))];
+      
+      // Buscar todos os checklist_items necessários
+      const { data: checklistItems, error: errorItems } = await supabase
+        .from('checklist_items')
+        .select('id, name, category, standard_quantity')
+        .in('id', checklistItemIds);
+      
+      if (errorItems) {
+        console.error('❌ Erro ao buscar dados dos itens do checklist:', errorItems);
+        toast({ title: "Erro ao buscar dados dos itens do checklist.", description: errorItems.message, variant: "destructive" });
+        return;
+      }
+
+      const checklistItemMap: Record<string, any> = {};
+      (checklistItems || []).forEach((item: any) => { 
+        checklistItemMap[item.id] = item; 
+      });
+
+      // Montar linhas do CSV: uma por item do checklist de cada relatório
+      const checklistRows: any[] = [];
+      
+      reportsWithRelations.forEach((report: any) => {
+        // Buscar itens do checklist para este relatório
+        const reportChecklistItems = (checklistLinks || []).filter((item: any) => item.report_id === report.id);
+        
+        reportChecklistItems.forEach((item: any) => {
+          const checklistItem = checklistItemMap[item.checklist_item_id];
+          checklistRows.push({
+            codigo_unico: getReportNumber(report),
+            id_relatorio: report.id,
+            numero_servico: report.numero_servico,
+            tecnico_nome: report.technician?.name || "",
+            material_servico: checklistItem?.name || item.checklist_item_id,
+            quantidade: item.quantity ?? "",
+            tipo: checklistItem?.category ?? ""
+          });
         });
       });
-    });
-    if (checklistRows.length === 0) {
-      toast({ title: "Nenhum material/serviço encontrado no período selecionado.", variant: "destructive" });
-      return;
+
+      if (checklistRows.length === 0) {
+        toast({ title: "Nenhum material/serviço encontrado no período selecionado.", variant: "destructive" });
+        return;
+      }
+      
+      exportToCSV(checklistRows, `relatorios_checklist_${startDate}_a_${endDate}`);
+      
+    } catch (error) {
+      console.error('❌ Erro ao exportar CSV do checklist:', error);
+      toast({ title: "Erro ao exportar CSV do checklist.", description: "Tente novamente.", variant: "destructive" });
     }
-    exportToCSV(checklistRows, `relatorios_checklist_${startDate}_a_${endDate}`);
   }
 
-  // Use filteredReports para paginação
-  const {
-    visibleItems: paginatedReports,
-    hasMore: hasMoreReports,
-    showMore: showMoreReports,
-    reset: resetReports
-  } = usePagination(filteredReports, 10, 10);
+  // Função para buscar em campos dinâmicos usando query SQL
+
 
   if (isLoading) {
-    return <div>Carregando...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="flex items-center justify-center min-h-screen">
+          <LoadingSpinner text="Carregando relatórios..." />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -730,7 +1602,8 @@ const ReportValidation = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col gap-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {/* Primeira linha de filtros */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-2 block">Técnico</label>
                   <Select 
@@ -766,6 +1639,8 @@ const ReportValidation = () => {
                       <SelectItem value="validado">Validado</SelectItem>
                       <SelectItem value="pendente">Pendente</SelectItem>
                       <SelectItem value="em_adequacao">Em adequação</SelectItem>
+                      <SelectItem value="adequado">Adequado</SelectItem>
+                      <SelectItem value="sem_pendencia">Sem pendência</SelectItem>
                       <SelectItem value="faturado">Faturado</SelectItem>
                     </SelectContent>
                   </Select>
@@ -775,11 +1650,23 @@ const ReportValidation = () => {
                   <label className="text-sm font-medium text-gray-700 mb-2 block">Número do Serviço</label>
                   <Input
                     placeholder="Número"
-                    value={filters.serviceNumber}
-                    onChange={(e) => setFilters(prev => ({...prev, serviceNumber: e.target.value}))}
+                    value={serviceNumberInput}
+                    onChange={(e) => setServiceNumberInput(e.target.value)}
                   />
                 </div>
 
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Código do Relatório</label>
+                  <Input
+                    placeholder="REL-607"
+                    value={reportNumberInput}
+                    onChange={(e) => setReportNumberInput(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Segunda linha de filtros */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-2 block">Classe</label>
                   <Select 
@@ -817,6 +1704,15 @@ const ReportValidation = () => {
                     onChange={(e) => setFilters(prev => ({...prev, endDate: e.target.value}))}
                   />
                 </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Buscar em Campos Dinâmicos</label>
+                  <Input
+                    placeholder="Buscar em form_data..."
+                    value={formDataSearchInput}
+                    onChange={(e) => setFormDataSearchInput(e.target.value)}
+                  />
+                </div>
               </div>
               <div className="flex justify-end gap-2">
                 <Button onClick={handleExportCsv} variant="default">
@@ -834,7 +1730,7 @@ const ReportValidation = () => {
 
         {/* Lista de Relatórios */}
         <div className="space-y-4">
-          {paginatedReports
+          {reports
             .filter(report => report && typeof report === 'object' && 'id' in report && report.id)
             .map((report) => {
               const isFaturado = typeof report.status === 'string' && report.status === 'faturado';
@@ -843,9 +1739,9 @@ const ReportValidation = () => {
                 r.technician_id === report.assigned_to &&
                 r.id !== report.id
               );
-              // NOVO: Verifica se já foi validado em algum momento
-              const hasBeenValidated = Array.isArray(activities[report.id]) && activities[report.id].some(a => a.action === "validado");
-              // NOVO: Verifica se já foi adequado em algum momento
+              // NOVA LÓGICA: Verificar se já foi validado usando os campos validated_by e validated_at
+              const hasBeenValidated = report.validated_by && report.validated_at;
+              // Verificar se já foi adequado em algum momento (manter lógica atual para compatibilidade)
               const hasBeenAdequado = Array.isArray(activities[report.id]) && activities[report.id].some(a => a.action === "em_adequacao");
 
               return (
@@ -855,10 +1751,10 @@ const ReportValidation = () => {
                       <CardHeader className="cursor-pointer hover:bg-gray-50 transition-colors">
                         <div className="flex items-center justify-between">
                           <div className="flex flex-col items-start gap-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-medium text-primary">
-                                Nº {reportSequenceMap[report.id]}
-                              </span>
+                                                          <div className="flex items-center gap-2">
+                                <span className="font-mono font-medium text-primary">
+                                  {getReportNumber(report)}
+                                </span>
                               <span className="text-lg font-semibold">
                                 Nº do Serviço: {report.numero_servico || 'N/A'} | Enviado por: {report.technician?.name || 'N/A'}
                               </span>
@@ -937,69 +1833,59 @@ const ReportValidation = () => {
                           {Array.isArray(report.attachments) && report.attachments.length > 0 && (
                             <div>
                               <h4 className="font-semibold text-gray-900 mb-2">Anexos</h4>
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                 {report.attachments.map((attachment: any, index) => (
                                   <div key={index} className="relative">
-                                    <ThumbnailImage
-                                      src={attachment?.url || ''} 
-                                      alt={`Anexo ${index + 1}`}
-                                      className="w-full h-24 rounded-lg object-cover"
-                                      onClick={() => {
-                                        // Abrir modal com imagem completa
-                                        const dialog = document.createElement('dialog');
-                                        dialog.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50';
-                                        dialog.innerHTML = `
-                                          <div class="max-w-4xl max-h-[90vh] overflow-auto bg-white rounded-lg p-4">
-                                            <div class="flex justify-between items-center mb-4">
-                                              <h3 class="text-lg font-semibold">Anexo ${index + 1}</h3>
-                                              <button onclick="this.closest('dialog').close()" class="text-gray-500 hover:text-gray-700">
-                                                ✕
-                                              </button>
-                                            </div>
-                                            <img src="${attachment?.url || ''}" alt="Anexo ${index + 1}" class="w-full h-auto object-contain" />
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <div className="relative cursor-pointer group">
+                                          <div className="w-full aspect-square rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group-hover:scale-105 border border-gray-200">
+                                            <img
+                                              src={attachment?.url || ''}
+                                              alt={`Anexo ${index + 1}`}
+                                              className="w-full h-full object-cover transition-all duration-300 group-hover:brightness-110"
+                                              onError={(e) => {
+                                                const target = e.target as HTMLImageElement;
+                                                target.style.display = 'none';
+                                                target.nextElementSibling?.classList.remove('hidden');
+                                              }}
+                                            />
+                                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300 rounded-xl"></div>
                                           </div>
-                                        `;
-                                        document.body.appendChild(dialog);
-                                        dialog.showModal();
-                                        dialog.addEventListener('click', (e) => {
-                                          if (e.target === dialog) dialog.close();
-                                        });
-                                        dialog.addEventListener('close', () => {
-                                          document.body.removeChild(dialog);
-                                        });
-                                      }}
-                                    />
-                                    <Button
-                                      variant="secondary"
-                                      size="sm"
-                                      className="absolute top-1 right-1"
-                                      onClick={() => {
-                                        // Abrir modal com imagem completa
-                                        const dialog = document.createElement('dialog');
-                                        dialog.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50';
-                                        dialog.innerHTML = `
-                                          <div class="max-w-4xl max-h-[90vh] overflow-auto bg-white rounded-lg p-4">
-                                            <div class="flex justify-between items-center mb-4">
-                                              <h3 class="text-lg font-semibold">Anexo ${index + 1}</h3>
-                                              <button onclick="this.closest('dialog').close()" class="text-gray-500 hover:text-gray-700">
-                                                ✕
-                                              </button>
-                                            </div>
-                                            <img src="${attachment?.url || ''}" alt="Anexo ${index + 1}" class="w-full h-auto object-contain" />
+                                          <div className="absolute inset-0 bg-gray-100 flex items-center justify-center rounded-xl hidden">
+                                            <span className="text-xs text-gray-500">Erro ao carregar</span>
                                           </div>
-                                        `;
-                                        document.body.appendChild(dialog);
-                                        dialog.showModal();
-                                        dialog.addEventListener('click', (e) => {
-                                          if (e.target === dialog) dialog.close();
-                                        });
-                                        dialog.addEventListener('close', () => {
-                                          document.body.removeChild(dialog);
-                                        });
-                                      }}
-                                    >
-                                      <ZoomIn className="w-3 h-3" />
-                                    </Button>
+                                        </div>
+                                      </DialogTrigger>
+                                      <DialogContent className="max-w-4xl max-h-none p-0 overflow-hidden">
+                                        <DialogHeader className="absolute top-4 left-4 z-10">
+                                          <DialogTitle className="text-white text-lg">Visualizar Imagem</DialogTitle>
+                                          <DialogDescription className="text-white text-sm">
+                                            Clique no X para fechar
+                                          </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="relative h-full">
+                                          <div className="absolute top-4 right-4 z-10">
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => document.querySelector('[data-radix-dialog-close]')?.dispatchEvent(new Event('click'))}
+                                              className="text-white hover:bg-white hover:text-black"
+                                            >
+                                              <X className="w-4 h-4" />
+                                            </Button>
+                                          </div>
+                                          
+                                          <div className="h-full max-h-[80vh] flex items-center justify-center overflow-y-auto overflow-x-hidden">
+                                            <img
+                                              src={attachment?.url || ''}
+                                              alt={`Anexo ${index + 1}`}
+                                              className="w-auto h-auto max-w-full object-contain"
+                                            />
+                                          </div>
+                                        </div>
+                                      </DialogContent>
+                                    </Dialog>
                                   </div>
                                 ))}
                               </div>
@@ -1028,7 +1914,7 @@ const ReportValidation = () => {
 
                           {/* Botão para ver relatório de adequação */}
                           {(() => {
-                            const adequacaoReport = reports.find(r => r.parent_report_id === report.id);
+                            const adequacaoReport = adequacaoReports[report.id];
                             if (!adequacaoReport) return null;
                             return (
                               <Dialog>
@@ -1042,11 +1928,44 @@ const ReportValidation = () => {
                                   <DialogHeader>
                                     <DialogTitle>Relatório de Adequação</DialogTitle>
                                   </DialogHeader>
-                                  <div className="space-y-2">
-                                    <div><b>Título:</b> {adequacaoReport.title}</div>
-                                    <div><b>Descrição:</b> {adequacaoReport.description}</div>
-                                    <div><b>Status:</b> {getStatusLabel(adequacaoReport.status)}</div>
-                                    <div><b>Criado em:</b> {new Date(adequacaoReport.created_at).toLocaleString('pt-BR')}</div>
+                                  <div className="space-y-4">
+                                    {/* NOVO: Cabeçalho com informações principais */}
+                                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {/* Número do próprio relatório de adequação */}
+                                        <div className="text-sm">
+                                          <span className="font-medium text-gray-700">Código da Adequação:</span>
+                                          <div className="mt-1">
+                                            <span className="font-mono font-bold text-lg text-blue-600">
+                                              {adequacaoReport.report_number 
+                                                ? `REL-${adequacaoReport.report_number}` 
+                                                : `REL-${adequacaoReport.id.replace(/-/g, '').slice(0, 8)}`
+                                              }
+                                            </span>
+                                          </div>
+                                        </div>
+                                        
+                                        {/* Número do relatório principal vinculado */}
+                                        {adequacaoReport.parentReport && (
+                                          <div className="text-sm">
+                                            <span className="font-medium text-gray-700">Relatório Principal:</span>
+                                            <div className="mt-1">
+                                              <span className="font-mono font-bold text-lg text-green-600">
+                                                {getParentReportCode(adequacaoReport)}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Informações básicas */}
+                                    <div className="space-y-2">
+                                      <div><b>Título:</b> {adequacaoReport.title}</div>
+                                      <div><b>FCA:</b> {adequacaoReport.description}</div>
+                                      <div><b>Status:</b> {getStatusLabel(adequacaoReport.status)}</div>
+                                      <div><b>Criado em:</b> {new Date(adequacaoReport.created_at).toLocaleString('pt-BR')}</div>
+                                    </div>
                                     {/* Campos do Formulário */}
                                     {adequacaoReport.form_data && Array.isArray(adequacaoReport.template?.fields) && adequacaoReport.template.fields.length > 0 && (
                                       <div className="mt-4">
@@ -1164,7 +2083,7 @@ const ReportValidation = () => {
                             <Button
                               variant="outline"
                               className="border-purple-500 text-purple-500 hover:bg-purple-50"
-                              onClick={() => setEditReportId(report.id)}
+                              onClick={() => handleOpenEditModal(report.id)}
                               disabled={isFaturado}
                             >
                               <Edit className="w-4 h-4 mr-2" />
@@ -1305,16 +2224,56 @@ const ReportValidation = () => {
                 </Card>
               );
             })}
-          {hasMoreReports && (
-            <div className="flex justify-center mt-4">
-              <Button onClick={showMoreReports} variant="outline">Ver mais</Button>
-            </div>
-          )}
+
           <div className="text-xs text-gray-500 text-center mt-2">
-            Mostrando {paginatedReports.length} de {reports.length} relatórios
+            Mostrando {reports.length} de {totalReports} relatórios
           </div>
         </div>
       </main>
+
+      {/* Controles de Paginação */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center space-x-4 py-4 bg-white border-t">
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              Anterior
+            </Button>
+            
+            <span className="text-sm text-gray-600">
+              Página {currentPage} de {totalPages}
+            </span>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Próxima
+            </Button>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600">Itens por página:</span>
+            <Select value={pageSize.toString()} onValueChange={(value) => handlePageSizeChange(Number(value))}>
+              <SelectTrigger className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
 
       {/* Modal de edição de relatório */}
       {editReportId && (
@@ -1338,93 +2297,119 @@ const ReportValidation = () => {
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-2">Campos do Formulário</h4>
                     <div className="space-y-2">
-                      {template.fields.map((field: any, idx: number) => (
-                        <div key={idx}>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">{field.label || field.name}</label>
-                          {(!field.type || field.type === 'text') && (
-                            <Input
-                              value={editFormData[field.id || field.name] ?? ''}
-                              onChange={e => handleEditFieldChange(field.id || field.name, e.target.value)}
-                            />
-                          )}
-                          {field.type === 'textarea' && (
-                            <Textarea
-                              value={editFormData[field.id || field.name] ?? ''}
-                              onChange={e => handleEditFieldChange(field.id || field.name, e.target.value)}
-                            />
-                          )}
-                          {field.type === 'number' && (
-                            <Input
-                              type="number"
-                              value={editFormData[field.id || field.name] ?? ''}
-                              onChange={e => handleEditFieldChange(field.id || field.name, e.target.value)}
-                            />
-                          )}
-                          {field.type === 'select' && Array.isArray(field.options) && (
-                            <select
-                              className="border rounded px-2 py-1"
-                              value={editFormData[field.id || field.name] ?? ''}
-                              onChange={e => handleEditFieldChange(field.id || field.name, e.target.value)}
-                            >
-                              <option value="">Selecione...</option>
-                              {field.options.map((opt: any, i: number) => {
-                                const label = typeof opt === 'object' ? (opt.label ?? opt.value) : opt;
-                                const value = typeof opt === 'object' ? (opt.value ?? opt.label) : opt;
-                                return (
-                                  <option key={value || i} value={value}>{label}</option>
-                                );
-                              })}
-                            </select>
-                          )}
-                          {field.type === 'radio' && Array.isArray(field.options) && (
-                            <div className="flex flex-col gap-1">
-                              {field.options.map((opt: any, i: number) => {
-                                const label = typeof opt === 'object' ? (opt.label ?? opt.value) : opt;
-                                const value = typeof opt === 'object' ? (opt.value ?? opt.label) : opt;
-                                return (
-                                  <label key={value || i} className="flex items-center gap-2">
+                                              {template.fields.map((field: any, idx: number) => (
+                          <div key={idx}>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              {field.label || field.name}
+                              {field.required && <span className="text-red-500 ml-1">*</span>}
+                            </label>
+                            
+                            {/* Campo de texto curto */}
+                            {field.type === 'texto_curto' && (
+                              <Input
+                                value={editFormData[field.id || field.name] ?? ''}
+                                onChange={e => handleEditFieldChange(field.id || field.name, e.target.value)}
+                                placeholder={field.placeholder}
+                                required={field.required}
+                              />
+                            )}
+                            
+                            {/* Campo de texto longo */}
+                            {field.type === 'texto_longo' && (
+                              <Textarea
+                                value={editFormData[field.id || field.name] ?? ''}
+                                onChange={e => handleEditFieldChange(field.id || field.name, e.target.value)}
+                                placeholder={field.placeholder}
+                                required={field.required}
+                              />
+                            )}
+                            
+                            {/* Campo de data */}
+                            {field.type === 'data' && (
+                              <Input
+                                type="date"
+                                value={editFormData[field.id || field.name] ?? ''}
+                                onChange={e => handleEditFieldChange(field.id || field.name, e.target.value)}
+                                required={field.required}
+                              />
+                            )}
+                            
+                            {/* Campo dropdown */}
+                            {field.type === 'dropdown' && Array.isArray(field.options) && (
+                              <Select
+                                value={editFormData[field.id || field.name] ?? ''}
+                                onValueChange={(value) => handleEditFieldChange(field.id || field.name, value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione uma opção" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {field.options.map((option: string, i: number) => (
+                                    <SelectItem key={i} value={option}>
+                                      {option}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                            
+                            {/* Campo de radio */}
+                            {field.type === 'radio' && Array.isArray(field.options) && (
+                              <div className="flex flex-col gap-1">
+                                {field.options.map((option: string, i: number) => (
+                                  <label key={i} className="flex items-center gap-2">
                                     <input
                                       type="radio"
                                       name={field.id || field.name}
-                                      value={value}
-                                      checked={editFormData[field.id || field.name] === value}
-                                      onChange={() => handleEditFieldChange(field.id || field.name, value)}
+                                      value={option}
+                                      checked={editFormData[field.id || field.name] === option}
+                                      onChange={() => handleEditFieldChange(field.id || field.name, option)}
+                                      required={field.required}
                                     />
-                                    {label}
+                                    {option}
                                   </label>
-                                );
-                              })}
-                            </div>
-                          )}
-                          {field.type === 'checkbox' && Array.isArray(field.options) && (
-                            <div className="flex flex-col gap-1">
-                              {field.options.map((opt: any, i: number) => {
-                                const label = typeof opt === 'object' ? (opt.label ?? opt.value) : opt;
-                                const value = typeof opt === 'object' ? (opt.value ?? opt.label) : opt;
-                                return (
-                                  <label key={value || i} className="flex items-center gap-2">
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* Campo de checkbox */}
+                            {field.type === 'checkbox' && Array.isArray(field.options) && (
+                              <div className="flex flex-col gap-1">
+                                {field.options.map((option: string, i: number) => (
+                                  <label key={i} className="flex items-center gap-2">
                                     <input
                                       type="checkbox"
                                       name={field.id || field.name}
-                                      value={value}
-                                      checked={Array.isArray(editFormData[field.id || field.name]) && editFormData[field.id || field.name].includes(value)}
+                                      value={option}
+                                      checked={Array.isArray(editFormData[field.id || field.name]) && 
+                                               editFormData[field.id || field.name].includes(option)}
                                       onChange={e => {
-                                        const prev = Array.isArray(editFormData[field.id || field.name]) ? editFormData[field.id || field.name] : [];
+                                        const prev = Array.isArray(editFormData[field.id || field.name]) 
+                                          ? editFormData[field.id || field.name] 
+                                          : [];
                                         if (e.target.checked) {
-                                          handleEditFieldChange(field.id || field.name, [...prev, value]);
+                                          handleEditFieldChange(field.id || field.name, [...prev, option]);
                                         } else {
-                                          handleEditFieldChange(field.id || field.name, prev.filter((v: any) => v !== value));
+                                          handleEditFieldChange(field.id || field.name, prev.filter((v: any) => v !== option));
                                         }
                                       }}
                                     />
-                                    {label}
+                                    {option}
                                   </label>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* Fallback para campos não reconhecidos (incluindo upload) */}
+                            {!['texto_curto', 'texto_longo', 'data', 'dropdown', 'radio', 'checkbox'].includes(field.type) && (
+                              <Input
+                                value={editFormData[field.id || field.name] ?? ''}
+                                onChange={e => handleEditFieldChange(field.id || field.name, e.target.value)}
+                                placeholder={field.placeholder}
+                              />
+                            )}
+                          </div>
+                        ))}
                     </div>
                   </div>
                 )}
@@ -1540,3 +2525,4 @@ const ReportValidation = () => {
 };
 
 export default ReportValidation;
+

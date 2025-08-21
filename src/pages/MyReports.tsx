@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import ReportFormModal from '@/components/reports/ReportFormModal';
 import ReportViewModal from "@/components/reports/ReportViewModal";
 import { usePagination } from "@/hooks/usePagination";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const MyReports = () => {
   const { user } = useAuth();
@@ -150,7 +151,7 @@ const MyReports = () => {
     });
   };
 
-  // Numeração sequencial global dos relatórios (mais antigo = 1)
+  // Numeração sequencial global dos relatórios (mais antigo = 1) - Fallback para relatórios antigos
   const reportSequenceMap = useMemo(() => {
     const sorted = [...reports].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     const map: Record<string, number> = {};
@@ -159,6 +160,15 @@ const MyReports = () => {
     });
     return map;
   }, [reports]);
+
+  // Função para obter o número do relatório com prefixo REL-
+  const getReportNumber = (report: any) => {
+    if (report.report_number) {
+      return `REL-${report.report_number}`;
+    }
+    // Fallback para relatórios antigos que não têm report_number
+    return `REL-${reportSequenceMap[report.id] || 'N/A'}`;
+  };
 
   const {
     visibleItems: paginatedReports,
@@ -173,115 +183,124 @@ const MyReports = () => {
 
   return (
     <div className="p-4 md:p-8 space-y-6">
-      {/* Templates Disponíveis */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Plus className="w-5 h-5" />
-            <span>Novo Relatório</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {availableTemplates.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {availableTemplates.map((template) => (
-                <Card key={template.id} className="cursor-pointer hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <h3 className="font-semibold text-lg mb-2">{template.name}</h3>
-                    <p className="text-sm text-gray-600 mb-4">{template.description}</p>
-                    <Button 
-                      onClick={() => handleCreateReport(template.id)}
-                      className="w-full"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Criar Relatório
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <h3 className="text-lg font-medium mb-2">Nenhum template disponível</h3>
-              <p className="text-sm">
-                Não há templates de relatório disponíveis para sua classe de usuário.
-                {permissionsArr.includes('admin') || permissionsArr.includes('gestor') ? 
-                  ' Crie novos templates na seção de Configurações.' : 
-                  ' Entre em contato com o administrador.'}
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Relatórios Enviados */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Relatórios de Campo</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table className="min-w-full">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nº</TableHead>
-                  <TableHead>Título</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Número do Serviço</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Técnico</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedReports.length > 0 ? (
-                  paginatedReports.map((report) => (
-                      <TableRow key={report.id}>
-                        <TableCell className="font-mono font-medium text-primary">
-                          {reportSequenceMap[report.id]}
-                        </TableCell>
-                        <TableCell>{report.title}</TableCell>
-                        <TableCell>{report.status}</TableCell>
-                        <TableCell>{report.numero_servico || '-'}</TableCell>
-                        <TableCell>{new Date(report.created_at).toLocaleDateString('pt-BR')}</TableCell>
-                        <TableCell>{report.technician?.name || '-'}</TableCell>
-                        <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full md:w-auto"
-                            onClick={() => {
-                              setSelectedReport(report);
-                              setIsViewModalOpen(true);
-                            }}
-                          >
-                            <Eye className="w-4 h-4 mr-2" />
-                            Visualizar
-                          </Button>
+      <Tabs defaultValue="new-report" className="w-full">
+        <TabsList>
+          <TabsTrigger value="new-report">+ Novo Relatório</TabsTrigger>
+          <TabsTrigger value="field-reports">Relatórios de Campo</TabsTrigger>
+        </TabsList>
+        <TabsContent value="new-report">
+          {/* Templates Disponíveis */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Plus className="w-5 h-5" />
+                <span>Novo Relatório</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {availableTemplates.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {availableTemplates.map((template) => (
+                    <Card key={template.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <h3 className="font-semibold text-lg mb-2">{template.name}</h3>
+                        <p className="text-sm text-gray-600 mb-4">{template.description}</p>
+                        <Button 
+                          onClick={() => handleCreateReport(template.id)}
+                          className="w-full"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Criar Relatório
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <h3 className="text-lg font-medium mb-2">Nenhum template disponível</h3>
+                  <p className="text-sm">
+                    Não há templates de relatório disponíveis para sua classe de usuário.
+                    {permissionsArr.includes('admin') || permissionsArr.includes('gestor') ? 
+                      ' Crie novos templates na seção de Configurações.' : 
+                      ' Entre em contato com o administrador.'}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="field-reports">
+          {/* Relatórios Enviados */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Relatórios de Campo</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table className="min-w-full">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nº</TableHead>
+                      <TableHead>Título</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Número do Serviço</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Técnico</TableHead>
+                      <TableHead>Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedReports.length > 0 ? (
+                      paginatedReports.map((report) => (
+                          <TableRow key={report.id}>
+                            <TableCell className="font-mono font-medium text-primary">
+                              {getReportNumber(report)}
+                            </TableCell>
+                            <TableCell>{report.title}</TableCell>
+                            <TableCell>{report.status}</TableCell>
+                            <TableCell>{report.numero_servico || '-'}</TableCell>
+                            <TableCell>{new Date(report.created_at).toLocaleDateString('pt-BR')}</TableCell>
+                            <TableCell>{report.technician?.name || '-'}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full md:w-auto"
+                                onClick={() => {
+                                  setSelectedReport(report);
+                                  setIsViewModalOpen(true);
+                                }}
+                              >
+                                <Eye className="w-4 h-4 mr-2" />
+                                Visualizar
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-4">
+                          Nenhum relatório encontrado
                         </TableCell>
                       </TableRow>
-                    ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-4">
-                      Nenhum relatório encontrado
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          {hasMoreReports && (
-            <div className="flex justify-center mt-4">
-              <Button onClick={showMoreReports} variant="outline">Ver mais</Button>
-            </div>
-          )}
-          <div className="text-xs text-gray-500 text-center mt-2">
-            Mostrando {paginatedReports.length} de {reports.length} relatórios
-          </div>
-        </CardContent>
-      </Card>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              {hasMoreReports && (
+                <div className="flex justify-center mt-4">
+                  <Button onClick={showMoreReports} variant="outline">Ver mais</Button>
+                </div>
+              )}
+              <div className="text-xs text-gray-500 text-center mt-2">
+                Mostrando {paginatedReports.length} de {reports.length} relatórios
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <ReportFormModal
         isOpen={isModalOpen}

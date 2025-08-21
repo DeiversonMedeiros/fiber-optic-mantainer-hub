@@ -7,11 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Edit, Trash2, Plus, Users, ArrowLeft, Search } from 'lucide-react';
+import { Edit, Trash2, Plus, Users, ArrowLeft, Search, Key } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import UserModal from '@/components/users/UserModal';
+import ChangePasswordModal from '@/components/users/ChangePasswordModal';
 
 interface User {
   id: string;
@@ -42,7 +43,9 @@ interface UserWithRelations extends User {
 
 const UserManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserWithRelations | null>(null);
+  const [userForPasswordChange, setUserForPasswordChange] = useState<UserWithRelations | null>(null);
   const [filters, setFilters] = useState({
     name: '',
     userClass: '',
@@ -225,6 +228,11 @@ const UserManagement = () => {
     }
   };
 
+  const handleChangePassword = (user: UserWithRelations) => {
+    setUserForPasswordChange(user);
+    setIsPasswordModalOpen(true);
+  };
+
   const clearFilters = () => {
     setFilters({
       name: '',
@@ -386,6 +394,15 @@ const UserManagement = () => {
                             variant="outline"
                             size="sm"
                             className="min-w-[44px] min-h-[44px] self-center"
+                            onClick={() => handleChangePassword(user)}
+                            title="Alterar senha"
+                          >
+                            <Key className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="min-w-[44px] min-h-[44px] self-center"
                             onClick={() => handleToggleStatus(user)}
                             disabled={toggleUserStatusMutation.isPending}
                           >
@@ -416,6 +433,15 @@ const UserManagement = () => {
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           user={selectedUser}
+        />
+
+        <ChangePasswordModal
+          isOpen={isPasswordModalOpen}
+          onClose={() => {
+            setIsPasswordModalOpen(false);
+            setUserForPasswordChange(null);
+          }}
+          user={userForPasswordChange}
         />
       </main>
     </div>
