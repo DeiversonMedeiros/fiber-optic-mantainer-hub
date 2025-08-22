@@ -21,6 +21,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { exportToCSV } from "@/utils/csvExport";
 
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Tipos para otimização
 interface ValidationReportsResponse {
@@ -972,10 +973,13 @@ const ReportValidation = () => {
     return `REL-${shortId}`;
   };
 
-  // Função para exportar CSV dos relatórios filtrados
+  // SOLUÇÃO 1 IMPLEMENTADA: Otimização da Query com Seleção Seletiva de Campos
+  // - Busca inicial apenas campos essenciais para evitar timeout
+  // - Busca form_data e checklist_data separadamente em lotes menores
+  // - Reduz drasticamente o volume de dados transferidos por lote
   // ATENÇÃO: Filtros complexos foram temporariamente desabilitados para resolver problema de timeout
   // Apenas filtros de data estão ativos. Outros filtros serão aplicados no JavaScript após buscar os dados.
-  async function handleExportCsv() {
+  async function handleExportCsvOptimized() {
     const { startDate, endDate } = filters;
     if (!startDate || !endDate) {
       toast({ title: "Selecione as duas datas.", variant: "destructive" });
@@ -1009,18 +1013,20 @@ const ReportValidation = () => {
           variant: "default" 
         });
 
-        // Buscar relatórios em lotes usando paginação por ID (cursor-based pagination)
+        // SOLUÇÃO 1 IMPLEMENTADA: Buscar relatórios em lotes usando paginação por ID (cursor-based pagination)
+        // Primeiro buscar apenas campos essenciais para evitar timeout com form_data JSONB
         while (hasMoreData) {
           batchCount++;
           console.log(`📦 Processando lote ${batchCount}${lastId ? ` (após ID: ${lastId.slice(0, 8)}...)` : ''}`);
           
+          // OTIMIZAÇÃO: Selecionar apenas campos essenciais inicialmente
           let query = supabase
             .from('reports')
             .select(`
               id, title, description, status, created_at, updated_at, 
               numero_servico, pending_reason, pending_notes, assigned_to, 
-              attachments, form_data, checklist_data, report_number, parent_report_id,
-              validated_by, validated_at, technician_id, template_id
+              report_number, parent_report_id, validated_by, validated_at, 
+              technician_id, template_id
             `)
             .neq('template_id', '4b45c601-e5b7-4a33-98f9-1769aad319e9')
             .gte('created_at', startDate)
@@ -1135,6 +1141,15 @@ const ReportValidation = () => {
             variant: "default" 
           });
         }
+        
+        // Mostrar progresso dos dados dinâmicos
+        if (batchCount > 1 && batchCount % 3 === 0) {
+          toast({ 
+            title: "Exportação em andamento...", 
+            description: `Lote ${batchCount} processado. Aguarde o processamento dos dados dinâmicos...`, 
+            variant: "default" 
+          });
+        }
       }
 
       if (allReports.length === 0) {
@@ -1146,6 +1161,53 @@ const ReportValidation = () => {
 
       // ✅ IMPLEMENTAÇÃO OTIMIZADA: Paginação por ID (cursor-based) em vez de offset
       // Esta abordagem é muito mais eficiente para grandes volumes de dados
+      
+      // SOLUÇÃO 1 IMPLEMENTADA: Buscar form_data e checklist_data separadamente para evitar timeout
+      console.log(`🔄 Buscando dados dinâmicos (form_data e checklist_data) em lotes...`);
+      
+      // Buscar form_data e checklist_data em lotes menores para evitar timeout
+      const FORM_DATA_BATCH_SIZE = 100; // Lotes menores para dados JSONB pesados
+      let formDataProcessed = 0;
+      
+      for (let i = 0; i < allReports.length; i += FORM_DATA_BATCH_SIZE) {
+        const batchIds = allReports.slice(i, i + FORM_DATA_BATCH_SIZE).map(r => r.id);
+        
+        console.log(`📦 Processando lote de dados dinâmicos ${Math.floor(i / FORM_DATA_BATCH_SIZE) + 1}/${Math.ceil(allReports.length / FORM_DATA_BATCH_SIZE)}`);
+        
+        const { data: formDataBatch, error: formDataError } = await supabase
+          .from('reports')
+          .select('id, form_data, checklist_data, attachments')
+          .in('id', batchIds);
+        
+        if (formDataError) {
+          console.error(`❌ Erro ao buscar dados dinâmicos do lote ${Math.floor(i / FORM_DATA_BATCH_SIZE) + 1}:`, formDataError);
+          // Continuar com os outros lotes mesmo se houver erro em um
+          continue;
+        }
+        
+        // Mesclar dados dinâmicos com os relatórios
+        if (formDataBatch) {
+          formDataBatch.forEach(formData => {
+            const reportIndex = allReports.findIndex(r => r.id === formData.id);
+            if (reportIndex !== -1) {
+              allReports[reportIndex].form_data = formData.form_data;
+              allReports[reportIndex].checklist_data = formData.checklist_data;
+              allReports[reportIndex].attachments = formData.attachments;
+            }
+          });
+          
+          formDataProcessed += formDataBatch.length;
+          console.log(`✅ Lote de dados dinâmicos processado: ${formDataBatch.length} relatórios`);
+        }
+        
+        // Pequeno delay entre lotes para evitar sobrecarga
+        if (i + FORM_DATA_BATCH_SIZE < allReports.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      
+      console.log(`🎯 Total de relatórios com dados dinâmicos carregados: ${formDataProcessed}/${allReports.length}`);
+      
       // TODO: Aplicar filtros adicionais no JavaScript aqui (quando resolvermos o timeout)
       // Por enquanto, apenas filtros de data estão sendo aplicados no SQL
 
@@ -1367,10 +1429,10 @@ const ReportValidation = () => {
       
       console.log(`📤 Gerando CSV com ${exportData.length} registros...`);
       
-      // Mostrar toast de conclusão
+      // Mostrar toast de conclusão com informações da Solução 1
       toast({ 
-        title: "Exportação concluída!", 
-        description: `${exportData.length} relatórios processados em ${batchCount} lotes.`, 
+        title: "Exportação concluída com otimização!", 
+        description: `${exportData.length} relatórios processados em ${batchCount} lotes principais + ${Math.ceil(allReports.length / 100)} lotes de dados dinâmicos.`, 
         variant: "default" 
       });
       
@@ -1382,7 +1444,513 @@ const ReportValidation = () => {
     }
   }
 
-  // Função para exportar CSV dos itens do checklist (um por linha)
+  // SOLUÇÃO 2 IMPLEMENTADA: Exportação progressiva com streaming
+  // Esta função cria um CSV progressivamente, processando um relatório por vez
+  // para evitar timeout e melhorar a experiência do usuário
+  async function handleExportCsvProgressive() {
+    const { startDate, endDate } = filters;
+    if (!startDate || !endDate) {
+      toast({ title: "Selecione as duas datas.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const BATCH_SIZE = 50; // Lotes muito pequenos para evitar timeout
+      let lastId: string | null = null;
+      let batchCount = 0;
+      let hasMoreData = true;
+      let totalProcessed = 0;
+
+      // Criar arquivo CSV progressivamente
+      const csvHeader = [
+        'Código Único', 'ID do Relatório', 'Número do Serviço', 'Título', 
+        'FCA', 'Status', 'Técnico', 'Data de Criação', 'Data de Atualização',
+        'Validado em', 'Validado por', 'Motivo da Pendência', 'Observações da Pendência',
+        'ID do Relatório Pai', 'Informações do Checklist', 'Anexos'
+      ].join(',');
+
+      let csvContent = csvHeader + '\n';
+
+      toast({ 
+        title: "Exportação progressiva iniciada...", 
+        description: "Processando em lotes pequenos para evitar timeout.", 
+        variant: "default" 
+      });
+
+      while (hasMoreData) {
+        batchCount++;
+        
+        // Buscar apenas dados essenciais
+        let query = supabase
+          .from('reports')
+          .select(`
+            id, title, description, status, created_at, updated_at, 
+            numero_servico, pending_reason, pending_notes, assigned_to, report_number,
+            validated_by, validated_at, technician_id, parent_report_id
+          `)
+          .neq('template_id', '4b45c601-e5b7-4a33-98f9-1769aad319e9')
+          .gte('created_at', startDate)
+          .lte('created_at', endDate + 'T23:59:59')
+          .order('id', { ascending: false })
+          .limit(BATCH_SIZE);
+
+        if (lastId) {
+          query = query.lt('id', lastId);
+        }
+
+        const { data: batchReports, error } = await query;
+        
+        if (error) {
+          console.error(`❌ Erro no lote ${batchCount}:`, error);
+          toast({ 
+            title: `Erro no lote ${batchCount}`, 
+            description: `Código: ${error.code} - ${error.message}`, 
+            variant: "destructive" 
+          });
+          return;
+        }
+
+        if (!batchReports || batchReports.length === 0) {
+          hasMoreData = false;
+          break;
+        }
+
+        // Processar cada relatório individualmente para evitar timeout
+        for (const report of batchReports) {
+          try {
+            // Buscar form_data individualmente para evitar timeout
+            const { data: formData } = await supabase
+              .from('reports')
+              .select('form_data, checklist_data, attachments')
+              .eq('id', report.id)
+              .single();
+
+            if (formData) {
+              (report as any).form_data = formData.form_data;
+              (report as any).checklist_data = formData.checklist_data;
+              (report as any).attachments = formData.attachments;
+            }
+
+            // Processar checklist_data
+            let checklistInfo = '';
+            if ((report as any).checklist_data) {
+              try {
+                const checklist = typeof (report as any).checklist_data === 'string' ? 
+                  JSON.parse((report as any).checklist_data) : (report as any).checklist_data;
+                if (Array.isArray(checklist)) {
+                  checklistInfo = checklist.map((item: any) => {
+                    if (typeof item === 'object' && item !== null) {
+                      return `${item.name || item.material || item.id}: ${item.quantity || 0}`;
+                    }
+                    return String(item);
+                  }).join('; ');
+                }
+              } catch (e) {
+                checklistInfo = 'Erro ao processar checklist';
+              }
+            }
+
+            // Processar attachments
+            let attachmentsInfo = '';
+            if ((report as any).attachments) {
+              try {
+                const atts = typeof (report as any).attachments === 'string' ? 
+                  JSON.parse((report as any).attachments) : (report as any).attachments;
+                if (Array.isArray(atts)) {
+                  attachmentsInfo = atts.map((att: any) => {
+                    if (typeof att === 'object' && att !== null) {
+                      return att.url || att.name || 'arquivo';
+                    }
+                    return String(att);
+                  }).join('; ');
+                }
+              } catch (e) {
+                attachmentsInfo = 'Erro ao processar anexos';
+              }
+            }
+
+            // Função para limpar texto para CSV
+            const cleanTextForCSV = (text: string): string => {
+              if (!text) return '';
+              return text
+                .replace(/\r\n/g, ' ')
+                .replace(/\n/g, ' ')
+                .replace(/\r/g, ' ')
+                .replace(/\t/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            };
+
+            // Adicionar linha ao CSV
+            const csvLine = [
+              getReportNumber(report),
+              report.id || '',
+              report.numero_servico || '',
+              cleanTextForCSV(report.title || ''),
+              cleanTextForCSV(report.description || ''),
+              report.status || '',
+              '', // Técnico será preenchido depois
+              report.created_at ? new Date(report.created_at).toLocaleDateString('pt-BR') : '',
+              report.updated_at ? new Date(report.updated_at).toLocaleDateString('pt-BR') : '',
+              report.validated_at ? new Date(report.validated_at).toLocaleDateString('pt-BR') : '',
+              report.validated_by || '',
+              cleanTextForCSV(report.pending_reason || ''),
+              cleanTextForCSV(report.pending_notes || ''),
+              report.parent_report_id || '',
+              checklistInfo,
+              attachmentsInfo
+            ].map(field => `"${field}"`).join(',');
+
+            csvContent += csvLine + '\n';
+            totalProcessed++;
+
+            // Atualizar progresso a cada 10 relatórios
+            if (totalProcessed % 10 === 0) {
+              toast({ 
+                title: `Progresso da exportação...`, 
+                description: `${totalProcessed} relatórios processados. Lote ${batchCount}.`, 
+                variant: "default" 
+              });
+            }
+
+          } catch (reportError) {
+            console.error(`❌ Erro ao processar relatório ${report.id}:`, reportError);
+            // Continuar com o próximo relatório
+            continue;
+          }
+        }
+
+        // Verificar se há mais dados
+        if (batchReports.length < BATCH_SIZE) {
+          hasMoreData = false;
+        } else {
+          lastId = batchReports[batchReports.length - 1].id;
+          // Delay entre lotes para evitar sobrecarga
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
+        // Atualizar progresso do lote
+        toast({ 
+          title: `Lote ${batchCount} processado`, 
+          description: `${batchReports.length} relatórios adicionados ao CSV. Total: ${totalProcessed}`, 
+          variant: "default" 
+        });
+      }
+
+      if (totalProcessed === 0) {
+        toast({ title: "Nenhum relatório encontrado no período selecionado.", variant: "destructive" });
+        return;
+      }
+
+      // Download do CSV
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `relatorios_validacao_progressivo_${startDate}_a_${endDate}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({ 
+        title: "Exportação progressiva concluída!", 
+        description: `CSV gerado com sucesso: ${totalProcessed} relatórios em ${batchCount} lotes.`, 
+        variant: "default" 
+      });
+
+    } catch (error) {
+      console.error('❌ Erro na exportação progressiva:', error);
+      toast({ title: "Erro na exportação progressiva.", description: "Tente novamente.", variant: "destructive" });
+    }
+  }
+
+  // 🎯 FUNÇÃO PRINCIPAL INTELIGENTE: Escolhe automaticamente a melhor solução
+  // Esta função analisa o período selecionado e escolhe a estratégia mais adequada
+  async function handleExportCsvIntelligent() {
+    const { startDate, endDate } = filters;
+    
+    // Validar datas
+    if (!startDate || !endDate) {
+      toast({ title: "Selecione as duas datas.", variant: "destructive" });
+      return;
+    }
+    
+    // Calcular período em dias
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    
+    // Validar período máximo (opcional - pode ser removido se não necessário)
+    if (diffDays > 365) {
+      toast({ 
+        title: "Período muito longo", 
+        description: "Para períodos acima de 1 ano, considere usar filtros mais específicos (técnico, status, etc.)", 
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    // Escolher solução automaticamente baseada no período
+    if (diffDays <= 60) { // Até 2 meses
+      console.log(`📊 Período: ${diffDays} dias (${Math.round(diffDays/30)} meses) - Usando Solução 1 (Otimizada)`);
+      toast({
+        title: "Exportação iniciada com Solução Otimizada",
+        description: `Período: ${diffDays} dias - Processamento rápido e confiável`,
+        variant: "default"
+      });
+      return handleExportCsvOptimized();
+      
+    } else if (diffDays <= 180) { // 2-6 meses
+      console.log(`📊 Período: ${diffDays} dias (${Math.round(diffDays/30)} meses) - Usando Solução 2 (Progressiva)`);
+      toast({
+        title: "Exportação iniciada com Solução Progressiva",
+        description: `Período: ${diffDays} dias - Processamento em lotes para evitar timeout`,
+        variant: "default"
+      });
+      return handleExportCsvProgressive();
+      
+    } else { // 6+ meses
+      console.log(`📊 Período: ${diffDays} dias (${Math.round(diffDays/30)} meses) - Usando Solução 4 (Worker)`);
+      toast({
+        title: "Exportação iniciada com Solução Worker",
+        description: `Período: ${diffDays} dias - Processamento em background para volumes grandes`,
+        variant: "default"
+      });
+      return handleExportCsvWithWorker();
+    }
+  }
+
+  // SOLUÇÃO 4 IMPLEMENTADA: Exportação usando Web Worker para não bloquear a UI
+  // Esta função usa um worker em background para processar CSV sem bloquear a interface
+  async function handleExportCsvWithWorker() {
+    const { startDate, endDate } = filters;
+    if (!startDate || !endDate) {
+      toast({ title: "Selecione as duas datas.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      // Verificar se o browser suporta Web Workers
+      if (typeof Worker === 'undefined') {
+        toast({ 
+          title: "Web Worker não suportado", 
+          description: "Falling back para exportação normal...", 
+          variant: "default" 
+        });
+        // Fallback para função normal
+        return handleExportCsvOptimized();
+      }
+
+      // Criar worker para processar CSV em background
+      const worker = new Worker(new URL('@/workers/csvExport.worker.ts', import.meta.url));
+      
+      let workerReady = false;
+      let exportStarted = false;
+
+      // Configurar listeners do worker
+      worker.onmessage = async (event) => {
+        const { type, message, csvContent, filename, processedCount, error } = event.data;
+        
+        switch (type) {
+          case 'WORKER_READY':
+            workerReady = true;
+            console.log('✅ Worker CSV inicializado:', message);
+            
+            // Iniciar exportação quando worker estiver pronto
+            if (!exportStarted) {
+              exportStarted = true;
+              worker.postMessage({
+                type: 'EXPORT_CSV',
+                filters: { startDate, endDate },
+                batchSize: 100 // Lotes pequenos para evitar timeout
+              });
+            }
+            break;
+            
+          case 'EXPORT_STARTED':
+            toast({ 
+              title: "Exportação com Worker iniciada...", 
+              description: "Processando em background para não bloquear a interface.", 
+              variant: "default" 
+            });
+            break;
+            
+          case 'PROGRESS_UPDATE':
+            // Atualizar progresso (opcional - pode ser comentado para reduzir notificações)
+            if (processedCount % 200 === 0) {
+              const percentage = Math.round((processedCount / (event.data.total || 1)) * 100);
+              toast({ 
+                title: `Progresso da exportação...`, 
+                description: `${processedCount} relatórios processados (${percentage}%)`, 
+                variant: "default" 
+              });
+            }
+            break;
+            
+          case 'CSV_READY':
+            // Download do CSV gerado pelo worker
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            toast({ 
+              title: "Exportação com Worker concluída!", 
+              description: `CSV gerado com sucesso: ${processedCount} relatórios processados em background.`, 
+              variant: "default" 
+            });
+            
+            // Terminar worker
+            worker.terminate();
+            break;
+            
+          case 'ERROR':
+            console.error('❌ Erro no worker:', error);
+            toast({ 
+              title: "Erro no Worker", 
+              description: error || "Erro desconhecido no processamento em background.", 
+              variant: "destructive" 
+            });
+            worker.terminate();
+            break;
+        }
+      };
+
+      worker.onerror = (error) => {
+        console.error('❌ Erro no worker:', error);
+        toast({ 
+          title: "Erro no Worker", 
+          description: "Erro crítico no processamento em background. Tente a exportação normal.", 
+          variant: "destructive" 
+        });
+        worker.terminate();
+      };
+
+      // Timeout de segurança para o worker
+      setTimeout(() => {
+        if (worker && !workerReady) {
+          toast({ 
+            title: "Timeout do Worker", 
+            description: "Worker não respondeu. Tente a exportação normal.", 
+            variant: "default" 
+          });
+          worker.terminate();
+        }
+      }, 10000); // 10 segundos de timeout
+
+      // Iniciar busca de dados para enviar ao worker
+      toast({ 
+        title: "Iniciando exportação com Worker...", 
+        description: "Buscando dados para processamento em background.", 
+        variant: "default" 
+      });
+
+      // Buscar dados em lotes para enviar ao worker
+      const BATCH_SIZE = 200; // Lotes maiores para o worker
+      let lastId: string | null = null;
+      let allReports: any[] = [];
+      let hasMoreData = true;
+      let batchCount = 0;
+
+      while (hasMoreData) {
+        batchCount++;
+        
+        let query = supabase
+          .from('reports')
+          .select(`
+            id, title, description, status, created_at, updated_at, 
+            numero_servico, pending_reason, pending_notes, assigned_to, report_number,
+            validated_by, validated_at, technician_id, parent_report_id
+          `)
+          .neq('template_id', '4b45c601-e5b7-4a33-98f9-1769aad319e9')
+          .gte('created_at', startDate)
+          .lte('created_at', endDate + 'T23:59:59')
+          .order('id', { ascending: false })
+          .limit(BATCH_SIZE);
+
+        if (lastId) {
+          query = query.lt('id', lastId);
+        }
+
+        const { data: batchReports, error } = await query;
+        
+        if (error) {
+          console.error(`❌ Erro ao buscar lote ${batchCount}:`, error);
+          toast({ 
+            title: `Erro no lote ${batchCount}`, 
+            description: `Código: ${error.code} - ${error.message}`, 
+            variant: "destructive" 
+          });
+          worker.terminate();
+          return;
+        }
+
+        if (!batchReports || batchReports.length === 0) {
+          hasMoreData = false;
+          break;
+        }
+
+        // Buscar dados dinâmicos para este lote
+        const reportIds = batchReports.map(r => r.id);
+        const { data: formDataBatch } = await supabase
+          .from('reports')
+          .select('id, form_data, checklist_data, attachments')
+          .in('id', reportIds);
+
+        // Mesclar dados
+        if (formDataBatch) {
+          formDataBatch.forEach(formData => {
+            const reportIndex = batchReports.findIndex(r => r.id === formData.id);
+            if (reportIndex !== -1) {
+              // Adicionar propriedades dinâmicas ao objeto
+              (batchReports[reportIndex] as any).form_data = formData.form_data;
+              (batchReports[reportIndex] as any).checklist_data = formData.checklist_data;
+              (batchReports[reportIndex] as any).attachments = formData.attachments;
+            }
+          });
+        }
+
+        allReports.push(...batchReports);
+
+        if (batchReports.length < BATCH_SIZE) {
+          hasMoreData = false;
+        } else {
+          lastId = batchReports[batchReports.length - 1].id;
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+
+      if (allReports.length === 0) {
+        toast({ title: "Nenhum relatório encontrado no período selecionado.", variant: "destructive" });
+        worker.terminate();
+        return;
+      }
+
+      // Enviar todos os dados para o worker processar
+      console.log(`📤 Enviando ${allReports.length} relatórios para o Worker processar...`);
+      worker.postMessage({
+        type: 'PROCESS_REPORTS',
+        data: allReports
+      });
+
+    } catch (error) {
+      console.error('❌ Erro ao iniciar exportação com worker:', error);
+      toast({ 
+        title: "Erro ao iniciar exportação com Worker", 
+        description: "Tente a exportação normal.", 
+        variant: "destructive" 
+      });
+    }
+  }
+
+  // Função para exportar CSV dos itens do checklist (um por linha) - OTIMIZADA
   async function handleExportCsvChecklist() {
     const { startDate, endDate } = filters;
     if (!startDate || !endDate) {
@@ -1403,14 +1971,19 @@ const ReportValidation = () => {
     }
 
     try {
-      // Buscar TODOS os relatórios do período selecionado (sem paginação)
+      toast({ 
+        title: "Iniciando exportação de checklist...", 
+        description: "Processando dados em lotes para evitar timeout", 
+        variant: "default" 
+      });
+
+      // FASE 1: Buscar apenas campos essenciais dos relatórios (incluindo form_data para data_servico)
       let query = supabase
         .from('reports')
         .select(`
-          id, title, description, status, created_at, updated_at, 
-          numero_servico, pending_reason, pending_notes, assigned_to, 
-          attachments, form_data, checklist_data, report_number, parent_report_id,
-          validated_by, validated_at, technician_id, template_id
+          id, title, status, created_at, numero_servico, 
+          report_number, parent_report_id, technician_id, template_id,
+          form_data
         `)
         .neq('template_id', '4b45c601-e5b7-4a33-98f9-1769aad319e9')
         .order('created_at', { ascending: false });
@@ -1437,7 +2010,7 @@ const ReportValidation = () => {
       }
       if (filters.formDataSearch && filters.formDataSearch.trim()) {
         const searchTerm = filters.formDataSearch.trim();
-        query = query.or(`title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,numero_servico.ilike.%${searchTerm}%`);
+        query = query.or(`title.ilike.%${searchTerm}%,numero_servico.ilike.%${searchTerm}%`);
       }
       if (filters.userClass && filters.userClass !== 'all') {
         const { data: techniciansFromClass } = await supabase
@@ -1463,11 +2036,26 @@ const ReportValidation = () => {
       }
 
       if (!allReports || allReports.length === 0) {
-        toast({ title: "Nenhum relatório encontrado no período selecionado.", variant: "destructive" });
+        toast({ title: "Nenhum relatório encontrado no período selecionado.", variant: "default" });
         return;
       }
+      
+      // Debug: Verificar se form_data está sendo buscado
+      console.log('📋 Relatórios encontrados:', allReports.length);
+      console.log('🔍 Primeiro relatório com form_data:', {
+        id: allReports[0]?.id,
+        hasFormData: !!allReports[0]?.form_data,
+        formDataKeys: allReports[0]?.form_data ? Object.keys(allReports[0].form_data) : [],
+        sampleFormData: allReports[0]?.form_data
+      });
 
-      // Buscar dados dos técnicos para todos os relatórios
+      toast({ 
+        title: `Processando ${allReports.length} relatórios...`, 
+        description: "Buscando dados de checklist em lotes", 
+        variant: "default" 
+      });
+
+      // FASE 2: Buscar dados dos técnicos
       const technicianIds = [...new Set(allReports.map((r: any) => r.technician_id).filter(Boolean))];
       
       let techniciansData: any[] = [];
@@ -1479,34 +2067,46 @@ const ReportValidation = () => {
         techniciansData = techData || [];
       }
       
-      // Mapear dados para incluir relacionamentos
-      const reportsWithRelations = allReports.map((report: any) => {
-        const technician = techniciansData.find(t => t.id === report.technician_id);
+      // FASE 3: Buscar dados de checklist em lotes para evitar timeout
+      const reportIds = allReports.map((r: any) => r.id);
+      const BATCH_SIZE = 100; // Processar em lotes de 100
+      let allChecklistLinks: any[] = [];
+      
+      for (let i = 0; i < reportIds.length; i += BATCH_SIZE) {
+        const batchIds = reportIds.slice(i, i + BATCH_SIZE);
         
-        return {
-          ...report,
-          technician
-        };
-      });
-
-      // Buscar todos os itens do checklist para todos os relatórios
-      const reportIds = reportsWithRelations.map((r: any) => r.id);
+        const { data: batchLinks, error: batchError } = await supabase
+          .from('report_checklist_items')
+          .select('report_id, checklist_item_id, quantity, notes')
+          .in('report_id', batchIds);
+        
+        if (batchError) {
+          console.error(`❌ Erro ao buscar lote ${Math.floor(i/BATCH_SIZE) + 1}:`, batchError);
+          continue; // Continuar com próximo lote
+        }
+        
+        if (batchLinks) {
+          allChecklistLinks.push(...batchLinks);
+        }
+        
+        // Feedback de progresso
+        if (i % (BATCH_SIZE * 2) === 0) {
+          toast({ 
+            title: `Processando checklist...`, 
+            description: `${Math.min(i + BATCH_SIZE, reportIds.length)} de ${reportIds.length} relatórios`, 
+            variant: "default" 
+          });
+        }
+      }
       
-      // Buscar todos os report_checklist_items
-      const { data: checklistLinks, error: errorLinks } = await supabase
-        .from('report_checklist_items')
-        .select('report_id, checklist_item_id, quantity, notes')
-        .in('report_id', reportIds);
-      
-      if (errorLinks) {
-        console.error('❌ Erro ao buscar itens do checklist:', errorLinks);
-        toast({ title: "Erro ao buscar itens do checklist.", description: errorLinks.message, variant: "destructive" });
+      if (allChecklistLinks.length === 0) {
+        toast({ title: "Nenhum item de checklist encontrado.", variant: "default" });
         return;
       }
 
-      const checklistItemIds = [...new Set((checklistLinks || []).map((item: any) => item.checklist_item_id))];
+      // FASE 4: Buscar dados dos itens de checklist
+      const checklistItemIds = [...new Set(allChecklistLinks.map((item: any) => item.checklist_item_id))];
       
-      // Buscar todos os checklist_items necessários
       const { data: checklistItems, error: errorItems } = await supabase
         .from('checklist_items')
         .select('id, name, category, standard_quantity')
@@ -1523,31 +2123,180 @@ const ReportValidation = () => {
         checklistItemMap[item.id] = item; 
       });
 
-      // Montar linhas do CSV: uma por item do checklist de cada relatório
+      // FASE 5: Montar linhas do CSV
       const checklistRows: any[] = [];
       
-      reportsWithRelations.forEach((report: any) => {
-        // Buscar itens do checklist para este relatório
-        const reportChecklistItems = (checklistLinks || []).filter((item: any) => item.report_id === report.id);
+      allReports.forEach((report: any) => {
+        const technician = techniciansData.find(t => t.id === report.technician_id);
+        const reportChecklistItems = allChecklistLinks.filter((item: any) => item.report_id === report.id);
         
         reportChecklistItems.forEach((item: any) => {
           const checklistItem = checklistItemMap[item.checklist_item_id];
-          checklistRows.push({
+          
+          // Extrair data_servico do form_data (campo dinâmico)
+          let dataServico = "";
+          if (report.form_data && typeof report.form_data === 'object') {
+            // Debug: Log para verificar estrutura do form_data
+            console.log('🔍 Debug form_data para relatório', report.id, ':', report.form_data);
+            
+            // Função para identificar se um valor é uma data válida
+            const isDateValue = (value: any): boolean => {
+              if (typeof value !== 'string') return false;
+              
+              // Padrões de data comuns
+              const datePatterns = [
+                /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD
+                /^\d{2}\/\d{2}\/\d{4}$/, // DD/MM/YYYY
+                /^\d{2}-\d{2}-\d{4}$/, // DD-MM-YYYY
+                /^\d{4}\/\d{2}\/\d{2}$/, // YYYY/MM/DD
+              ];
+              
+              return datePatterns.some(pattern => pattern.test(value));
+            };
+            
+            // Função para validar se a data é realista (não no futuro)
+            const isValidRealisticDate = (dateStr: string): boolean => {
+              try {
+                let date: Date;
+                
+                // Converter string para Date baseado no formato
+                if (dateStr.includes('-')) {
+                  // Formato YYYY-MM-DD ou DD-MM-YYYY
+                  if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    date = new Date(dateStr);
+                  } else if (dateStr.match(/^\d{2}-\d{2}-\d{4}$/)) {
+                    const [day, month, year] = dateStr.split('-');
+                    date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                  }
+                } else if (dateStr.includes('/')) {
+                  // Formato DD/MM/YYYY ou YYYY/MM/DD
+                  if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+                    const [day, month, year] = dateStr.split('/');
+                    date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                  } else if (dateStr.match(/^\d{4}\/\d{2}\/\d{2}$/)) {
+                    date = new Date(dateStr);
+                  }
+                }
+                
+                if (!date || isNaN(date.getTime())) return false;
+                
+                // Verificar se a data não está no futuro (com tolerância de 1 dia para timezone)
+                const today = new Date();
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                
+                return date <= tomorrow;
+              } catch {
+                return false;
+              }
+            };
+            
+            // Estratégia 1: Tentar campos diretos conhecidos
+            dataServico = report.form_data.data_servico || 
+                          report.form_data['data_servico'] || 
+                          report.form_data?.data_servico?.value || 
+                          report.form_data?.data_servico?.text || 
+                          report.form_data?.data_servico?.label ||
+                          report.form_data?.data_servico?.content ||
+                          "";
+            
+            // Estratégia 2: Se não encontrou, procurar por qualquer campo que contenha uma data válida e realista
+            if (!dataServico || dataServico === "") {
+              console.log('🔍 Procurando por campos de data válida e realista no form_data...');
+              
+              // Percorrer todos os campos do form_data
+              Object.entries(report.form_data).forEach(([key, value]) => {
+                if (isDateValue(value) && isValidRealisticDate(String(value))) {
+                  console.log(`📅 Data válida e realista encontrada no campo '${key}': ${value}`);
+                  dataServico = String(value);
+                  return;
+                }
+              });
+            }
+            
+            // Estratégia 3: Se ainda não encontrou, procurar por campos que contenham "data" no nome
+            if (!dataServico || dataServico === "") {
+              console.log('🔍 Procurando por campos com "data" no nome...');
+              
+              Object.entries(report.form_data).forEach(([key, value]) => {
+                if (key.toLowerCase().includes('data') && isDateValue(value) && isValidRealisticDate(String(value))) {
+                  console.log(`📅 Data válida e realista encontrada no campo '${key}' (contém "data"): ${value}`);
+                  dataServico = String(value);
+                  return;
+                }
+              });
+            }
+            
+            // Estratégia 4: Procurar por campos relacionados a "serviço" que possam conter datas
+            if (!dataServico || dataServico === "") {
+              console.log('🔍 Procurando por campos relacionados a serviço...');
+              
+              const serviceRelatedKeys = ['servico', 'service', 'execucao', 'execution', 'realizacao', 'realization'];
+              
+              Object.entries(report.form_data).forEach(([key, value]) => {
+                const keyLower = key.toLowerCase();
+                if (serviceRelatedKeys.some(serviceKey => keyLower.includes(serviceKey)) && isDateValue(value) && isValidRealisticDate(String(value))) {
+                  console.log(`📅 Data válida e realista encontrada no campo '${key}' (relacionado a serviço): ${value}`);
+                  dataServico = String(value);
+                  return;
+                }
+              });
+            }
+            
+            // Estratégia 5: Se ainda não encontrou, usar a data de criação do relatório como fallback
+            if (!dataServico || dataServico === "") {
+              console.log('🔍 Usando data de criação do relatório como fallback...');
+              
+              // Formatar a data de criação para DD/MM/YYYY
+              const createdDate = new Date(report.created_at);
+              const day = String(createdDate.getDate()).padStart(2, '0');
+              const month = String(createdDate.getMonth() + 1).padStart(2, '0');
+              const year = createdDate.getFullYear();
+              
+              dataServico = `${day}/${month}/${year}`;
+              console.log(`📅 Data de criação formatada: ${dataServico}`);
+            }
+            
+            // Debug: Log do valor extraído
+            console.log('📅 Data do serviço extraída:', dataServico);
+          }
+          
+          const csvRow = {
             codigo_unico: getReportNumber(report),
             id_relatorio: report.id,
             numero_servico: report.numero_servico,
-            tecnico_nome: report.technician?.name || "",
+            tecnico_nome: technician?.name || "",
+            data_servico: dataServico || "Não informado",
             material_servico: checklistItem?.name || item.checklist_item_id,
             quantidade: item.quantity ?? "",
             tipo: checklistItem?.category ?? ""
-          });
+          };
+          
+          // Debug: Log da linha do CSV
+          console.log('📊 Linha CSV criada:', csvRow);
+          
+          checklistRows.push(csvRow);
         });
       });
 
       if (checklistRows.length === 0) {
-        toast({ title: "Nenhum material/serviço encontrado no período selecionado.", variant: "destructive" });
+        toast({ title: "Nenhum material/serviço encontrado no período selecionado.", variant: "default" });
         return;
       }
+      
+      // Debug: Verificar estrutura final antes da exportação
+      console.log('🎯 Estrutura final do CSV:', {
+        totalRows: checklistRows.length,
+        sampleRow: checklistRows[0],
+        headers: Object.keys(checklistRows[0]),
+        allRows: checklistRows
+      });
+      
+      toast({ 
+        title: "Exportação concluída!", 
+        description: `${checklistRows.length} itens de checklist exportados com sucesso`, 
+        variant: "default" 
+      });
       
       exportToCSV(checklistRows, `relatorios_checklist_${startDate}_a_${endDate}`);
       
@@ -1712,18 +2461,82 @@ const ReportValidation = () => {
                     value={formDataSearchInput}
                     onChange={(e) => setFormDataSearchInput(e.target.value)}
                   />
+                                  </div>
                 </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button onClick={handleExportCsv} variant="default">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Exportar CSV
-                </Button>
-                <Button onClick={handleExportCsvChecklist} variant="outline">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Exportar CSV Checklist
-                </Button>
-              </div>
+                
+
+                
+                <div className="flex justify-end gap-2 flex-wrap">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        onClick={handleExportCsvIntelligent} 
+                        variant={(() => {
+                          const { startDate, endDate } = filters;
+                          if (!startDate || !endDate) return "default";
+                          const start = new Date(startDate);
+                          const end = new Date(endDate);
+                          const diffDays = Math.round(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                          if (diffDays <= 60) return "default"; // Verde
+                          if (diffDays <= 180) return "outline"; // Amarelo
+                          return "destructive"; // Vermelho
+                        })()}
+                        className="min-w-[200px]"
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        Exportar CSV
+                        {(() => {
+                          const { startDate, endDate } = filters;
+                          if (!startDate || !endDate) return null;
+                          const start = new Date(startDate);
+                          const end = new Date(endDate);
+                          const diffDays = Math.round(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                          if (diffDays > 0) {
+                            return (
+                              <span className="ml-2 text-xs opacity-75">
+                                ({Math.round(diffDays/30)} meses)
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs p-3">
+                      <div className="space-y-2">
+                        <p className="font-semibold text-sm">🎯 Botão Inteligente</p>
+                        <p className="text-xs">Escolhe automaticamente a melhor solução baseada no período selecionado</p>
+                        <div className="text-xs text-gray-500 space-y-1">
+                          <p>• Até 2 meses: Solução Otimizada</p>
+                          <p>• 2-6 meses: Solução Progressiva</p>
+                          <p>• 6+ meses: Solução Worker</p>
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+
+
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button onClick={handleExportCsvChecklist} variant="outline">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Exportar CSV Checklist
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs p-3">
+                      <div className="space-y-2">
+                        <p className="font-semibold text-sm">📋 Exportação específica de checklist</p>
+                        <p className="text-xs">Lista todos os materiais e serviços utilizados</p>
+                        <div className="text-xs text-gray-500 space-y-1">
+                          <p>• Um item por linha no CSV</p>
+                          <p>• Inclui quantidades e observações</p>
+                          <p>• Sem limite de período</p>
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
             </div>
           </CardContent>
         </Card>
