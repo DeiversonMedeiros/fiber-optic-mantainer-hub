@@ -317,9 +317,9 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
                     </div>
                     <p className="text-sm text-blue-800">
                       Seus lembretes serão baseados na escala de trabalho configurada: 
-                      {workSchedule.hora_inicio} às {workSchedule.hora_fim}
-                      {workSchedule.hora_intervalo_inicio && workSchedule.hora_intervalo_fim && 
-                        ` (Intervalo: ${workSchedule.hora_intervalo_inicio} - ${workSchedule.hora_intervalo_fim})`
+                      {(workSchedule as any)?.hora_inicio || 'N/A'} às {(workSchedule as any)?.hora_fim || 'N/A'}
+                      {(workSchedule as any)?.hora_intervalo_inicio && (workSchedule as any)?.hora_intervalo_fim && 
+                        ` (Intervalo: ${(workSchedule as any).hora_intervalo_inicio} - ${(workSchedule as any).hora_intervalo_fim})`
                       }
                     </p>
                   </div>

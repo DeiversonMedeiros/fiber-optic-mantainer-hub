@@ -29,7 +29,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     queryKey: ['user-profile', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-      const { data, error } = await coreSupabase
+      const { data, error } = await (coreSupabase as any)
         .rpc('get_user_profile', { user_id: user.id });
       if (error) {
         console.error('Erro ao buscar perfil:', error);

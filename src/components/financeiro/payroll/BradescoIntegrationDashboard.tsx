@@ -442,7 +442,7 @@ export const BradescoIntegrationDashboard: React.FC<BradescoIntegrationDashboard
                       <TableCell>{transaction.description}</TableCell>
                       <TableCell>{formatCurrency(transaction.amount)}</TableCell>
                       <TableCell>{getStatusBadge(transaction.status)}</TableCell>
-                      <TableCell>{formatDateTime(transaction.created_at)}</TableCell>
+                      <TableCell>{formatDateTime((transaction as any).created_at || new Date().toISOString())}</TableCell>
                       <TableCell>
                         {transaction.status === 'pending' && (
                           <Button
