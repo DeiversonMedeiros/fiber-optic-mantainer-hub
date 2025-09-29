@@ -20,16 +20,8 @@ const AuthForm = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🔐 [AUTH_FORM] Iniciando processo de login...');
-    console.log('🔐 [AUTH_FORM] Login input:', loginInput);
-    console.log('🔐 [AUTH_FORM] Password length:', password.length);
-    console.log('🔐 [AUTH_FORM] Remember me:', rememberMe);
-    console.log('🔐 [AUTH_FORM] Supabase client:', coreSupabase);
-    console.log('🔐 [AUTH_FORM] Supabase URL:', coreSupabase.supabaseUrl);
-    console.log('🔐 [AUTH_FORM] Supabase Key (primeiros 10 chars):', coreSupabase.supabaseKey?.substring(0, 10));
     
     if (!loginInput || !password) {
-      console.log('❌ [AUTH_FORM] Campos obrigatórios não preenchidos');
       toast({
         title: "Erro",
         description: "Por favor, preencha todos os campos",
@@ -40,53 +32,10 @@ const AuthForm = () => {
 
     setIsLoading(true);
     try {
-      let emailToLogin = loginInput;
-      // Se não for e-mail, buscar pelo username
-      if (!/\S+@\S+\.\S+/.test(loginInput)) {
-        console.log('🔐 [AUTH_FORM] Input não é email, buscando por username...');
-        
-        // Teste de conectividade antes de buscar usuário
-        console.log('🔐 [AUTH_FORM] Testando conectividade para buscar usuário...');
-        try {
-          const { data: testData, error: testError } = await coreSupabase
-            .from('users')
-            .select('id')
-            .limit(1);
-          console.log('🔐 [AUTH_FORM] Teste de conectividade core.users:', { testData, testError });
-        } catch (testErr) {
-          console.error('❌ [AUTH_FORM] Erro no teste de conectividade core.users:', testErr);
-        }
-        
-        const { data, error } = await coreSupabase
-          .from('users')
-          .select('email')
-          .eq('username', loginInput)
-          .single();
-        
-        console.log('🔐 [AUTH_FORM] Resultado da busca de usuário:', { data, error });
-        
-        if (error || !data) {
-          console.error('❌ [AUTH_FORM] Erro ao buscar username:', error);
-          setIsLoading(false);
-          toast({
-            title: "Erro",
-            description: "Nome de usuário não encontrado",
-            variant: "destructive",
-          });
-          return;
-        }
-        console.log('✅ [AUTH_FORM] Email encontrado:', data.email);
-        emailToLogin = data.email;
-      } else {
-        console.log('🔐 [AUTH_FORM] Input é email, usando diretamente');
-      }
-      
-      console.log('🔐 [AUTH_FORM] Chamando signIn com email:', emailToLogin);
-      const result = await signIn(emailToLogin, password);
-      console.log('🔐 [AUTH_FORM] Resultado do signIn:', result);
+      // Usar diretamente o email fornecido para login
+      const result = await signIn(loginInput, password);
       
       if (result.error) {
-        console.error('❌ [AUTH_FORM] Erro no login:', result.error);
         toast({
           title: "Erro no login",
           description: result.error,
@@ -94,17 +43,12 @@ const AuthForm = () => {
         });
       }
     } catch (error) {
-      console.error('💥 [AUTH_FORM] Erro inesperado:', error);
-      console.error('💥 [AUTH_FORM] Error type:', typeof error);
-      console.error('💥 [AUTH_FORM] Error message:', error instanceof Error ? error.message : 'Unknown error');
-      console.error('💥 [AUTH_FORM] Error stack:', error instanceof Error ? error.stack : 'No stack');
       toast({
         title: "Erro inesperado",
         description: "Ocorreu um erro inesperado. Tente novamente.",
         variant: "destructive",
       });
     } finally {
-      console.log('🔐 [AUTH_FORM] Finalizando processo de login');
       setIsLoading(false);
     }
   };

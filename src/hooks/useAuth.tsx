@@ -45,44 +45,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      console.log('🔐 [AUTH] Iniciando processo de login...');
-      console.log('🔐 [AUTH] Email:', email);
-      console.log('🔐 [AUTH] Password length:', password.length);
-      console.log('🔐 [AUTH] Supabase URL:', supabase.supabaseUrl);
-      console.log('🔐 [AUTH] Supabase Key (primeiros 10 chars):', supabase.supabaseKey?.substring(0, 10));
-      
-      // TEMPORARIAMENTE: Pular verificação de conectividade devido ao erro PGRST002
-      // O problema parece ser com o cache do PostgREST, não com a conectividade real
-      console.log('⚠️ [AUTH] Pulando verificação de conectividade devido ao erro PGRST002');
-      console.log('⚠️ [AUTH] Assumindo conectividade OK para permitir inicialização');
-      
-      console.log('🔐 [AUTH] Chamando signInWithPassword...');
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      console.log('🔐 [AUTH] Resposta do signInWithPassword:', { data, error });
-
       if (error) {
-        console.error('❌ [AUTH] Erro no login:', error);
-        console.error('❌ [AUTH] Error code:', error.status);
-        console.error('❌ [AUTH] Error message:', error.message);
-        console.error('❌ [AUTH] Error details:', error);
-        console.error('❌ [AUTH] Error name:', error.name);
-        console.error('❌ [AUTH] Error stack:', error.stack);
-        
-        // Log detalhado do erro
-        if (error.message === 'Database error querying schema') {
-          console.error('🔍 [AUTH] ERRO PGRST002 DETECTADO!');
-          console.error('🔍 [AUTH] Este erro indica que o PostgREST não consegue acessar o schema cache');
-          console.error('🔍 [AUTH] Possíveis causas:');
-          console.error('🔍 [AUTH] 1. Permissões insuficientes do authenticator');
-          console.error('🔍 [AUTH] 2. Problemas com o search_path');
-          console.error('🔍 [AUTH] 3. Cache do PostgREST corrompido');
-          console.error('🔍 [AUTH] 4. Problemas de conectividade com o banco');
-        }
-        
         toast({
           title: "Erro no login",
           description: error.message,
@@ -91,10 +59,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return { error: error.message };
       }
 
-      console.log('✅ [AUTH] Login realizado com sucesso!');
-      console.log('✅ [AUTH] User data:', data.user);
-      console.log('✅ [AUTH] Session data:', data.session);
-
       toast({
         title: "Login realizado com sucesso!",
         description: "Bem-vindo ao SGM",
@@ -102,10 +66,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       return {};
     } catch (error) {
-      console.error('💥 [AUTH] Login error (catch):', error);
-      console.error('💥 [AUTH] Error type:', typeof error);
-      console.error('💥 [AUTH] Error message:', error instanceof Error ? error.message : 'Unknown error');
-      console.error('💥 [AUTH] Error stack:', error instanceof Error ? error.stack : 'No stack');
       return { error: 'Erro inesperado durante o login' };
     }
   };
