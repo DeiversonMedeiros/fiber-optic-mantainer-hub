@@ -37,11 +37,6 @@ Este módulo implementa um sistema completo de gestão de recursos humanos com f
 - Associação de funcionários às escalas
 - Controle de carga horária semanal
 
-### 6. **Gestão de Benefícios** (`/rh/benefits`)
-- Catálogo de benefícios disponíveis
-- Associação de benefícios aos funcionários
-- Controle de custos e valores
-- Relatórios de benefícios por funcionário
 
 ### 7. **Folha de Pagamento** (`/rh/payroll`)
 - Geração de folhas mensais
@@ -92,7 +87,6 @@ Este módulo implementa um sistema completo de gestão de recursos humanos com f
 - `/rh/positions` - Gestão de cargos (em desenvolvimento)
 - `/rh/time-records` - Controle de ponto
 - `/rh/work-schedules` - Escalas de trabalho
-- `/rh/benefits` - Gestão de benefícios
 - `/rh/payroll` - Folha de pagamento
 - `/rh/vacations` - Férias e licenças
 - `/rh/medical-certificates` - Atestados médicos

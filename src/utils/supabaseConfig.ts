@@ -35,7 +35,7 @@ export const testClientConfigurations = async () => {
     {
       name: 'Cliente padrão - employees',
       client: defaultClient,
-      query: () => defaultClient.from('employees').select('*').limit(1)
+      query: () => defaultClient.from('rh.employees').select('*').limit(1)
     },
     {
       name: 'Cliente padrão - rh.employees',
@@ -45,7 +45,7 @@ export const testClientConfigurations = async () => {
     {
       name: 'Cliente RH - employees',
       client: rhClient,
-      query: () => rhClient.from('employees').select('*').limit(1)
+      query: () => rhClient.from('rh.employees').select('*').limit(1)
     },
     {
       name: 'Cliente RH - rh.employees',
@@ -98,6 +98,44 @@ export const checkSchemaAvailability = async () => {
     console.log('💥 Exceção ao verificar schema:', err);
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

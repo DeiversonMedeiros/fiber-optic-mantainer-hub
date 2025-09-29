@@ -135,7 +135,7 @@ export class EventConsolidationService {
 
       // Buscar registros de ponto do período
       let query = rhSupabase
-        .from('time_records')
+        .from('rh.time_records')
         .select(`
           *,
           employee:employees!time_records_employee_id_fkey(
@@ -197,7 +197,7 @@ export class EventConsolidationService {
           };
 
           const { data: createdEvent, error: createError } = await rhSupabase
-            .from('payroll_events')
+            .from('rh.payroll_events')
             .insert(regularEvent)
             .select()
             .single();
@@ -229,7 +229,7 @@ export class EventConsolidationService {
           };
 
           const { data: createdEvent, error: createError } = await rhSupabase
-            .from('payroll_events')
+            .from('rh.payroll_events')
             .insert(overtimeEvent)
             .select()
             .single();
@@ -261,7 +261,7 @@ export class EventConsolidationService {
 
       // Buscar benefícios ativos dos funcionários
       let query = rhSupabase
-        .from('employee_benefits')
+        .from('rh.employee_benefits')
         .select(`
           *,
           employee:employees!employee_benefits_employee_id_fkey(
@@ -296,10 +296,10 @@ export class EventConsolidationService {
         // Calcular valor do benefício
         let calculatedValue = 0;
         
-        if (empBenefit.benefit.tipo === 'valor_fixo') {
-          calculatedValue = empBenefit.benefit.valor || 0;
-        } else if (empBenefit.benefit.tipo === 'percentual') {
+        if (empBenefit.benefit.tipo === 'PLR') {
           calculatedValue = (empBenefit.salario_base || 0) * ((empBenefit.benefit.percentual || 0) / 100);
+        } else {
+          calculatedValue = empBenefit.benefit.valor || 0;
         }
 
         const benefitEvent: PayrollEventInsert = {
@@ -324,7 +324,7 @@ export class EventConsolidationService {
         };
 
         const { data: createdEvent, error: createError } = await rhSupabase
-          .from('payroll_events')
+          .from('rh.payroll_events')
           .insert(benefitEvent)
           .select()
           .single();
@@ -355,7 +355,7 @@ export class EventConsolidationService {
 
       // Buscar ausências do período
       let query = rhSupabase
-        .from('employee_absences')
+        .from('rh.employee_absences')
         .select(`
           *,
           employee:employees!employee_absences_employee_id_fkey(
@@ -411,7 +411,7 @@ export class EventConsolidationService {
         };
 
         const { data: createdEvent, error: createError } = await rhSupabase
-          .from('payroll_events')
+          .from('rh.payroll_events')
           .insert(absenceEvent)
           .select()
           .single();
@@ -442,7 +442,7 @@ export class EventConsolidationService {
 
       // Buscar adicionais dos funcionários
       let query = rhSupabase
-        .from('employee_allowances')
+        .from('rh.employee_allowances')
         .select(`
           *,
           employee:employees!employee_allowances_employee_id_fkey(
@@ -494,7 +494,7 @@ export class EventConsolidationService {
         };
 
         const { data: createdEvent, error: createError } = await rhSupabase
-          .from('payroll_events')
+          .from('rh.payroll_events')
           .insert(allowanceEvent)
           .select()
           .single();
@@ -587,7 +587,7 @@ export class EventConsolidationService {
   ): Promise<PayrollEvent[]> {
     try {
       let query = rhSupabase
-        .from('payroll_events')
+        .from('rh.payroll_events')
         .select(`
           *,
           employee:employees!payroll_events_employee_id_fkey(
@@ -630,7 +630,7 @@ export class EventConsolidationService {
   async approveEvents(eventIds: string[], approvedBy: string): Promise<boolean> {
     try {
       const { error } = await rhSupabase
-        .from('payroll_events')
+        .from('rh.payroll_events')
         .update({
           status: 'approved',
           approved_by: approvedBy,
@@ -655,7 +655,7 @@ export class EventConsolidationService {
   async rejectEvents(eventIds: string[], rejectedBy: string, reason: string): Promise<boolean> {
     try {
       const { error } = await rhSupabase
-        .from('payroll_events')
+        .from('rh.payroll_events')
         .update({
           status: 'rejected',
           approved_by: rejectedBy,

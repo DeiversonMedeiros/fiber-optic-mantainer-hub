@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { rhSupabase } from '@/integrations/supabase/client';
 import { CompensationRequest, CompensationRequestInsert, CompensationRequestUpdate } from '@/integrations/supabase/rh-types';
 
 const COMPENSATION_REQUEST_KEYS = {
@@ -21,11 +21,11 @@ export const useCompensationRequests = (companyId?: string) => {
   const { data: compensationRequests, isLoading, error } = useQuery({
     queryKey: COMPENSATION_REQUEST_KEYS.lists(),
     queryFn: async (): Promise<CompensationRequest[]> => {
-      let query = (supabase as any)
+      let query = rhSupabase
         .from('rh.compensation_requests')
         .select(`
           *,
-          employee:rh.employees(id, nome, matricula)
+          employee:employees(id, nome, matricula)
         `)
         .order('data_solicitacao', { ascending: false });
       if (companyId) { query = query.eq('company_id', companyId); }
@@ -39,11 +39,11 @@ export const useCompensationRequests = (companyId?: string) => {
   const { data: compensationRequest, isLoading: isLoadingSingle, error: singleError } = useQuery({
     queryKey: COMPENSATION_REQUEST_KEYS.detail(''),
     queryFn: async (): Promise<CompensationRequest | null> => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await rhSupabase
         .from('rh.compensation_requests')
         .select(`
           *,
-          employee:rh.employees(id, nome, matricula)
+          employee:employees(id, nome, matricula)
         `)
         .single();
       if (error) throw error;
@@ -54,12 +54,12 @@ export const useCompensationRequests = (companyId?: string) => {
 
   const createCompensationRequest = useMutation({
     mutationFn: async (newCompensationRequest: Omit<CompensationRequest, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await rhSupabase
         .from('rh.compensation_requests')
         .insert([newCompensationRequest])
         .select(`
           *,
-          employee:rh.employees(id, nome, matricula)
+          employee:employees(id, nome, matricula)
         `)
         .single();
       if (error) throw error;
@@ -72,13 +72,13 @@ export const useCompensationRequests = (companyId?: string) => {
 
   const updateCompensationRequest = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<CompensationRequest> & { id: string }) => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await rhSupabase
         .from('rh.compensation_requests')
         .update(updates)
         .eq('id', id)
         .select(`
           *,
-          employee:rh.employees(id, nome, matricula)
+          employee:employees(id, nome, matricula)
         `)
         .single();
       if (error) throw error;
@@ -91,7 +91,7 @@ export const useCompensationRequests = (companyId?: string) => {
 
   const deleteCompensationRequest = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase as any)
+      const { error } = await rhSupabase
         .from('rh.compensation_requests')
         .delete()
         .eq('id', id);
@@ -104,11 +104,11 @@ export const useCompensationRequests = (companyId?: string) => {
 
   const getCompensationRequestById = useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await rhSupabase
         .from('rh.compensation_requests')
         .select(`
           *,
-          employee:rh.employees(id, nome, matricula)
+          employee:employees(id, nome, matricula)
         `)
         .eq('id', id)
         .single();
@@ -119,11 +119,11 @@ export const useCompensationRequests = (companyId?: string) => {
 
   const getCompensationRequestsByEmployee = useMutation({
     mutationFn: async (employeeId: string) => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await rhSupabase
         .from('rh.compensation_requests')
         .select(`
           *,
-          employee:rh.employees(id, nome, matricula)
+          employee:employees(id, nome, matricula)
         `)
         .eq('employee_id', employeeId)
         .order('data_solicitacao', { ascending: false });
@@ -134,11 +134,11 @@ export const useCompensationRequests = (companyId?: string) => {
 
   const getCompensationRequestsByStatus = useMutation({
     mutationFn: async (status: string) => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await rhSupabase
         .from('rh.compensation_requests')
         .select(`
           *,
-          employee:rh.employees(id, nome, matricula)
+          employee:employees(id, nome, matricula)
         `)
         .eq('status', status)
         .order('data_solicitacao', { ascending: false });
@@ -149,11 +149,11 @@ export const useCompensationRequests = (companyId?: string) => {
 
   const getPendingCompensationRequests = useMutation({
     mutationFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await rhSupabase
         .from('rh.compensation_requests')
         .select(`
           *,
-          employee:rh.employees(id, nome, matricula)
+          employee:employees(id, nome, matricula)
         `)
         .eq('status', 'pendente')
         .order('data_solicitacao', { ascending: false });
@@ -164,7 +164,7 @@ export const useCompensationRequests = (companyId?: string) => {
 
   const approveCompensationRequest = useMutation({
     mutationFn: async ({ id, approvedBy }: { id: string; approvedBy: string }) => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await rhSupabase
         .from('rh.compensation_requests')
         .update({ 
           status: 'aprovado',
@@ -174,7 +174,7 @@ export const useCompensationRequests = (companyId?: string) => {
         .eq('id', id)
         .select(`
           *,
-          employee:rh.employees(id, nome, matricula)
+          employee:employees(id, nome, matricula)
         `)
         .single();
       if (error) throw error;

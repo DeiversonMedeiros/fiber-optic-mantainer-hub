@@ -49,7 +49,7 @@ export const useDelayReasons = () => {
       try {
         // Consulta simples sem filtros primeiro para testar
         const { data: allData, error: allError } = await rhSupabase
-          .from('delay_reasons')
+          .from('rh.delay_reasons')
           .select('*');
 
         if (allError) throw allError;
@@ -77,7 +77,7 @@ export const useDelayReasons = () => {
       if (!companyId) throw new Error('Company ID not found');
 
       const { data: result, error } = await rhSupabase
-        .from('delay_reasons')
+        .from('rh.delay_reasons')
         .insert([{
           ...data,
           company_id: companyId,
@@ -109,7 +109,7 @@ export const useDelayReasons = () => {
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: DelayReasonUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('delay_reasons')
+        .from('rh.delay_reasons')
         .update({
           ...data,
           updated_by: user?.id,
@@ -141,7 +141,7 @@ export const useDelayReasons = () => {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('delay_reasons')
+        .from('rh.delay_reasons')
         .update({ is_active: false, updated_by: user?.id })
         .eq('id', id);
 

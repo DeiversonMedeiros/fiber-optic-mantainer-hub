@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpar Cache</title>
+</head>
+<body>
+    <h1>Limpeza de Cache</h1>
+    <p>Clique no botão para limpar o cache e recarregar a página:</p>
+    
+    <button onclick="clearCacheAndReload()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
+        Limpar Cache e Recarregar
+    </button>
+    
+    <script>
+        function clearCacheAndReload() {
+            // Limpar cache do navegador
+            if ('caches' in window) {
+                caches.keys().then(function(names) {
+                    for (let name of names) {
+                        caches.delete(name);
+                    }
+                });
+            }
+            
+            // Limpar localStorage
+            localStorage.clear();
+            
+            // Limpar sessionStorage
+            sessionStorage.clear();
+            
+            // Recarregar a página com cache limpo
+            window.location.reload(true);
+        }
+        
+        // Auto-executar após 2 segundos
+        setTimeout(() => {
+            console.log('Cache limpo automaticamente');
+            clearCacheAndReload();
+        }, 2000);
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

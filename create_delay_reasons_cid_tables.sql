@@ -143,3 +143,44 @@ COMMENT ON TABLE rh.employee_delay_records IS 'Registro de atrasos dos funcioná
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

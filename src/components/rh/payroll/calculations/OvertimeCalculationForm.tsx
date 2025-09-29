@@ -25,12 +25,18 @@ interface OvertimeCalculationFormProps {
   onCalculationComplete?: (result: any) => void;
   onCancel?: () => void;
   companyId: string;
+  calculationScope?: 'company' | 'cost_center' | 'individual';
+  selectedCostCenter?: string;
+  selectedEmployee?: string;
 }
 
 export function OvertimeCalculationForm({ 
   onCalculationComplete, 
   onCancel, 
-  companyId 
+  companyId,
+  calculationScope = 'individual',
+  selectedCostCenter,
+  selectedEmployee: selectedEmployeeProp
 }: OvertimeCalculationFormProps) {
   const [calculationResult, setCalculationResult] = useState<any>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
@@ -41,6 +47,28 @@ export function OvertimeCalculationForm({
     loading: calculationLoading, 
     error: calculationError 
   } = usePayrollCalculations();
+
+  // Filtrar funcionários baseado no escopo
+  const getFilteredEmployees = () => {
+    if (!employees) return [];
+    
+    if (calculationScope === 'individual' && selectedEmployeeProp) {
+      return employees.filter(emp => emp.id === selectedEmployeeProp);
+    }
+    if (calculationScope === 'cost_center' && selectedCostCenter) {
+      // Simular centro de custo baseado no nome do funcionário
+      return employees.filter(emp => {
+        const name = emp.nome.toLowerCase();
+        if (selectedCostCenter === 'rh') return name.includes('joão') || name.includes('maria');
+        if (selectedCostCenter === 'financeiro') return name.includes('pedro') || name.includes('ana');
+        if (selectedCostCenter === 'vendas') return name.includes('carlos');
+        return false;
+      });
+    }
+    return employees; // company scope
+  };
+
+  const filteredEmployees = getFilteredEmployees();
 
   const {
     register,
@@ -58,11 +86,11 @@ export function OvertimeCalculationForm({
 
   // Atualizar funcionário selecionado
   useEffect(() => {
-    if (watchedEmployeeId && employees) {
-      const employee = employees.find(emp => emp.id === watchedEmployeeId);
+    if (watchedEmployeeId && filteredEmployees) {
+      const employee = filteredEmployees.find(emp => emp.id === watchedEmployeeId);
       setSelectedEmployee(employee);
     }
-  }, [watchedEmployeeId, employees]);
+  }, [watchedEmployeeId, filteredEmployees]);
 
   // Gerar opções de período (últimos 12 meses)
   const generatePeriodOptions = () => {
@@ -84,11 +112,41 @@ export function OvertimeCalculationForm({
 
   const onSubmit = async (data: OvertimeCalculationFormData) => {
     try {
-      const result = await calculateOvertime(data.employeeId, data.period);
-      
-      if (result) {
-        setCalculationResult(result);
-        onCalculationComplete?.(result);
+      if (calculationScope === 'individual') {
+        // Cálculo individual
+        const result = await calculateOvertime(data.employeeId, data.period);
+        
+        if (result) {
+          setCalculationResult(result);
+          onCalculationComplete?.(result);
+        }
+      } else {
+        // Cálculo em lote
+        const bulkResults = [];
+        
+        for (const employee of filteredEmployees) {
+          try {
+            const result = await calculateOvertime(employee.id, data.period);
+            if (result) {
+              bulkResults.push({
+                employee: employee,
+                calculation: result
+              });
+            }
+          } catch (error) {
+            console.error(`Erro ao calcular horas extras para ${employee.nome}:`, error);
+          }
+        }
+        
+        setCalculationResult({
+          type: 'bulk',
+          results: bulkResults,
+          period: data.period,
+          totalEmployees: filteredEmployees.length,
+          processedEmployees: bulkResults.length
+        });
+        
+        onCalculationComplete?.(bulkResults);
       }
     } catch (error) {
       console.error('Erro ao calcular horas extras:', error);
@@ -124,7 +182,10 @@ export function OvertimeCalculationForm({
             Cálculo de Horas Extras
           </CardTitle>
           <CardDescription>
-            Calcule horas extras, DSR e adicional noturno para um funcionário
+            Calcule horas extras, DSR e adicional noturno
+            {calculationScope === 'company' && ` - ${filteredEmployees.length} funcionários da empresa`}
+            {calculationScope === 'cost_center' && selectedCostCenter && ` - ${filteredEmployees.length} funcionários do centro de custo ${selectedCostCenter}`}
+            {calculationScope === 'individual' && selectedEmployeeProp && ` - Funcionário individual`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -138,7 +199,7 @@ export function OvertimeCalculationForm({
                     <SelectValue placeholder="Selecione um funcionário" />
                   </SelectTrigger>
                   <SelectContent>
-                    {employees?.map((employee) => (
+                    {filteredEmployees?.map((employee) => (
                       <SelectItem key={employee.id} value={employee.id}>
                         <div className="flex items-center gap-2">
                           <Users className="h-4 w-4" />
@@ -229,7 +290,9 @@ export function OvertimeCalculationForm({
                 ) : (
                   <>
                     <Clock className="h-4 w-4 mr-2" />
-                    Calcular
+                    {calculationScope === 'individual' ? 'Calcular' : 
+                     calculationScope === 'cost_center' ? `Calcular - ${filteredEmployees.length} funcionários` :
+                     `Calcular - ${filteredEmployees.length} funcionários da empresa`}
                   </>
                 )}
               </Button>
@@ -254,87 +317,146 @@ export function OvertimeCalculationForm({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5" />
-              Resultado do Cálculo
+              {calculationResult.type === 'bulk' ? 'Resultado do Cálculo em Lote' : 'Resultado do Cálculo'}
             </CardTitle>
             <CardDescription>
-              Detalhamento das horas extras calculadas
+              {calculationResult.type === 'bulk' 
+                ? `Processados ${calculationResult.processedEmployees} de ${calculationResult.totalEmployees} funcionários`
+                : 'Detalhamento das horas extras calculadas'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {/* Resumo */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Clock className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-900">Horas Regulares</span>
-                  </div>
-                  <p className="text-2xl font-bold text-blue-900">
-                    {formatHours(calculationResult.regularHours)}
-                  </p>
-                </div>
-
-                <div className="bg-orange-50 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Clock className="h-4 w-4 text-orange-600" />
-                    <span className="text-sm font-medium text-orange-900">Horas Extras</span>
-                  </div>
-                  <p className="text-2xl font-bold text-orange-900">
-                    {formatHours(calculationResult.overtimeHours)}
-                  </p>
-                </div>
-
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-1">
-                    <DollarSign className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-900">Valor Total</span>
-                  </div>
-                  <p className="text-2xl font-bold text-green-900">
-                    {formatCurrency(calculationResult.totalOvertimeValue)}
-                  </p>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Detalhamento */}
-              <div className="space-y-3">
-                <h4 className="font-medium">Detalhamento dos Valores</h4>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Horas Extras (50%):</span>
-                      <span className="font-medium">{formatCurrency(calculationResult.overtimeValue)}</span>
+            {calculationResult.type === 'bulk' ? (
+              // Resultado em lote
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Users className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-900">Funcionários Processados</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">DSR:</span>
-                      <span className="font-medium">{formatCurrency(calculationResult.dsrValue)}</span>
-                    </div>
+                    <p className="text-2xl font-bold text-blue-900">
+                      {calculationResult.processedEmployees}
+                    </p>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Adicional Noturno:</span>
-                      <span className="font-medium">{formatCurrency(calculationResult.nightShiftValue)}</span>
+
+                  <div className="bg-orange-50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Clock className="h-4 w-4 text-orange-600" />
+                      <span className="text-sm font-medium text-orange-900">Total de Horas Extras</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Horas Noturnas:</span>
-                      <span className="font-medium">{formatHours(calculationResult.nightShiftHours)}</span>
+                    <p className="text-2xl font-bold text-orange-900">
+                      {formatHours(calculationResult.results.reduce((sum, r) => sum + r.calculation.overtimeHours, 0))}
+                    </p>
+                  </div>
+
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <DollarSign className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium text-green-900">Valor Total</span>
                     </div>
+                    <p className="text-2xl font-bold text-green-900">
+                      {formatCurrency(calculationResult.results.reduce((sum, r) => sum + r.calculation.totalOvertimeValue, 0))}
+                    </p>
                   </div>
                 </div>
 
                 <Separator />
 
-                <div className="flex justify-between items-center bg-primary/5 p-3 rounded-lg">
-                  <span className="text-lg font-semibold">Total das Horas Extras:</span>
-                  <span className="text-2xl font-bold text-primary">
-                    {formatCurrency(calculationResult.totalOvertimeValue)}
-                  </span>
+                <div className="space-y-3">
+                  <h4 className="font-medium">Detalhamento por Funcionário</h4>
+                  <div className="space-y-2">
+                    {calculationResult.results.map((result, index) => (
+                      <div key={index} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                        <div>
+                          <span className="font-medium">{result.employee.nome}</span>
+                          <span className="text-sm text-muted-foreground ml-2">
+                            {formatHours(result.calculation.overtimeHours)} - {formatCurrency(result.calculation.totalOvertimeValue)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              // Resultado individual
+              <div className="space-y-4">
+                {/* Resumo */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Clock className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-900">Horas Regulares</span>
+                    </div>
+                    <p className="text-2xl font-bold text-blue-900">
+                      {formatHours(calculationResult.regularHours)}
+                    </p>
+                  </div>
+
+                  <div className="bg-orange-50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Clock className="h-4 w-4 text-orange-600" />
+                      <span className="text-sm font-medium text-orange-900">Horas Extras</span>
+                    </div>
+                    <p className="text-2xl font-bold text-orange-900">
+                      {formatHours(calculationResult.overtimeHours)}
+                    </p>
+                  </div>
+
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <DollarSign className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium text-green-900">Valor Total</span>
+                    </div>
+                    <p className="text-2xl font-bold text-green-900">
+                      {formatCurrency(calculationResult.totalOvertimeValue)}
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Detalhamento */}
+                <div className="space-y-3">
+                  <h4 className="font-medium">Detalhamento dos Valores</h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Horas Extras (50%):</span>
+                        <span className="font-medium">{formatCurrency(calculationResult.overtimeValue)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">DSR:</span>
+                        <span className="font-medium">{formatCurrency(calculationResult.dsrValue)}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Adicional Noturno:</span>
+                        <span className="font-medium">{formatCurrency(calculationResult.nightShiftValue)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Horas Noturnas:</span>
+                        <span className="font-medium">{formatHours(calculationResult.nightShiftHours)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex justify-between items-center bg-primary/5 p-3 rounded-lg">
+                    <span className="text-lg font-semibold">Total das Horas Extras:</span>
+                    <span className="text-2xl font-bold text-primary">
+                      {formatCurrency(calculationResult.totalOvertimeValue)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

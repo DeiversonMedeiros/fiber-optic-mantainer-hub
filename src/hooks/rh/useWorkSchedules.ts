@@ -18,7 +18,7 @@ export const useWorkSchedules = (companyId?: string) => {
     queryKey: WORK_SCHEDULE_KEYS.lists(),
     queryFn: async (): Promise<WorkSchedule[]> => {
       try {
-        let query = rhSupabase.from('work_schedules')
+        let query = rhSupabase.from('rh.work_schedules')
           .select('*')
           .order('nome');
         if (companyId) { 
@@ -43,7 +43,7 @@ export const useWorkSchedules = (companyId?: string) => {
   const { data: workSchedule, isLoading: isLoadingSingle, error: singleError } = useQuery({
     queryKey: WORK_SCHEDULE_KEYS.detail(''),
     queryFn: async (): Promise<WorkSchedule | null> => {
-      const { data, error } = await rhSupabase.from('work_schedules')
+      const { data, error } = await rhSupabase.from('rh.work_schedules')
         .select('*')
         .single();
       if (error) throw error;
@@ -54,7 +54,7 @@ export const useWorkSchedules = (companyId?: string) => {
 
   const createWorkSchedule = useMutation({
     mutationFn: async (newWorkSchedule: Omit<WorkSchedule, 'id' | 'created_at' | 'updated_at'>) => {
-      const { data, error } = await rhSupabase.from('work_schedules')
+      const { data, error } = await rhSupabase.from('rh.work_schedules')
         .insert([newWorkSchedule])
         .select('*')
         .single();
@@ -68,7 +68,7 @@ export const useWorkSchedules = (companyId?: string) => {
 
   const updateWorkSchedule = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<WorkSchedule> & { id: string }) => {
-      const { data, error } = await rhSupabase.from('work_schedules')
+      const { data, error } = await rhSupabase.from('rh.work_schedules')
         .update(updates)
         .eq('id', id)
         .select('*')
@@ -83,7 +83,7 @@ export const useWorkSchedules = (companyId?: string) => {
 
   const deleteWorkSchedule = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await rhSupabase.from('work_schedules')
+      const { error } = await rhSupabase.from('rh.work_schedules')
         .delete()
         .eq('id', id);
       if (error) throw error;
@@ -95,7 +95,7 @@ export const useWorkSchedules = (companyId?: string) => {
 
   const getWorkScheduleById = useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await rhSupabase.from('work_schedules')
+      const { data, error } = await rhSupabase.from('rh.work_schedules')
         .select('*')
         .eq('id', id)
         .single();

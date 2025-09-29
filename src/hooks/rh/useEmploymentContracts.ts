@@ -27,7 +27,7 @@ export const useEmploymentContracts = () => {
     queryKey: EMPLOYMENT_CONTRACT_KEYS.lists(),
     queryFn: async () => {
       const { data, error } = await rhTable('employment_contracts')
-        .select('*, employee:employees(id, nome, matricula), position:positions(id, nome, codigo), work_schedule:work_schedules(id, nome)')
+        .select('*, employee:employees(id, nome, matricula), position:positions(id, nome, codigo), work_schedule:work_shifts(id, nome)')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -52,7 +52,7 @@ export const useEmploymentContracts = () => {
             *,
             employee:employees(id, nome, matricula),
             position:positions(id, nome, codigo),
-            work_schedule:work_schedules(id, nome),
+            work_schedule:work_shifts(id, nome),
             union:unions!sindicato_id(id, nome)
           `)
           .eq('id', id)
@@ -74,7 +74,7 @@ export const useEmploymentContracts = () => {
   const getEmploymentContractsByEmployee = useMutation({
     mutationFn: async (employeeId: string) => {
       const { data, error } = await rhTable('employment_contracts')
-        .select('*, employee:employees(id, nome, matricula), position:positions(id, nome, codigo), work_schedule:work_schedules(id, nome)')
+        .select('*, employee:employees(id, nome, matricula), position:positions(id, nome, codigo), work_schedule:work_shifts(id, nome)')
         .eq('employee_id', employeeId)
         .order('created_at', { ascending: false });
 
@@ -87,7 +87,7 @@ export const useEmploymentContracts = () => {
   const getEmploymentContractsByStatus = useMutation({
     mutationFn: async (isActive: boolean) => {
       const { data, error } = await rhTable('employment_contracts')
-        .select('*, employee:employees(id, nome, matricula), position:positions(id, nome, codigo), work_schedule:work_schedules(id, nome)')
+        .select('*, employee:employees(id, nome, matricula), position:positions(id, nome, codigo), work_schedule:work_shifts(id, nome)')
         .eq('is_active', isActive)
         .order('created_at', { ascending: false });
 

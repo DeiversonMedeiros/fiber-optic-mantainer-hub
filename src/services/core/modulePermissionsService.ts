@@ -7,7 +7,7 @@ export type UpdateModulePermission = Database['core']['Tables']['module_permissi
 
 export const ModulePermissionsService = {
   list: async ({ profileId, search }: { profileId?: string; search?: string } = {}): Promise<ModulePermission[]> => {
-    let query = coreSupabase.from('module_permissions').select('*');
+    let query = coreSupabase.from('core.module_permissions').select('*');
     
     if (profileId) {
       query = query.eq('profile_id', profileId);
@@ -24,7 +24,7 @@ export const ModulePermissionsService = {
 
   create: async (permission: InsertModulePermission): Promise<ModulePermission> => {
     const { data, error } = await coreSupabase
-      .from('module_permissions')
+      .from('core.module_permissions')
       .insert(permission)
       .select()
       .single();
@@ -34,7 +34,7 @@ export const ModulePermissionsService = {
 
   update: async (id: string, permission: UpdateModulePermission): Promise<ModulePermission> => {
     const { data, error } = await coreSupabase
-      .from('module_permissions')
+      .from('core.module_permissions')
       .update(permission)
       .eq('id', id)
       .select()
@@ -45,7 +45,7 @@ export const ModulePermissionsService = {
 
   delete: async (id: string): Promise<void> => {
     const { error } = await coreSupabase
-      .from('module_permissions')
+      .from('core.module_permissions')
       .delete()
       .eq('id', id);
     if (error) throw error;
@@ -53,7 +53,7 @@ export const ModulePermissionsService = {
 
   upsert: async (permission: InsertModulePermission): Promise<ModulePermission> => {
     const { data, error } = await coreSupabase
-      .from('module_permissions')
+      .from('core.module_permissions')
       .upsert(permission, { 
         onConflict: 'profile_id,module_name',
         ignoreDuplicates: false 
@@ -67,7 +67,7 @@ export const ModulePermissionsService = {
   // Obter permissões de um perfil específico
   getByProfile: async (profileId: string): Promise<ModulePermission[]> => {
     const { data, error } = await coreSupabase
-      .from('module_permissions')
+      .from('core.module_permissions')
       .select('*')
       .eq('profile_id', profileId)
       .order('module_name');
@@ -75,25 +75,23 @@ export const ModulePermissionsService = {
     return data;
   },
 
-  // Obter todos os módulos disponíveis
+  // Obter todos os módulos disponíveis (baseado no banco de dados)
   getAvailableModules: (): string[] => {
     return [
+      'almoxarifado',
+      'auditoria',
+      'combustivel',
+      'comercial',
+      'compras',
       'core',
-      'rh',
       'financeiro',
       'frota',
-      'producao',
-      'compras',
-      'vendas',
-      'inventory',
-      'logistics',
-      'audit',
-      'obras',
-      'comercial',
       'integracao',
-      'combustivel',
-      'almoxarifado',
-      'users'
+      'logistica',
+      'obras',
+      'producao',
+      'projects',
+      'rh'
     ];
   }
 };

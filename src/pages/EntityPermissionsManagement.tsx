@@ -14,6 +14,29 @@ import { useToast } from '@/components/ui/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Shield, Plus, Trash2 } from 'lucide-react';
 
+// Mapeamento de entidades para nomes amigáveis (baseado no banco de dados)
+const ENTITY_CONFIG: Record<string, { label: string; description?: string }> = {
+  'audit': { label: 'Auditoria', description: 'Logs de auditoria do sistema' },
+  'companies': { label: 'Empresas', description: 'Gestão de empresas' },
+  'construction': { label: 'Construção/Obras', description: 'Gestão de obras e construção' },
+  'cost_centers': { label: 'Centros de Custo', description: 'Gestão de centros de custo' },
+  'customers': { label: 'Clientes', description: 'Cadastro de clientes' },
+  'employees': { label: 'Funcionários', description: 'Gestão de funcionários' },
+  'fleet': { label: 'Frota', description: 'Gestão da frota de veículos' },
+  'fuel': { label: 'Combustível', description: 'Controle de combustível' },
+  'inventory': { label: 'Inventário', description: 'Gestão de estoque' },
+  'logistics': { label: 'Logística', description: 'Operações logísticas' },
+  'materials': { label: 'Materiais', description: 'Gestão de materiais' },
+  'payroll': { label: 'Folha de Pagamento', description: 'Gestão de salários' },
+  'production': { label: 'Produção', description: 'Controle de produção' },
+  'profiles': { label: 'Perfis', description: 'Gestão de perfis de usuário' },
+  'projects': { label: 'Projetos', description: 'Gestão de projetos' },
+  'purchases': { label: 'Compras', description: 'Gestão de compras' },
+  'sales': { label: 'Vendas', description: 'Gestão de vendas' },
+  'suppliers': { label: 'Fornecedores', description: 'Cadastro de fornecedores' },
+  'users': { label: 'Usuários', description: 'Gestão de usuários do sistema' }
+};
+
 const EntityPermissionsManagement: React.FC = () => {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -211,7 +234,7 @@ const EntityPermissionsManagement: React.FC = () => {
                       <SelectContent>
                         {availableEntities.map(entity => (
                           <SelectItem key={entity} value={entity}>
-                            {entity}
+                            {ENTITY_CONFIG[entity]?.label || entity}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -283,7 +306,7 @@ const EntityPermissionsManagement: React.FC = () => {
                 filtered.map((permission) => (
                   <TableRow key={permission.id}>
                     <TableCell>{getProfileName(permission.profile_id || '')}</TableCell>
-                    <TableCell>{permission.entity_name}</TableCell>
+                    <TableCell>{ENTITY_CONFIG[permission.entity_name]?.label || permission.entity_name}</TableCell>
                     <TableCell>
                       <div className="flex items-center">
                         <div className={`w-2 h-2 rounded-full mr-2 ${permission.can_read ? 'bg-green-500' : 'bg-gray-300'}`} />
@@ -392,7 +415,7 @@ const EntityPermissionsManagement: React.FC = () => {
               <SelectContent>
                 {availableEntities.map(entity => (
                   <SelectItem key={entity} value={entity}>
-                    {entity}
+                    {ENTITY_CONFIG[entity]?.label || entity}
                   </SelectItem>
                 ))}
               </SelectContent>

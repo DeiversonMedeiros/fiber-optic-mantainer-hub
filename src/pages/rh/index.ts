@@ -8,7 +8,6 @@ export { default as EmployeeManagement } from '../EmployeeManagement';
 export { default as TimeRecordManagement } from '../TimeRecordManagement';
 
 // Novas páginas implementadas
-export { default as WorkScheduleManagement } from '../WorkScheduleManagement';
 export { default as BenefitsManagement } from '../BenefitsManagement';
 export { default as VacationManagement } from '../VacationManagement';
 export { default as MedicalCertificateManagement } from '../MedicalCertificateManagement';

@@ -58,7 +58,7 @@ export const useAllowanceTypes = () => {
       try {
         // Consulta simples sem filtros primeiro para testar
         const { data: allData, error: allError } = await rhSupabase
-          .from('allowance_types')
+          .from('rh.allowance_types')
           .select('*');
 
         if (allError) throw allError;
@@ -86,7 +86,7 @@ export const useAllowanceTypes = () => {
       if (!companyId) throw new Error('Company ID not found');
 
       const { data: result, error } = await rhSupabase
-        .from('allowance_types')
+        .from('rh.allowance_types')
         .insert([{
           ...data,
           company_id: companyId,
@@ -118,7 +118,7 @@ export const useAllowanceTypes = () => {
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: AllowanceTypeUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('allowance_types')
+        .from('rh.allowance_types')
         .update({
           ...data,
           updated_by: user?.id,
@@ -150,7 +150,7 @@ export const useAllowanceTypes = () => {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('allowance_types')
+        .from('rh.allowance_types')
         .update({ is_active: false, updated_by: user?.id })
         .eq('id', id);
 

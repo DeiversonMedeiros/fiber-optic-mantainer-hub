@@ -1,0 +1,22 @@
+{
+  "name": "Sistema de Gestão de Manutenção - Registro de Ponto",
+  "short_name": "SGM Ponto",
+  "description": "Sistema para registro de ponto com funcionalidade offline",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["productivity", "business"],
+  "lang": "pt-BR",
+  "dir": "ltr"
+}

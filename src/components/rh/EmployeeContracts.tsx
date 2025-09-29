@@ -20,13 +20,13 @@ import {
   EmploymentContractInsert, 
   EmploymentContractUpdate,
   Position,
-  WorkSchedule
+  WorkShift
 } from '@/integrations/supabase/rh-types';
 
 // Schema de validação
 const contractSchema = z.object({
   position_id: z.string().min(1, 'Cargo é obrigatório'),
-  work_schedule_id: z.string().min(1, 'Escala de trabalho é obrigatória'),
+  work_shift_id: z.string().min(1, 'Turno de trabalho é obrigatório'),
   tipo_contrato: z.enum(['clt', 'pj', 'estagiario', 'temporario', 'terceirizado']),
   data_inicio: z.date(),
   data_fim: z.date().optional(),
@@ -40,7 +40,7 @@ export interface EmployeeContractsProps {
   employeeId: string;
   contracts?: EmploymentContract[];
   positions?: Position[];
-  workSchedules?: WorkSchedule[];
+  workShifts?: WorkShift[];
   onSubmit: (data: EmploymentContractInsert | EmploymentContractUpdate) => Promise<void>;
   onUpdate?: (id: string, data: EmploymentContractUpdate) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
@@ -52,7 +52,7 @@ export function EmployeeContracts({
   employeeId,
   contracts = [],
   positions = [],
-  workSchedules = [],
+  workShifts = [],
   onSubmit,
   onUpdate,
   onDelete,
@@ -93,7 +93,7 @@ export function EmployeeContracts({
   React.useEffect(() => {
     if (editingContract) {
       setValue('position_id', editingContract.position_id || '');
-      setValue('work_schedule_id', editingContract.work_schedule_id || '');
+      setValue('work_shift_id', editingContract.work_shift_id || '');
       setValue('tipo_contrato', editingContract.tipo_contrato);
       setValue('salario_base', editingContract.salario_base || 0);
       setValue('sindicato_id', editingContract.sindicato_id || '');
@@ -110,7 +110,7 @@ export function EmployeeContracts({
       const contractData: EmploymentContractInsert = {
         employee_id: employeeId,
         position_id: data.position_id,
-        work_schedule_id: data.work_schedule_id,
+        work_shift_id: data.work_shift_id,
         tipo_contrato: data.tipo_contrato,
         data_inicio: data.data_inicio.toISOString().split('T')[0],
         data_fim: data.data_fim?.toISOString().split('T')[0] || null,
@@ -148,8 +148,8 @@ export function EmployeeContracts({
     return positions.find(p => p.id === id)?.nome || 'N/A';
   };
 
-  const getWorkScheduleName = (id: string) => {
-    return workSchedules.find(ws => ws.id === id)?.nome || 'N/A';
+  const getWorkShiftName = (id: string) => {
+    return workShifts.find(ws => ws.id === id)?.nome || 'N/A';
   };
 
   const getContractTypeLabel = (type: string) => {
@@ -247,18 +247,18 @@ export function EmployeeContracts({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="work_schedule_id">Escala de Trabalho *</Label>
+                  <Label htmlFor="work_shift_id">Turno de Trabalho *</Label>
                   <Select
-                    value={watch('work_schedule_id')}
-                    onValueChange={(value) => setValue('work_schedule_id', value)}
+                    value={watch('work_shift_id')}
+                    onValueChange={(value) => setValue('work_shift_id', value)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione a escala" />
+                      <SelectValue placeholder="Selecione o turno" />
                     </SelectTrigger>
                     <SelectContent>
-                      {workSchedules.map((schedule) => (
-                        <SelectItem key={schedule.id} value={schedule.id}>
-                          {schedule.nome}
+                      {workShifts.map((shift) => (
+                        <SelectItem key={shift.id} value={shift.id}>
+                          {shift.nome}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -402,7 +402,7 @@ export function EmployeeContracts({
                       )}
                     </div>
                     <div className="text-sm text-muted-foreground space-y-1">
-                      <p>Escala: {getWorkScheduleName(contract.work_schedule_id || '')}</p>
+                      <p>Turno: {getWorkShiftName(contract.work_shift_id || '')}</p>
                       <p>Salário: {formatCurrency(contract.salario_base || 0)}</p>
                       <p>Período: {contract.data_inicio ? new Date(contract.data_inicio).toLocaleDateString('pt-BR') : 'N/A'} 
                         {contract.data_fim && ` - ${new Date(contract.data_fim).toLocaleDateString('pt-BR')}`}

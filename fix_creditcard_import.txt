@@ -1,0 +1,45 @@
+// Correção para o arquivo EmployeeDetailsTabs.tsx
+// Remover a linha 21 que tem CreditCard duplicado
+
+import { 
+  User, 
+  FileText, 
+  MapPin, 
+  Heart, 
+  CreditCard, 
+  GraduationCap,
+  Edit,
+  Trash2,
+  Users,
+  Gift,
+  FileSignature,
+  Calculator,
+  Clock,
+  Shield,
+  Bus
+} from 'lucide-react';
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

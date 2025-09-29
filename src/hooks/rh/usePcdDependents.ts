@@ -27,7 +27,7 @@ export function useDeficiencyTypes(companyId: string) {
     queryKey: ['deficiency-types', companyId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('deficiency_types')
+        .from('rh.deficiency_types')
         .select('*')
         .eq('company_id', companyId)
         .eq('is_active', true)
@@ -40,7 +40,7 @@ export function useDeficiencyTypes(companyId: string) {
   const createDeficiencyType = useMutation({
     mutationFn: async (data: DeficiencyTypeInsert) => {
       const { data: result, error } = await rhSupabase
-        .from('deficiency_types')
+        .from('rh.deficiency_types')
         .insert({ ...data, company_id: companyId })
         .select()
         .single();
@@ -55,7 +55,7 @@ export function useDeficiencyTypes(companyId: string) {
   const updateDeficiencyType = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: DeficiencyTypeUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('deficiency_types')
+        .from('rh.deficiency_types')
         .update(data)
         .eq('id', id)
         .select()
@@ -71,7 +71,7 @@ export function useDeficiencyTypes(companyId: string) {
   const deleteDeficiencyType = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('deficiency_types')
+        .from('rh.deficiency_types')
         .update({ is_active: false })
         .eq('id', id);
       if (error) throw error;
@@ -98,7 +98,7 @@ export function useDeficiencyDegrees(companyId: string) {
     queryKey: ['deficiency-degrees', companyId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('deficiency_degrees')
+        .from('rh.deficiency_degrees')
         .select('*')
         .eq('company_id', companyId)
         .eq('is_active', true)
@@ -111,7 +111,7 @@ export function useDeficiencyDegrees(companyId: string) {
   const createDeficiencyDegree = useMutation({
     mutationFn: async (data: DeficiencyDegreeInsert) => {
       const { data: result, error } = await rhSupabase
-        .from('deficiency_degrees')
+        .from('rh.deficiency_degrees')
         .insert({ ...data, company_id: companyId })
         .select()
         .single();
@@ -126,7 +126,7 @@ export function useDeficiencyDegrees(companyId: string) {
   const updateDeficiencyDegree = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: DeficiencyDegreeUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('deficiency_degrees')
+        .from('rh.deficiency_degrees')
         .update(data)
         .eq('id', id)
         .select()
@@ -142,7 +142,7 @@ export function useDeficiencyDegrees(companyId: string) {
   const deleteDeficiencyDegree = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('deficiency_degrees')
+        .from('rh.deficiency_degrees')
         .update({ is_active: false })
         .eq('id', id);
       if (error) throw error;
@@ -169,7 +169,7 @@ export function useDependentTypes(companyId: string) {
     queryKey: ['dependent-types', companyId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('dependent_types')
+        .from('rh.dependent_types')
         .select('*')
         .eq('company_id', companyId)
         .eq('is_active', true)
@@ -182,7 +182,7 @@ export function useDependentTypes(companyId: string) {
   const createDependentType = useMutation({
     mutationFn: async (data: DependentTypeInsert) => {
       const { data: result, error } = await rhSupabase
-        .from('dependent_types')
+        .from('rh.dependent_types')
         .insert({ ...data, company_id: companyId })
         .select()
         .single();
@@ -197,7 +197,7 @@ export function useDependentTypes(companyId: string) {
   const updateDependentType = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: DependentTypeUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('dependent_types')
+        .from('rh.dependent_types')
         .update(data)
         .eq('id', id)
         .select()
@@ -213,7 +213,7 @@ export function useDependentTypes(companyId: string) {
   const deleteDependentType = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('dependent_types')
+        .from('rh.dependent_types')
         .update({ is_active: false })
         .eq('id', id);
       if (error) throw error;
@@ -240,7 +240,7 @@ export function useKinshipDegrees(companyId: string) {
     queryKey: ['kinship-degrees', companyId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('kinship_degrees')
+        .from('rh.kinship_degrees')
         .select('*')
         .eq('company_id', companyId)
         .eq('is_active', true)
@@ -253,7 +253,7 @@ export function useKinshipDegrees(companyId: string) {
   const createKinshipDegree = useMutation({
     mutationFn: async (data: KinshipDegreeInsert) => {
       const { data: result, error } = await rhSupabase
-        .from('kinship_degrees')
+        .from('rh.kinship_degrees')
         .insert({ ...data, company_id: companyId })
         .select()
         .single();
@@ -268,7 +268,7 @@ export function useKinshipDegrees(companyId: string) {
   const updateKinshipDegree = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: KinshipDegreeUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('kinship_degrees')
+        .from('rh.kinship_degrees')
         .update(data)
         .eq('id', id)
         .select()
@@ -284,7 +284,7 @@ export function useKinshipDegrees(companyId: string) {
   const deleteKinshipDegree = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('kinship_degrees')
+        .from('rh.kinship_degrees')
         .update({ is_active: false })
         .eq('id', id);
       if (error) throw error;
@@ -311,7 +311,7 @@ export function useEmployeePcdInfo(employeeId: string) {
     queryKey: ['employee-pcd-info', employeeId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('employee_pcd_info')
+        .from('rh.employee_pcd_info')
         .select(`
           *,
           deficiency_type:deficiency_types(codigo, descricao),
@@ -328,7 +328,7 @@ export function useEmployeePcdInfo(employeeId: string) {
   const createPcdInfo = useMutation({
     mutationFn: async (data: EmployeePcdInfoInsert) => {
       const { data: result, error } = await rhSupabase
-        .from('employee_pcd_info')
+        .from('rh.employee_pcd_info')
         .insert(data)
         .select(`
           *,
@@ -347,7 +347,7 @@ export function useEmployeePcdInfo(employeeId: string) {
   const updatePcdInfo = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: EmployeePcdInfoUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('employee_pcd_info')
+        .from('rh.employee_pcd_info')
         .update(data)
         .eq('id', id)
         .select(`
@@ -367,7 +367,7 @@ export function useEmployeePcdInfo(employeeId: string) {
   const deletePcdInfo = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('employee_pcd_info')
+        .from('rh.employee_pcd_info')
         .update({ is_active: false })
         .eq('id', id);
       if (error) throw error;
@@ -394,7 +394,7 @@ export function useEmployeeDependents(employeeId: string) {
     queryKey: ['employee-dependents', employeeId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('employee_dependents')
+        .from('rh.employee_dependents')
         .select(`
           *,
           dependent_type:dependent_types(codigo, descricao),
@@ -413,7 +413,7 @@ export function useEmployeeDependents(employeeId: string) {
   const createDependent = useMutation({
     mutationFn: async (data: EmployeeDependentInsert) => {
       const { data: result, error } = await rhSupabase
-        .from('employee_dependents')
+        .from('rh.employee_dependents')
         .insert(data)
         .select(`
           *,
@@ -434,7 +434,7 @@ export function useEmployeeDependents(employeeId: string) {
   const updateDependent = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: EmployeeDependentUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('employee_dependents')
+        .from('rh.employee_dependents')
         .update(data)
         .eq('id', id)
         .select(`
@@ -456,7 +456,7 @@ export function useEmployeeDependents(employeeId: string) {
   const deleteDependent = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('employee_dependents')
+        .from('rh.employee_dependents')
         .update({ is_active: false })
         .eq('id', id);
       if (error) throw error;
@@ -483,7 +483,7 @@ export function useDeficiencyTypesForSelect(companyId: string) {
     queryKey: ['deficiency-types-select', companyId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('deficiency_types')
+        .from('rh.deficiency_types')
         .select('id, codigo, descricao')
         .eq('company_id', companyId)
         .eq('is_active', true)
@@ -501,7 +501,7 @@ export function useDeficiencyDegreesForSelect(companyId: string) {
     queryKey: ['deficiency-degrees-select', companyId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('deficiency_degrees')
+        .from('rh.deficiency_degrees')
         .select('id, codigo, descricao')
         .eq('company_id', companyId)
         .eq('is_active', true)
@@ -519,7 +519,7 @@ export function useDependentTypesForSelect(companyId: string) {
     queryKey: ['dependent-types-select', companyId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('dependent_types')
+        .from('rh.dependent_types')
         .select('id, codigo, descricao')
         .eq('company_id', companyId)
         .eq('is_active', true)
@@ -537,7 +537,7 @@ export function useKinshipDegreesForSelect(companyId: string) {
     queryKey: ['kinship-degrees-select', companyId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('kinship_degrees')
+        .from('rh.kinship_degrees')
         .select('id, codigo, descricao')
         .eq('company_id', companyId)
         .eq('is_active', true)
@@ -549,6 +549,44 @@ export function useKinshipDegreesForSelect(companyId: string) {
 
   return { kinshipDegrees, isLoading };
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -55,7 +55,7 @@ export const useAbsenceTypes = () => {
       try {
         // Consulta simples sem filtros primeiro para testar
         const { data: allData, error: allError } = await rhSupabase
-          .from('absence_types')
+          .from('rh.absence_types')
           .select('*');
 
         if (allError) throw allError;
@@ -83,7 +83,7 @@ export const useAbsenceTypes = () => {
       if (!companyId) throw new Error('Company ID not found');
 
       const { data: result, error } = await rhSupabase
-        .from('absence_types')
+        .from('rh.absence_types')
         .insert([{
           ...data,
           company_id: companyId,
@@ -115,7 +115,7 @@ export const useAbsenceTypes = () => {
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: AbsenceTypeUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('absence_types')
+        .from('rh.absence_types')
         .update({
           ...data,
           updated_by: user?.id,
@@ -147,7 +147,7 @@ export const useAbsenceTypes = () => {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('absence_types')
+        .from('rh.absence_types')
         .update({ is_active: false, updated_by: user?.id })
         .eq('id', id);
 

@@ -1,14 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Calendar, Users, Filter, Download, Plus, Clock } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArrowLeft, Calendar, Users, Filter, Download, Plus, Clock, Bell, AlertTriangle } from 'lucide-react';
 import { VacationsManagement as VacationsManagementComponent } from '@/components/rh';
 import { useCompany } from '@/hooks/useCompany';
+import { VacationAlertsDashboard } from '@/components/vacation/VacationAlertsDashboard';
+import { useVacationAlerts } from '@/hooks/useVacationDashboard';
 
 export default function VacationsManagementPage() {
   const navigate = useNavigate();
   const { data: company, isLoading: companyLoading } = useCompany();
+  const [activeTab, setActiveTab] = useState('vacations');
+  
+  // Buscar alertas críticos para mostrar badge na aba
+  const { data: alerts = [] } = useVacationAlerts(company?.id);
+  const criticalAlertsCount = alerts.filter(alert => alert.priority === 'critical').length;
 
   return (
     <div className="w-full">
@@ -113,21 +122,87 @@ export default function VacationsManagementPage() {
           </Card>
         </div>
 
-        {/* Conteúdo principal */}
-        {companyLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Carregando dados da empresa...</p>
-            </div>
-          </div>
-        ) : company ? (
-          <VacationsManagementComponent companyId={company.id} />
-        ) : (
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">Erro ao carregar dados da empresa</p>
-          </div>
-        )}
+        {/* Sistema de Abas */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="vacations" className="flex items-center space-x-2">
+              <Calendar className="h-4 w-4" />
+              <span>Gestão de Férias</span>
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="flex items-center space-x-2">
+              <Bell className="h-4 w-4" />
+              <span>Notificações e Alertas</span>
+              {criticalAlertsCount > 0 && (
+                <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                  {criticalAlertsCount}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Aba: Gestão de Férias */}
+          <TabsContent value="vacations" className="space-y-6">
+            {/* Alerta rápido se houver alertas críticos */}
+            {criticalAlertsCount > 0 && (
+              <Card className="border-red-200 bg-red-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-3">
+                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-red-800">
+                        {criticalAlertsCount} funcionário{criticalAlertsCount > 1 ? 's' : ''} com férias vencidas
+                      </p>
+                      <p className="text-xs text-red-600">
+                        Verifique a aba "Notificações e Alertas" para mais detalhes
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActiveTab('notifications')}
+                      className="border-red-300 text-red-700 hover:bg-red-100"
+                    >
+                      Ver Alertas
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {companyLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Carregando dados da empresa...</p>
+                </div>
+              </div>
+            ) : company ? (
+              <VacationsManagementComponent companyId={company.id} />
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Erro ao carregar dados da empresa</p>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Aba: Notificações e Alertas */}
+          <TabsContent value="notifications" className="space-y-6">
+            {company && (
+              <VacationAlertsDashboard 
+                companyId={company.id}
+                showActions={true}
+                onGenerateNotifications={() => {
+                  // Callback para quando notificações forem geradas
+                  console.log('Notificações geradas para a empresa:', company.id);
+                }}
+                onExportReport={() => {
+                  // Callback para exportar relatório
+                  console.log('Exportando relatório para a empresa:', company.id);
+                }}
+              />
+            )}
+          </TabsContent>
+        </Tabs>
     </div>
   );
 }

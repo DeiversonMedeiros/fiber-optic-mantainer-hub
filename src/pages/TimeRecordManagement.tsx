@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Clock, Users, Filter, Download, Plus, Calendar } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArrowLeft, Clock, Users, Filter, Download, Plus, Calendar, Settings } from 'lucide-react';
 import { TimeRecordManagement as TimeRecordManagementComponent } from '@/components/rh';
+import { TimeRecordCorrectionControl } from '@/components/rh/TimeRecordCorrectionControl';
 import { useCompany } from '@/hooks/useCompany';
 
 export default function TimeRecordManagementPage() {
@@ -122,7 +124,26 @@ export default function TimeRecordManagementPage() {
             </div>
           </div>
         ) : company ? (
-          <TimeRecordManagementComponent companyId={company.id} />
+          <Tabs defaultValue="records" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="records" className="flex items-center space-x-2">
+                <Clock className="h-4 w-4" />
+                <span>Registros de Ponto</span>
+              </TabsTrigger>
+              <TabsTrigger value="correction-control" className="flex items-center space-x-2">
+                <Settings className="h-4 w-4" />
+                <span>Controle de Correção</span>
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="records" className="space-y-6">
+              <TimeRecordManagementComponent companyId={company.id} />
+            </TabsContent>
+            
+            <TabsContent value="correction-control" className="space-y-6">
+              <TimeRecordCorrectionControl companyId={company.id} />
+            </TabsContent>
+          </Tabs>
         ) : (
           <div className="text-center py-8">
             <p className="text-muted-foreground">Erro ao carregar dados da empresa</p>

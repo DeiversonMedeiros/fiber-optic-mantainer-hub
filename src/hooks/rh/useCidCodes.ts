@@ -49,7 +49,7 @@ export const useCidCodes = () => {
       try {
         // Consulta simples sem filtros primeiro para testar
         const { data: allData, error: allError } = await rhSupabase
-          .from('cid_codes')
+          .from('rh.cid_codes')
           .select('*');
 
         if (allError) throw allError;
@@ -77,7 +77,7 @@ export const useCidCodes = () => {
       if (!companyId) throw new Error('Company ID not found');
 
       const { data: result, error } = await rhSupabase
-        .from('cid_codes')
+        .from('rh.cid_codes')
         .insert([{
           ...data,
           company_id: companyId,
@@ -109,7 +109,7 @@ export const useCidCodes = () => {
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: CidCodeUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('cid_codes')
+        .from('rh.cid_codes')
         .update({
           ...data,
           updated_by: user?.id,
@@ -141,7 +141,7 @@ export const useCidCodes = () => {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('cid_codes')
+        .from('rh.cid_codes')
         .update({ is_active: false, updated_by: user?.id })
         .eq('id', id);
 

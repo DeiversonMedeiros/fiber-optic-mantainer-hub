@@ -7,7 +7,7 @@ export type UpdateEntityPermission = Database['core']['Tables']['entity_permissi
 
 export const EntityPermissionsService = {
   list: async ({ profileId, search }: { profileId?: string; search?: string } = {}): Promise<EntityPermission[]> => {
-    let query = coreSupabase.from('entity_permissions').select('*');
+    let query = coreSupabase.from('core.entity_permissions').select('*');
     
     if (profileId) {
       query = query.eq('profile_id', profileId);
@@ -24,7 +24,7 @@ export const EntityPermissionsService = {
 
   create: async (permission: InsertEntityPermission): Promise<EntityPermission> => {
     const { data, error } = await coreSupabase
-      .from('entity_permissions')
+      .from('core.entity_permissions')
       .insert(permission)
       .select()
       .single();
@@ -34,7 +34,7 @@ export const EntityPermissionsService = {
 
   update: async (id: string, permission: UpdateEntityPermission): Promise<EntityPermission> => {
     const { data, error } = await coreSupabase
-      .from('entity_permissions')
+      .from('core.entity_permissions')
       .update(permission)
       .eq('id', id)
       .select()
@@ -45,7 +45,7 @@ export const EntityPermissionsService = {
 
   delete: async (id: string): Promise<void> => {
     const { error } = await coreSupabase
-      .from('entity_permissions')
+      .from('core.entity_permissions')
       .delete()
       .eq('id', id);
     if (error) throw error;
@@ -53,7 +53,7 @@ export const EntityPermissionsService = {
 
   upsert: async (permission: InsertEntityPermission): Promise<EntityPermission> => {
     const { data, error } = await coreSupabase
-      .from('entity_permissions')
+      .from('core.entity_permissions')
       .upsert(permission, { 
         onConflict: 'profile_id,entity_name',
         ignoreDuplicates: false 
@@ -67,7 +67,7 @@ export const EntityPermissionsService = {
   // Obter permissões de um perfil específico
   getByProfile: async (profileId: string): Promise<EntityPermission[]> => {
     const { data, error } = await coreSupabase
-      .from('entity_permissions')
+      .from('core.entity_permissions')
       .select('*')
       .eq('profile_id', profileId)
       .order('entity_name');
@@ -75,29 +75,28 @@ export const EntityPermissionsService = {
     return data;
   },
 
-  // Obter todas as entidades disponíveis
+  // Obter todas as entidades disponíveis (baseado no banco de dados)
   getAvailableEntities: (): string[] => {
     return [
+      'audit',
       'companies',
-      'profiles',
+      'construction',
       'cost_centers',
-      'departments',
-      'projects',
-      'users',
-      'user_companies',
-      'module_permissions',
-      'entity_permissions',
-      'employees',
-      'contracts',
-      'payroll',
-      'vehicles',
-      'maintenance',
-      'orders',
-      'inventory_items',
-      'suppliers',
       'customers',
-      'reports',
-      'audit_logs'
+      'employees',
+      'fleet',
+      'fuel',
+      'inventory',
+      'logistics',
+      'materials',
+      'payroll',
+      'production',
+      'profiles',
+      'projects',
+      'purchases',
+      'sales',
+      'suppliers',
+      'users'
     ];
   }
 };

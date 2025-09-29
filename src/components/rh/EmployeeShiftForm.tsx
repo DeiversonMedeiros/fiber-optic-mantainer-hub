@@ -56,6 +56,7 @@ export const EmployeeShiftForm: React.FC<EmployeeShiftFormProps> = ({
     queryKey: ['employees'],
     queryFn: async () => {
       const { data, error } = await rhSupabase
+        .schema('rh')
         .from('employees')
         .select('id, nome, matricula')
         .order('nome');
@@ -70,6 +71,7 @@ export const EmployeeShiftForm: React.FC<EmployeeShiftFormProps> = ({
     queryKey: ['work-shifts'],
     queryFn: async () => {
       const { data, error } = await rhSupabase
+        .schema('rh')
         .from('work_shifts')
         .select('id, nome, hora_inicio, hora_fim')
         .eq('is_active', true)

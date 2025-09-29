@@ -11,17 +11,15 @@ import { useAuthorization } from '@/hooks/useAuthorization';
 import { useToast } from '@/components/ui/use-toast';
 import { Shield, Users, DollarSign, Car, Factory, ShoppingCart, Briefcase, HardHat, Route, Zap, Fuel, Warehouse, ClipboardList, BarChart3, Database, Settings, CheckCircle, XCircle, Building2 } from 'lucide-react';
 
-// Mapeamento de módulos para ícones e nomes amigáveis
+// Mapeamento de módulos para ícones e nomes amigáveis (baseado no banco de dados)
 const MODULE_CONFIG = {
   all: { icon: Shield, label: 'Acesso Total', color: 'text-purple-600' },
   core: { icon: Settings, label: 'Configurações', color: 'text-blue-600' },
-  usuarios: { icon: Users, label: 'Usuários', color: 'text-green-600' },
   rh: { icon: Users, label: 'Recursos Humanos', color: 'text-indigo-600' },
   financeiro: { icon: DollarSign, label: 'Financeiro', color: 'text-emerald-600' },
   frota: { icon: Car, label: 'Frota', color: 'text-orange-600' },
   producao: { icon: Factory, label: 'Produção', color: 'text-cyan-600' },
   compras: { icon: ShoppingCart, label: 'Compras', color: 'text-pink-600' },
-  vendas: { icon: Briefcase, label: 'Vendas', color: 'text-amber-600' },
   obras: { icon: HardHat, label: 'Obras', color: 'text-red-600' },
   comercial: { icon: Building2, label: 'Comercial', color: 'text-teal-600' },
   logistica: { icon: Route, label: 'Logística', color: 'text-violet-600' },
@@ -29,9 +27,7 @@ const MODULE_CONFIG = {
   integracao: { icon: Zap, label: 'Integração', color: 'text-yellow-600' },
   combustivel: { icon: Fuel, label: 'Combustível', color: 'text-orange-500' },
   almoxarifado: { icon: Warehouse, label: 'Almoxarifado', color: 'text-slate-600' },
-  inventory: { icon: Database, label: 'Inventário', color: 'text-blue-500' },
-  logistics: { icon: Route, label: 'Logística', color: 'text-violet-500' },
-  audit: { icon: Shield, label: 'Auditoria', color: 'text-gray-500' }
+  projects: { icon: Briefcase, label: 'Projetos', color: 'text-amber-600' }
 };
 
 const renderPermissoesGerais = (permissoes: any) => {

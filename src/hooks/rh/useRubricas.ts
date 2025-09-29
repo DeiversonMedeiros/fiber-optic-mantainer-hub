@@ -19,7 +19,7 @@ export function useRubricas({ companyId }: UseRubricasProps) {
     queryKey: ['rubricas', companyId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('rubricas')
+        .from('rh.rubricas')
         .select('*')
         .eq('company_id', companyId)
         .eq('is_active', true)
@@ -34,7 +34,7 @@ export function useRubricas({ companyId }: UseRubricasProps) {
   const createRubrica = useMutation({
     mutationFn: async (data: RubricaInsert) => {
       const { data: result, error } = await rhSupabase
-        .from('rubricas')
+        .from('rh.rubricas')
         .insert(data)
         .select()
         .single();
@@ -51,7 +51,7 @@ export function useRubricas({ companyId }: UseRubricasProps) {
   const updateRubrica = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: RubricaUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('rubricas')
+        .from('rh.rubricas')
         .update(data)
         .eq('id', id)
         .select()
@@ -69,7 +69,7 @@ export function useRubricas({ companyId }: UseRubricasProps) {
   const deleteRubrica = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('rubricas')
+        .from('rh.rubricas')
         .update({ is_active: false })
         .eq('id', id);
 
@@ -98,7 +98,7 @@ export function useNaturezasESocial(companyId: string) {
     queryFn: async () => {
       try {
         const { data, error } = await rhSupabase
-          .from('esocial_naturezas_rubricas')
+          .from('rh.esocial_naturezas_rubricas')
           .select('id, codigo, descricao')
           .eq('company_id', companyId)
           .eq('is_active', true)

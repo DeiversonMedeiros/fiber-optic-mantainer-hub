@@ -20,6 +20,8 @@ export type Database = {
           contato: string | null
           is_active: boolean | null
           created_at: string | null
+          logo_url: string | null
+          codigo_empresa: string | null
         }
         Insert: {
           id?: string
@@ -31,6 +33,8 @@ export type Database = {
           contato?: string | null
           is_active?: boolean | null
           created_at?: string | null
+          logo_url?: string | null
+          codigo_empresa?: string | null
         }
         Update: {
           id?: string
@@ -42,6 +46,8 @@ export type Database = {
           contato?: string | null
           is_active?: boolean | null
           created_at?: string | null
+          logo_url?: string | null
+          codigo_empresa?: string | null
         }
         Relationships: []
       }

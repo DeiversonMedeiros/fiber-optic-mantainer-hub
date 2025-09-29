@@ -234,3 +234,44 @@ export function DeficiencyTypesManagement({ companyId, className = '' }: Deficie
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

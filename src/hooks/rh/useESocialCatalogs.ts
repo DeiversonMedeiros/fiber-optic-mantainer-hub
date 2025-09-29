@@ -32,7 +32,7 @@ export function useESocialCategories({ companyId }: UseESocialCatalogsProps) {
     queryKey: ['esocial-categories', companyId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('esocial_categories')
+        .from('rh.esocial_categories')
         .select('*')
         .eq('company_id', companyId)
         .eq('is_active', true)
@@ -46,7 +46,7 @@ export function useESocialCategories({ companyId }: UseESocialCatalogsProps) {
   const createCategory = useMutation({
     mutationFn: async (data: ESocialCategoryInsert) => {
       const { data: result, error } = await rhSupabase
-        .from('esocial_categories')
+        .from('rh.esocial_categories')
         .insert(data)
         .select()
         .single();
@@ -62,7 +62,7 @@ export function useESocialCategories({ companyId }: UseESocialCatalogsProps) {
   const updateCategory = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: ESocialCategoryUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('esocial_categories')
+        .from('rh.esocial_categories')
         .update(data)
         .eq('id', id)
         .select()
@@ -79,7 +79,7 @@ export function useESocialCategories({ companyId }: UseESocialCatalogsProps) {
   const deleteCategory = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('esocial_categories')
+        .from('rh.esocial_categories')
         .update({ is_active: false })
         .eq('id', id);
 
@@ -114,7 +114,7 @@ export function useESocialLeaveTypes({ companyId }: UseESocialCatalogsProps) {
     queryKey: ['esocial-leave-types', companyId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('esocial_leave_types')
+        .from('rh.esocial_leave_types')
         .select('*')
         .eq('company_id', companyId)
         .eq('is_active', true)
@@ -128,7 +128,7 @@ export function useESocialLeaveTypes({ companyId }: UseESocialCatalogsProps) {
   const createLeaveType = useMutation({
     mutationFn: async (data: ESocialLeaveTypeInsert) => {
       const { data: result, error } = await rhSupabase
-        .from('esocial_leave_types')
+        .from('rh.esocial_leave_types')
         .insert(data)
         .select()
         .single();
@@ -144,7 +144,7 @@ export function useESocialLeaveTypes({ companyId }: UseESocialCatalogsProps) {
   const updateLeaveType = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: ESocialLeaveTypeUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('esocial_leave_types')
+        .from('rh.esocial_leave_types')
         .update(data)
         .eq('id', id)
         .select()
@@ -161,7 +161,7 @@ export function useESocialLeaveTypes({ companyId }: UseESocialCatalogsProps) {
   const deleteLeaveType = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('esocial_leave_types')
+        .from('rh.esocial_leave_types')
         .update({ is_active: false })
         .eq('id', id);
 
@@ -196,7 +196,7 @@ export function useESocialNaturezasRubricas({ companyId }: UseESocialCatalogsPro
     queryKey: ['esocial-naturezas-rubricas', companyId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('esocial_naturezas_rubricas')
+        .from('rh.esocial_naturezas_rubricas')
         .select('*')
         .eq('company_id', companyId)
         .eq('is_active', true)
@@ -210,7 +210,7 @@ export function useESocialNaturezasRubricas({ companyId }: UseESocialCatalogsPro
   const createNatureza = useMutation({
     mutationFn: async (data: ESocialNaturezaRubricaInsert) => {
       const { data: result, error } = await rhSupabase
-        .from('esocial_naturezas_rubricas')
+        .from('rh.esocial_naturezas_rubricas')
         .insert(data)
         .select()
         .single();
@@ -226,7 +226,7 @@ export function useESocialNaturezasRubricas({ companyId }: UseESocialCatalogsPro
   const updateNatureza = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: ESocialNaturezaRubricaUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('esocial_naturezas_rubricas')
+        .from('rh.esocial_naturezas_rubricas')
         .update(data)
         .eq('id', id)
         .select()
@@ -243,7 +243,7 @@ export function useESocialNaturezasRubricas({ companyId }: UseESocialCatalogsPro
   const deleteNatureza = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('esocial_naturezas_rubricas')
+        .from('rh.esocial_naturezas_rubricas')
         .update({ is_active: false })
         .eq('id', id);
 
@@ -278,7 +278,7 @@ export function useESocialBenefitTypes({ companyId }: UseESocialCatalogsProps) {
     queryKey: ['esocial-benefit-types', companyId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('esocial_benefit_types')
+        .from('rh.esocial_benefit_types')
         .select('*')
         .eq('company_id', companyId)
         .eq('is_active', true)
@@ -292,7 +292,7 @@ export function useESocialBenefitTypes({ companyId }: UseESocialCatalogsProps) {
   const createBenefitType = useMutation({
     mutationFn: async (data: ESocialBenefitTypeInsert) => {
       const { data: result, error } = await rhSupabase
-        .from('esocial_benefit_types')
+        .from('rh.esocial_benefit_types')
         .insert(data)
         .select()
         .single();
@@ -308,7 +308,7 @@ export function useESocialBenefitTypes({ companyId }: UseESocialCatalogsProps) {
   const updateBenefitType = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: ESocialBenefitTypeUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('esocial_benefit_types')
+        .from('rh.esocial_benefit_types')
         .update(data)
         .eq('id', id)
         .select()
@@ -325,7 +325,7 @@ export function useESocialBenefitTypes({ companyId }: UseESocialCatalogsProps) {
   const deleteBenefitType = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('esocial_benefit_types')
+        .from('rh.esocial_benefit_types')
         .update({ is_active: false })
         .eq('id', id);
 

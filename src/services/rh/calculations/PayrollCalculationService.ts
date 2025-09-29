@@ -96,7 +96,7 @@ export class PayrollCalculationService {
     try {
       // Buscar registros de ponto do período
       const { data: timeRecords, error: timeError } = await rhSupabase
-        .from('time_records')
+        .from('rh.time_records')
         .select('*')
         .eq('employee_id', employeeId)
         .eq('company_id', this.companyId)
@@ -107,7 +107,7 @@ export class PayrollCalculationService {
 
       // Buscar configuração de jornada do funcionário
       const { data: contract, error: contractError } = await rhSupabase
-        .from('employment_contracts')
+        .from('rh.employment_contracts')
         .select(`
           *,
           work_schedule:work_schedules(*)
@@ -160,7 +160,7 @@ export class PayrollCalculationService {
 
       // Buscar salário base do funcionário
       const { data: employee, error: employeeError } = await rhSupabase
-        .from('employees')
+        .from('rh.employees')
         .select('*')
         .eq('id', employeeId)
         .eq('company_id', this.companyId)
@@ -170,7 +170,7 @@ export class PayrollCalculationService {
 
       // Buscar contrato ativo para pegar salário
       const { data: activeContract, error: activeContractError } = await rhSupabase
-        .from('employment_contracts')
+        .from('rh.employment_contracts')
         .select('salario_base')
         .eq('employee_id', employeeId)
         .eq('company_id', this.companyId)
@@ -292,7 +292,7 @@ export class PayrollCalculationService {
     try {
       // Buscar dados do funcionário
       const { data: employee, error: employeeError } = await rhSupabase
-        .from('employees')
+        .from('rh.employees')
         .select('data_admissao')
         .eq('id', employeeId)
         .eq('company_id', this.companyId)
@@ -302,7 +302,7 @@ export class PayrollCalculationService {
 
       // Buscar salário base
       const { data: contract, error: contractError } = await rhSupabase
-        .from('employment_contracts')
+        .from('rh.employment_contracts')
         .select('salario_base')
         .eq('employee_id', employeeId)
         .eq('company_id', this.companyId)
@@ -351,7 +351,7 @@ export class PayrollCalculationService {
     try {
       // Buscar dados do funcionário
       const { data: employee, error: employeeError } = await rhSupabase
-        .from('employees')
+        .from('rh.employees')
         .select('data_admissao')
         .eq('id', employeeId)
         .eq('company_id', this.companyId)
@@ -361,7 +361,7 @@ export class PayrollCalculationService {
 
       // Buscar salário base
       const { data: contract, error: contractError } = await rhSupabase
-        .from('employment_contracts')
+        .from('rh.employment_contracts')
         .select('salario_base')
         .eq('employee_id', employeeId)
         .eq('company_id', this.companyId)
@@ -420,7 +420,7 @@ export class PayrollCalculationService {
     try {
       // Buscar faixas de INSS
       const { data: inssBrackets, error: inssError } = await rhSupabase
-        .from('inss_brackets')
+        .from('rh.inss_brackets')
         .select('*')
         .eq('company_id', this.companyId)
         .eq('is_active', true)
@@ -430,7 +430,7 @@ export class PayrollCalculationService {
 
       // Buscar faixas de IRRF
       const { data: irrfBrackets, error: irrfError } = await rhSupabase
-        .from('irrf_brackets')
+        .from('rh.irrf_brackets')
         .select('*')
         .eq('company_id', this.companyId)
         .eq('is_active', true)
@@ -440,7 +440,7 @@ export class PayrollCalculationService {
 
       // Buscar configuração de FGTS
       const { data: fgtsConfig, error: fgtsError } = await rhSupabase
-        .from('fgts_config')
+        .from('rh.fgts_config')
         .select('*')
         .eq('company_id', this.companyId)
         .eq('is_active', true)

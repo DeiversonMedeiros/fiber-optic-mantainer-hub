@@ -147,3 +147,44 @@ COMMENT ON TABLE rh.employee_tax_calculations IS 'Histórico de cálculos de imp
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

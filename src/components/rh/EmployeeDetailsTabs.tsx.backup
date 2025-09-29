@@ -1,0 +1,758 @@
+import React, { useState } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { 
+  User, 
+  FileText, 
+  MapPin, 
+  Heart, 
+  CreditCard, 
+  GraduationCap,
+  Edit,
+  Trash2,
+  Users,
+  Gift,
+  FileSignature,
+  Calculator,
+  Clock,
+  Shield,
+  Bus
+} from 'lucide-react';
+import { Employee } from '@/integrations/supabase/rh-types';
+import { EmployeeForm } from './EmployeeForm';
+import { EmployeeDocuments } from './EmployeeDocuments';
+import { EmployeeAddresses } from './EmployeeAddresses';
+import { EmployeeSpouse } from './EmployeeSpouse';
+import { EmployeeBankAccounts } from './EmployeeBankAccounts';
+import { EmployeeEducation } from './EmployeeEducation';
+import { EmployeeDependents } from './EmployeeDependents';
+import { EmployeeBenefits } from './EmployeeBenefits';
+import { EmployeeContracts } from './EmployeeContracts';
+import { EmployeeFiscal } from './EmployeeFiscal';
+import { EmployeeConvenios } from './EmployeeConvenios';
+import { EmployeeVrVa } from './EmployeeVrVa';
+import { EmployeeTransporte } from './EmployeeTransporte';
+import { 
+  useEmployeeDocuments, 
+  useEmployeeAddresses, 
+  useEmployeeSpouse, 
+  useEmployeeBankAccounts, 
+  useEmployeeEducation,
+  useEmployeeDependents,
+  useEmployeeBenefits,
+  useEmployeeContracts
+} from '@/hooks/rh';
+import { useWorkShifts } from '@/hooks/rh/useWorkShifts';
+
+export interface EmployeeDetailsTabsProps {
+  employee: Employee;
+  companyId?: string;
+  onUpdateEmployee: (data: any) => Promise<void>;
+  onDeleteEmployee?: (id: string) => Promise<void>;
+  loading?: boolean;
+  className?: string;
+}
+
+export function EmployeeDetailsTabs({
+  employee,
+  companyId,
+  onUpdateEmployee,
+  onDeleteEmployee,
+  loading = false,
+  className = '',
+}: EmployeeDetailsTabsProps) {
+  const [activeTab, setActiveTab] = useState('personal');
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Debug: verificar se o componente está sendo renderizado
+  console.log('EmployeeDetailsTabs renderizado com employee:', employee?.nome);
+
+  // Hooks para as diferentes seções
+  const { 
+    documents, 
+    isLoading: documentsLoading, 
+    createDocument, 
+    updateDocument, 
+    deleteDocument 
+  } = useEmployeeDocuments(employee.id);
+
+  const { 
+    addresses, 
+    residentialAddress, 
+    isLoading: addressesLoading, 
+    createAddress, 
+    updateAddress, 
+    deleteAddress 
+  } = useEmployeeAddresses(employee.id);
+
+  const { 
+    spouse, 
+    isLoading: spouseLoading, 
+    createSpouse, 
+    updateSpouse, 
+    deleteSpouse 
+  } = useEmployeeSpouse(employee.id);
+
+  const { 
+    bankAccounts, 
+    primaryAccount, 
+    isLoading: bankLoading, 
+    createBankAccount, 
+    updateBankAccount, 
+    deleteBankAccount 
+  } = useEmployeeBankAccounts(employee.id);
+
+  const { 
+    education, 
+    highestEducation, 
+    isLoading: educationLoading, 
+    createEducation, 
+    updateEducation, 
+    deleteEducation 
+  } = useEmployeeEducation(employee.id);
+
+  const { 
+    dependents = [], 
+    dependentTypes = [], 
+    kinshipDegrees = [], 
+    deficiencyTypes = [], 
+    deficiencyDegrees = [],
+    isLoading: dependentsLoading, 
+    createDependent, 
+    updateDependent, 
+    deleteDependent 
+  } = useEmployeeDependents(employee.id);
+
+  const { 
+    benefits = [], 
+    benefitTypes = [],
+    isLoading: benefitsLoading, 
+    createBenefit, 
+    updateBenefit, 
+    deleteBenefit 
+  } = useEmployeeBenefits(employee.id);
+
+  // Buscar turnos de trabalho disponíveis
+  const { workShifts = [], isLoading: workShiftsLoading } = useWorkShifts(companyId);
+
+  const { 
+    contracts = [], 
+    positions = [], 
+    isLoading: contractsLoading, 
+    createContract, 
+    updateContract, 
+    deleteContract 
+  } = useEmployeeContracts(employee.id);
+
+  const handleUpdateEmployee = async (data: any) => {
+    try {
+      await onUpdateEmployee(data);
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Erro ao atualizar funcionário:', error);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'ativo': return 'bg-green-100 text-green-800';
+      case 'inativo': return 'bg-gray-100 text-gray-800';
+      case 'demitido': return 'bg-red-100 text-red-800';
+      case 'aposentado': return 'bg-blue-100 text-blue-800';
+      case 'licenca': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <div className={className}>
+      {/* Cabeçalho do Funcionário */}
+      <Card className="mb-6">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                <User className="h-8 w-8 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl">{employee.nome}</CardTitle>
+                <div className="flex items-center gap-2 mt-2">
+                  <Badge className={getStatusColor(employee.status || 'ativo')}>
+                    {employee.status || 'ativo'}
+                  </Badge>
+                  {employee.matricula && (
+                    <span className="text-sm text-muted-foreground">
+                      Matrícula: {employee.matricula}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditing(!isEditing)}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                {isEditing ? 'Cancelar' : 'Editar'}
+              </Button>
+              {onDeleteEmployee && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onDeleteEmployee(employee.id)}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Excluir
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Formulário de Edição */}
+      {isEditing && (
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <EmployeeForm
+              employee={employee}
+              companyId={companyId}
+              onSubmit={handleUpdateEmployee}
+              onCancel={() => setIsEditing(false)}
+              loading={loading}
+              showButtons={false} // Não mostra botões no modal de edição
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Abas de Detalhes */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-6 lg:grid-cols-13 gap-1">
+          <TabsTrigger value="personal" className="flex items-center gap-1 text-xs">
+            <User className="h-3 w-3" />
+            <span className="hidden sm:inline">Pessoal</span>
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="flex items-center gap-1 text-xs">
+            <FileText className="h-3 w-3" />
+            <span className="hidden sm:inline">Docs</span>
+          </TabsTrigger>
+          <TabsTrigger value="addresses" className="flex items-center gap-1 text-xs">
+            <MapPin className="h-3 w-3" />
+            <span className="hidden sm:inline">Endereços</span>
+          </TabsTrigger>
+          <TabsTrigger value="spouse" className="flex items-center gap-1 text-xs">
+            <Heart className="h-3 w-3" />
+            <span className="hidden sm:inline">Cônjuge</span>
+          </TabsTrigger>
+          <TabsTrigger value="bank" className="flex items-center gap-1 text-xs">
+            <CreditCard className="h-3 w-3" />
+            <span className="hidden sm:inline">Banco</span>
+          </TabsTrigger>
+          <TabsTrigger value="education" className="flex items-center gap-1 text-xs">
+            <GraduationCap className="h-3 w-3" />
+            <span className="hidden sm:inline">Escola</span>
+          </TabsTrigger>
+          <TabsTrigger value="dependents" className="flex items-center gap-1 text-xs">
+            <Users className="h-3 w-3" />
+            <span className="hidden sm:inline">Dep.</span>
+          </TabsTrigger>
+          <TabsTrigger value="benefits" className="flex items-center gap-1 text-xs">
+            <Gift className="h-3 w-3" />
+            <span className="hidden sm:inline">Benef.</span>
+          </TabsTrigger>
+          <TabsTrigger value="convenios" className="flex items-center gap-1 text-xs">
+            <Shield className="h-3 w-3" />
+            <span className="hidden sm:inline">Convênios</span>
+          </TabsTrigger>
+          <TabsTrigger value="vrva" className="flex items-center gap-1 text-xs">
+            <CreditCard className="h-3 w-3" />
+            <span className="hidden sm:inline">VR/VA</span>
+          </TabsTrigger>
+          <TabsTrigger value="transporte" className="flex items-center gap-1 text-xs">
+            <Bus className="h-3 w-3" />
+            <span className="hidden sm:inline">Transporte</span>
+          </TabsTrigger>
+          <TabsTrigger value="contracts" className="flex items-center gap-1 text-xs">
+            <FileSignature className="h-3 w-3" />
+            <span className="hidden sm:inline">Contratos</span>
+          </TabsTrigger>
+          <TabsTrigger value="tax" className="flex items-center gap-1 text-xs">
+            <Calculator className="h-3 w-3" />
+            <span className="hidden sm:inline">Fiscal</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="personal" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Informações Pessoais</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium border-b pb-2">Dados Básicos</h3>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Nome:</span>
+                      <p className="text-lg">{employee.nome}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">CPF:</span>
+                      <p className="text-lg font-mono">
+                        {employee.cpf ? employee.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">RG:</span>
+                      <p className="text-lg">{employee.rg || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Telefone:</span>
+                      <p className="text-lg">{employee.telefone || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Email:</span>
+                      <p className="text-lg">{employee.email || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium border-b pb-2">Informações Adicionais</h3>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Estado Civil:</span>
+                      <p className="text-lg capitalize">{employee.estado_civil || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Nacionalidade:</span>
+                      <p className="text-lg">{employee.nacionalidade || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Naturalidade:</span>
+                      <p className="text-lg">{employee.naturalidade || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Nome da Mãe:</span>
+                      <p className="text-lg">{employee.nome_mae || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Nome do Pai:</span>
+                      <p className="text-lg">{employee.nome_pai || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium border-b pb-2">Informações de PCD</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="is_pcd"
+                      checked={employee.is_pcd || false}
+                      disabled={!isEditing}
+                      onChange={(e) => {
+                        if (isEditing) {
+                          console.log('É PCD:', e.target.checked);
+                        }
+                      }}
+                      className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
+                    <label htmlFor="is_pcd" className="text-sm font-medium text-muted-foreground">
+                      Pessoa com Deficiência (PCD)
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-muted-foreground">
+                      {employee.is_pcd ? 'Sim' : 'Não'}
+                    </span>
+                  </div>
+                </div>
+                
+                {employee.is_pcd && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label htmlFor="deficiency_type" className="text-sm font-medium text-muted-foreground">
+                        Tipo de Deficiência
+                      </label>
+                      <select
+                        id="deficiency_type"
+                        disabled={!isEditing}
+                        value={employee.deficiency_type || ''}
+                        onChange={(e) => {
+                          if (isEditing) {
+                            console.log('Tipo de deficiência:', e.target.value);
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                      >
+                        <option value="">Selecione o tipo</option>
+                        <option value="fisica">Física</option>
+                        <option value="visual">Visual</option>
+                        <option value="auditiva">Auditiva</option>
+                        <option value="intelectual">Intelectual</option>
+                        <option value="mental">Mental</option>
+                        <option value="multipla">Múltipla</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label htmlFor="deficiency_degree" className="text-sm font-medium text-muted-foreground">
+                        Grau de Deficiência
+                      </label>
+                      <select
+                        id="deficiency_degree"
+                        disabled={!isEditing}
+                        value={employee.deficiency_degree || ''}
+                        onChange={(e) => {
+                          if (isEditing) {
+                            console.log('Grau de deficiência:', e.target.value);
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                      >
+                        <option value="">Selecione o grau</option>
+                        <option value="leve">Leve</option>
+                        <option value="moderada">Moderada</option>
+                        <option value="severa">Severa</option>
+                        <option value="profunda">Profunda</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium border-b pb-2">Configurações de Trabalho</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="work_schedule_id" className="text-sm font-medium text-muted-foreground">
+                      Turno de Trabalho
+                    </label>
+                    <select
+                      id="work_schedule_id"
+                      disabled={!isEditing || workShiftsLoading}
+                      value={employee.work_schedule_id || ''}
+                      onChange={(e) => {
+                        if (isEditing) {
+                          console.log('Turno de trabalho:', e.target.value);
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                    >
+                      <option value="">Selecione o turno</option>
+                      {workShifts.map((shift) => (
+                        <option key={shift.id} value={shift.id}>
+                          {shift.nome} ({shift.hora_inicio} - {shift.hora_fim})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      {employee.work_schedule_id ? 
+                        workShifts.find(s => s.id === employee.work_schedule_id)?.nome || 'Turno não encontrado' : 
+                        'Não definido'
+                      }
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="precisa_registrar_ponto"
+                      checked={employee.precisa_registrar_ponto || true}
+                      disabled={!isEditing}
+                      onChange={(e) => {
+                        if (isEditing) {
+                          // Aqui você pode implementar a lógica de atualização
+                          console.log('Precisa registrar ponto:', e.target.checked);
+                        }
+                      }}
+                      className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
+                    <label htmlFor="precisa_registrar_ponto" className="text-sm font-medium text-muted-foreground">
+                      Precisa registrar ponto
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      {employee.precisa_registrar_ponto ? 'Sim' : 'Não'}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="tipo_banco_horas" className="text-sm font-medium text-muted-foreground">
+                      Tipo de Banco de Horas
+                    </label>
+                    <select
+                      id="tipo_banco_horas"
+                      disabled={!isEditing}
+                      value={employee.tipo_banco_horas || 'compensatorio'}
+                      onChange={(e) => {
+                        if (isEditing) {
+                          console.log('Tipo de banco de horas:', e.target.value);
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                    >
+                      <option value="compensatorio">Compensatório</option>
+                      <option value="banco_horas">Banco de Horas</option>
+                      <option value="horas_extras">Horas Extras</option>
+                      <option value="nao_aplicavel">Não Aplicável</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      {employee.tipo_banco_horas === 'compensatorio' && 'Compensatório'}
+                      {employee.tipo_banco_horas === 'banco_horas' && 'Banco de Horas'}
+                      {employee.tipo_banco_horas === 'horas_extras' && 'Horas Extras'}
+                      {employee.tipo_banco_horas === 'nao_aplicavel' && 'Não Aplicável'}
+                      {!employee.tipo_banco_horas && 'Compensatório'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium border-b pb-2">Adicionais e Complementos</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Adicionais Aplicáveis
+                    </label>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="periculosidade"
+                          checked={employee.periculosidade || false}
+                          disabled={!isEditing}
+                          onChange={(e) => {
+                            if (isEditing) {
+                              console.log('Periculosidade:', e.target.checked);
+                            }
+                          }}
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <label htmlFor="periculosidade" className="text-sm text-muted-foreground">
+                          Periculosidade
+                        </label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="insalubridade"
+                          checked={employee.insalubridade || false}
+                          disabled={!isEditing}
+                          onChange={(e) => {
+                            if (isEditing) {
+                              console.log('Insalubridade:', e.target.checked);
+                            }
+                          }}
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <label htmlFor="insalubridade" className="text-sm text-muted-foreground">
+                          Insalubridade
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Status dos Adicionais
+                    </label>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Periculosidade:</span>
+                        <span className="text-sm font-medium">
+                          {employee.periculosidade ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Insalubridade:</span>
+                        <span className="text-sm font-medium">
+                          {employee.insalubridade ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Adicional Noturno:</span>
+                        <span className="text-sm font-medium text-blue-600">
+                          Calculado automaticamente
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Adicional FDS:</span>
+                        <span className="text-sm font-medium text-blue-600">
+                          Calculado automaticamente
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium border-b pb-2">Datas</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Data de Nascimento:</span>
+                    <p className="text-lg">
+                      {employee.data_nascimento ? new Date(employee.data_nascimento).toLocaleDateString('pt-BR') : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Data de Admissão:</span>
+                    <p className="text-lg">
+                      {employee.data_admissao ? new Date(employee.data_admissao).toLocaleDateString('pt-BR') : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Data de Demissão:</span>
+                    <p className="text-lg">
+                      {employee.data_demissao ? new Date(employee.data_demissao).toLocaleDateString('pt-BR') : '-'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="documents" className="mt-6">
+          <EmployeeDocuments
+            employeeId={employee.id}
+            documents={documents}
+            onSubmit={createDocument.mutateAsync}
+            onDelete={deleteDocument.mutateAsync}
+            loading={documentsLoading || createDocument.isPending || deleteDocument.isPending}
+          />
+        </TabsContent>
+
+        <TabsContent value="addresses" className="mt-6">
+          <EmployeeAddresses
+            employeeId={employee.id}
+            addresses={addresses}
+            onSubmit={createAddress.mutateAsync}
+            onDelete={deleteAddress.mutateAsync}
+            loading={addressesLoading || createAddress.isPending || deleteAddress.isPending}
+          />
+        </TabsContent>
+
+        <TabsContent value="spouse" className="mt-6">
+          <EmployeeSpouse
+            employeeId={employee.id}
+            spouse={spouse}
+            onSubmit={spouse ? updateSpouse.mutateAsync : createSpouse.mutateAsync}
+            onDelete={spouse ? deleteSpouse.mutateAsync : undefined}
+            loading={spouseLoading || createSpouse.isPending || updateSpouse.isPending || deleteSpouse.isPending}
+          />
+        </TabsContent>
+
+        <TabsContent value="bank" className="mt-6">
+          <EmployeeBankAccounts
+            employeeId={employee.id}
+            bankAccounts={bankAccounts}
+            onSubmit={createBankAccount.mutateAsync}
+            onDelete={deleteBankAccount.mutateAsync}
+            loading={bankLoading || createBankAccount.isPending || deleteBankAccount.isPending}
+          />
+        </TabsContent>
+
+        <TabsContent value="education" className="mt-6">
+          <EmployeeEducation
+            employeeId={employee.id}
+            education={education}
+            onSubmit={createEducation.mutateAsync}
+            onDelete={deleteEducation.mutateAsync}
+            loading={educationLoading || createEducation.isPending || deleteEducation.isPending}
+          />
+        </TabsContent>
+
+        <TabsContent value="dependents" className="mt-6">
+          <EmployeeDependents
+            employeeId={employee.id}
+            dependents={dependents}
+            dependentTypes={dependentTypes}
+            kinshipDegrees={kinshipDegrees}
+            deficiencyTypes={deficiencyTypes}
+            deficiencyDegrees={deficiencyDegrees}
+            onSubmit={createDependent.mutateAsync}
+            onUpdate={updateDependent.mutateAsync}
+            onDelete={deleteDependent.mutateAsync}
+            loading={dependentsLoading || createDependent.isPending || updateDependent.isPending || deleteDependent.isPending}
+          />
+        </TabsContent>
+
+        <TabsContent value="benefits" className="mt-6">
+          <EmployeeBenefits
+            employeeId={employee.id}
+            benefits={benefits}
+            benefitTypes={benefitTypes}
+            onSubmit={createBenefit.mutateAsync}
+            onUpdate={updateBenefit.mutateAsync}
+            onDelete={deleteBenefit.mutateAsync}
+            loading={benefitsLoading || createBenefit.isPending || updateBenefit.isPending || deleteBenefit.isPending}
+          />
+        </TabsContent>
+
+        <TabsContent value="convenios" className="mt-6">
+          <EmployeeConvenios
+            employeeId={employee.id}
+            companyId={companyId || ''}
+          />
+        </TabsContent>
+
+        <TabsContent value="vrva" className="mt-6">
+          <EmployeeVrVa
+            employeeId={employee.id}
+            companyId={companyId || ''}
+          />
+        </TabsContent>
+
+        <TabsContent value="transporte" className="mt-6">
+          <EmployeeTransporte
+            employeeId={employee.id}
+            companyId={companyId || ''}
+          />
+        </TabsContent>
+
+        <TabsContent value="contracts" className="mt-6">
+          <EmployeeContracts
+            employeeId={employee.id}
+            contracts={contracts}
+            positions={positions}
+            workShifts={workShifts}
+            onSubmit={createContract.mutateAsync}
+            onUpdate={updateContract.mutateAsync}
+            onDelete={deleteContract.mutateAsync}
+            loading={contractsLoading || createContract.isPending || updateContract.isPending || deleteContract.isPending}
+          />
+        </TabsContent>
+
+        <TabsContent value="tax" className="mt-6">
+          <EmployeeFiscal
+            employeeId={employee.id}
+            employee={employee}
+            loading={loading}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+

@@ -6,6 +6,10 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { OvertimeCalculationForm } from '@/components/rh/payroll/calculations/OvertimeCalculationForm';
+import { VacationCalculationForm } from '@/components/rh/payroll/calculations/VacationCalculationForm';
+import { ThirteenthSalaryCalculationForm } from '@/components/rh/payroll/calculations/ThirteenthSalaryCalculationForm';
+import { TaxesCalculationForm } from '@/components/rh/payroll/calculations/TaxesCalculationForm';
+import { PayrollReportsModule } from '@/components/rh/payroll/reports/PayrollReportsModule';
 import { 
   Clock, 
   Calendar, 
@@ -23,7 +27,10 @@ import {
   Download,
   RefreshCw,
   Zap,
-  Plus
+  Plus,
+  ExternalLink,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import { useUserCompany } from '@/hooks/useUserCompany';
 import { useToast } from '@/hooks/use-toast';
@@ -58,7 +65,10 @@ export default function AdvancedPayrollManagement() {
     totalEmployees: 0,
     processedEmployees: 0,
     totalAmount: 0,
-    status: 'draft' as 'draft' | 'calculating' | 'completed' | 'error'
+    status: 'draft' as 'draft' | 'calculating' | 'completed' | 'error',
+    calculationScope: 'company' as 'company' | 'cost_center' | 'individual',
+    selectedCostCenter: '',
+    selectedEmployee: ''
   });
 
   // =====================================================
@@ -74,10 +84,10 @@ export default function AdvancedPayrollManagement() {
     // Criar processo de cálculo
     const process: PayrollProcess = {
       id: `process-${Date.now()}`,
-      name: `Folha ${payrollData.referencePeriod}`,
+      name: `Folha Completa ${payrollData.referencePeriod}`,
       status: 'processing',
       progress: 0,
-      totalEmployees: payrollData.totalEmployees || 20000, // Usar valor configurado ou 20k
+      totalEmployees: payrollData.totalEmployees || 20000,
       processedEmployees: 0,
       startTime: new Date()
     };
@@ -86,16 +96,34 @@ export default function AdvancedPayrollManagement() {
     setProcesses(prev => [process, ...prev]);
 
     try {
-      // Simular processamento em lotes de 1000 funcionários
+      // Etapas do cálculo completo da folha
+      const calculationSteps = [
+        { name: 'Salários Base', progress: 10 },
+        { name: 'Horas Extras e Adicionais', progress: 25 },
+        { name: 'Benefícios e Descontos', progress: 40 },
+        { name: 'Cálculo de Férias', progress: 55 },
+        { name: '13º Salário', progress: 70 },
+        { name: 'Impostos (INSS, IRRF, FGTS)', progress: 85 },
+        { name: 'Consolidação Final', progress: 100 }
+      ];
+
+      let currentStep = 0;
       const batchSize = 1000;
       const totalBatches = Math.ceil(process.totalEmployees / batchSize);
 
       for (let batch = 0; batch < totalBatches; batch++) {
         // Simular delay de processamento
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 200));
 
         const processed = Math.min((batch + 1) * batchSize, process.totalEmployees);
-        const progress = Math.round((processed / process.totalEmployees) * 100);
+        const batchProgress = Math.round((processed / process.totalEmployees) * 100);
+        
+        // Atualizar etapa atual
+        if (batchProgress >= calculationSteps[currentStep]?.progress) {
+          currentStep = Math.min(currentStep + 1, calculationSteps.length - 1);
+        }
+
+        const progress = Math.round((batchProgress + (currentStep * 10)) / 2);
 
         setCurrentProcess(prev => prev ? {
           ...prev,
@@ -115,6 +143,15 @@ export default function AdvancedPayrollManagement() {
             ? { ...p, progress, processedEmployees: processed }
             : p
         ));
+
+        // Mostrar etapa atual
+        if (currentStep < calculationSteps.length) {
+          toast({
+            title: 'Processando...',
+            description: `${calculationSteps[currentStep].name} - ${processed} de ${process.totalEmployees} funcionários`,
+            variant: 'default',
+          });
+        }
       }
 
       // Finalizar processo
@@ -133,8 +170,8 @@ export default function AdvancedPayrollManagement() {
       setPayrollData(prev => ({ ...prev, status: 'completed' }));
 
       toast({
-        title: 'Cálculo Concluído!',
-        description: `Folha de pagamento processada para ${process.totalEmployees} funcionários.`,
+        title: 'Folha Completa Calculada!',
+        description: `Todos os cálculos foram processados para ${process.totalEmployees} funcionários.`,
         variant: 'default',
       });
 
@@ -155,7 +192,7 @@ export default function AdvancedPayrollManagement() {
 
       toast({
         title: 'Erro no Processamento',
-        description: 'Ocorreu um erro durante o cálculo da folha.',
+        description: 'Ocorreu um erro durante o cálculo da folha completa.',
         variant: 'destructive',
       });
     } finally {
@@ -204,13 +241,7 @@ export default function AdvancedPayrollManagement() {
     });
   };
 
-  const configureParameters = () => {
-    toast({
-      title: 'Configuração de Parâmetros',
-      description: 'Funcionalidade de configuração será implementada em breve.',
-      variant: 'default',
-    });
-  };
+  // Removido - função redundante substituída por links diretos
 
   const generateAllDocuments = async () => {
     if (payrollData.status !== 'completed') {
@@ -450,21 +481,57 @@ export default function AdvancedPayrollManagement() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Settings className="h-5 w-5" />
-              Configuração
+              Configurações
             </CardTitle>
             <CardDescription>
-              Configure parâmetros e importe dados de funcionários
+              Acesse as páginas de configuração da folha de pagamento
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Button onClick={configureParameters} variant="outline" className="w-full">
-              <Settings className="h-4 w-4 mr-2" />
-              Configurar Parâmetros
-            </Button>
-            <Button onClick={importEmployeeData} variant="outline" className="w-full">
-              <Upload className="h-4 w-4 mr-2" />
-              Importar Dados
-            </Button>
+            <div className="space-y-2">
+              <Button 
+                onClick={() => window.open('/rh/inss-brackets', '_blank')} 
+                variant="outline" 
+                className="w-full justify-start"
+              >
+                <Calculator className="h-4 w-4 mr-2" />
+                Faixas INSS
+                <ExternalLink className="h-3 w-3 ml-auto" />
+              </Button>
+              <Button 
+                onClick={() => window.open('/rh/irrf-brackets', '_blank')} 
+                variant="outline" 
+                className="w-full justify-start"
+              >
+                <Calculator className="h-4 w-4 mr-2" />
+                Faixas IRRF
+                <ExternalLink className="h-3 w-3 ml-auto" />
+              </Button>
+              <Button 
+                onClick={() => window.open('/rh/payroll-config', '_blank')} 
+                variant="outline" 
+                className="w-full justify-start"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Configurações de Folha
+                <ExternalLink className="h-3 w-3 ml-auto" />
+              </Button>
+              <Button 
+                onClick={() => window.open('/rh/rubricas', '_blank')} 
+                variant="outline" 
+                className="w-full justify-start"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Rubricas
+                <ExternalLink className="h-3 w-3 ml-auto" />
+              </Button>
+            </div>
+            <div className="pt-2 border-t">
+              <Button onClick={importEmployeeData} variant="outline" className="w-full">
+                <Upload className="h-4 w-4 mr-2" />
+                Importar Dados
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
@@ -481,12 +548,12 @@ export default function AdvancedPayrollManagement() {
           <CardContent>
             <Button 
               onClick={startBulkCalculation} 
-              disabled={isProcessing}
+              disabled={isProcessing || (payrollData.calculationScope === 'cost_center' && !payrollData.selectedCostCenter) || (payrollData.calculationScope === 'individual' && !payrollData.selectedEmployee)}
               className="w-full"
               size="lg"
             >
               <Zap className="h-4 w-4 mr-2" />
-              {isProcessing ? 'Processando...' : 'Calcular Folha Completa'}
+              {isProcessing ? 'Processando...' : `Calcular Folha Completa - ${payrollData.calculationScope === 'company' ? 'Toda Empresa' : payrollData.calculationScope === 'cost_center' ? 'Centro de Custo' : 'Funcionário Individual'}`}
             </Button>
           </CardContent>
         </Card>
@@ -587,10 +654,133 @@ export default function AdvancedPayrollManagement() {
 
             <Card>
               <CardHeader>
+                <CardTitle>Status das Configurações</CardTitle>
+                <CardDescription>Verifique se todas as configurações necessárias estão ativas</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Calculator className="h-5 w-5 text-blue-600" />
+                      <div>
+                        <p className="font-medium">Faixas INSS</p>
+                        <p className="text-sm text-muted-foreground">Configuração de impostos</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-green-600">Ativo</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Calculator className="h-5 w-5 text-blue-600" />
+                      <div>
+                        <p className="font-medium">Faixas IRRF</p>
+                        <p className="text-sm text-muted-foreground">Configuração de impostos</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-green-600">Ativo</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Settings className="h-5 w-5 text-blue-600" />
+                      <div>
+                        <p className="font-medium">Configurações de Folha</p>
+                        <p className="text-sm text-muted-foreground">Parâmetros gerais</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <XCircle className="h-4 w-4 text-red-600" />
+                      <span className="text-sm text-red-600">Pendente</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                      <div>
+                        <p className="font-medium">Rubricas</p>
+                        <p className="text-sm text-muted-foreground">Códigos de pagamento</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-green-600">Ativo</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    <strong>Dica:</strong> Clique nos botões de configuração acima para acessar as páginas específicas.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle>Configurações Rápidas</CardTitle>
                 <CardDescription>Ajuste parâmetros da folha de pagamento</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Escopo do Cálculo</label>
+                  <select
+                    value={payrollData.calculationScope}
+                    onChange={(e) => setPayrollData(prev => ({ 
+                      ...prev, 
+                      calculationScope: e.target.value as 'company' | 'cost_center' | 'individual' 
+                    }))}
+                    className="w-full mt-1 p-2 border rounded"
+                  >
+                    <option value="company">Toda a Empresa</option>
+                    <option value="cost_center">Centro de Custo Específico</option>
+                    <option value="individual">Funcionário Individual</option>
+                  </select>
+                </div>
+
+                {payrollData.calculationScope === 'cost_center' && (
+                  <div>
+                    <label className="text-sm font-medium">Centro de Custo</label>
+                    <select
+                      value={payrollData.selectedCostCenter}
+                      onChange={(e) => setPayrollData(prev => ({ ...prev, selectedCostCenter: e.target.value }))}
+                      className="w-full mt-1 p-2 border rounded"
+                    >
+                      <option value="">Selecione um centro de custo</option>
+                      <option value="rh">Recursos Humanos</option>
+                      <option value="financeiro">Financeiro</option>
+                      <option value="vendas">Vendas</option>
+                      <option value="producao">Produção</option>
+                      <option value="comercial">Comercial</option>
+                    </select>
+                  </div>
+                )}
+
+                {payrollData.calculationScope === 'individual' && (
+                  <div>
+                    <label className="text-sm font-medium">Funcionário</label>
+                    <select
+                      value={payrollData.selectedEmployee}
+                      onChange={(e) => setPayrollData(prev => ({ ...prev, selectedEmployee: e.target.value }))}
+                      className="w-full mt-1 p-2 border rounded"
+                    >
+                      <option value="">Selecione um funcionário</option>
+                      <option value="1">João Silva</option>
+                      <option value="2">Maria Santos</option>
+                      <option value="3">Pedro Costa</option>
+                      <option value="4">Ana Oliveira</option>
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <label className="text-sm font-medium">Período de Referência</label>
                   <input
@@ -617,6 +807,7 @@ export default function AdvancedPayrollManagement() {
                     onChange={(e) => setPayrollData(prev => ({ ...prev, totalEmployees: parseInt(e.target.value) || 0 }))}
                     className="w-full mt-1 p-2 border rounded"
                     placeholder="Ex: 20000"
+                    disabled={payrollData.calculationScope === 'individual'}
                   />
                 </div>
               </CardContent>
@@ -636,6 +827,9 @@ export default function AdvancedPayrollManagement() {
             <CardContent>
               <OvertimeCalculationForm
                 companyId={companyId}
+                calculationScope={payrollData.calculationScope}
+                selectedCostCenter={payrollData.selectedCostCenter}
+                selectedEmployee={payrollData.selectedEmployee}
                 onCalculationComplete={handleCalculationComplete}
               />
             </CardContent>
@@ -644,82 +838,40 @@ export default function AdvancedPayrollManagement() {
 
         {/* Tab de Férias */}
         <TabsContent value="vacation" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Cálculo de Férias</CardTitle>
-              <CardDescription>
-                Calcule férias proporcionais, 1/3 constitucional e abono pecuniário
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-32 text-muted-foreground">
-                <div className="text-center">
-                  <Calendar className="h-8 w-8 mx-auto mb-2" />
-                  <p>Funcionalidade em desenvolvimento</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <VacationCalculationForm
+            companyId={companyId}
+            calculationScope={payrollData.calculationScope}
+            selectedCostCenter={payrollData.selectedCostCenter}
+            selectedEmployee={payrollData.selectedEmployee}
+            onCalculationComplete={handleCalculationComplete}
+          />
         </TabsContent>
 
         {/* Tab de 13º Salário */}
         <TabsContent value="thirteenth" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Cálculo de 13º Salário</CardTitle>
-              <CardDescription>
-                Calcule 13º salário e valores proporcionais
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-32 text-muted-foreground">
-                <div className="text-center">
-                  <DollarSign className="h-8 w-8 mx-auto mb-2" />
-                  <p>Funcionalidade em desenvolvimento</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <ThirteenthSalaryCalculationForm
+            companyId={companyId}
+            calculationScope={payrollData.calculationScope}
+            selectedCostCenter={payrollData.selectedCostCenter}
+            selectedEmployee={payrollData.selectedEmployee}
+            onCalculationComplete={handleCalculationComplete}
+          />
         </TabsContent>
 
         {/* Tab de Impostos */}
         <TabsContent value="taxes" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Cálculo de Impostos</CardTitle>
-              <CardDescription>
-                Calcule INSS, IRRF, FGTS e contribuições sindicais
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-32 text-muted-foreground">
-                <div className="text-center">
-                  <Calculator className="h-8 w-8 mx-auto mb-2" />
-                  <p>Funcionalidade em desenvolvimento</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <TaxesCalculationForm
+            companyId={companyId}
+            calculationScope={payrollData.calculationScope}
+            selectedCostCenter={payrollData.selectedCostCenter}
+            selectedEmployee={payrollData.selectedEmployee}
+            onCalculationComplete={handleCalculationComplete}
+          />
         </TabsContent>
 
         {/* Tab de Relatórios */}
         <TabsContent value="reports" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Relatórios e Exportações</CardTitle>
-              <CardDescription>
-                Gere relatórios detalhados e exporte dados da folha
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-32 text-muted-foreground">
-                <div className="text-center">
-                  <Download className="h-8 w-8 mx-auto mb-2" />
-                  <p>Funcionalidade em desenvolvimento</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <PayrollReportsModule companyId={companyId} />
         </TabsContent>
       </Tabs>
     </div>

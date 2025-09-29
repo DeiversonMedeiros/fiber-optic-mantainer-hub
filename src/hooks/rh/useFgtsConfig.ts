@@ -46,7 +46,7 @@ export const useFgtsConfig = () => {
       try {
         // Consulta simples sem filtros primeiro para testar
         const { data: allData, error: allError } = await rhSupabase
-          .from('fgts_config')
+          .from('rh.fgts_config')
           .select('*');
 
         if (allError) throw allError;
@@ -74,7 +74,7 @@ export const useFgtsConfig = () => {
       if (!companyId) throw new Error('Company ID not found');
 
       const { data: result, error } = await rhSupabase
-        .from('fgts_config')
+        .from('rh.fgts_config')
         .insert([{
           ...data,
           company_id: companyId,
@@ -106,7 +106,7 @@ export const useFgtsConfig = () => {
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: FgtsConfigUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('fgts_config')
+        .from('rh.fgts_config')
         .update({
           ...data,
           updated_by: user?.id,
@@ -138,7 +138,7 @@ export const useFgtsConfig = () => {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('fgts_config')
+        .from('rh.fgts_config')
         .update({ is_active: false, updated_by: user?.id })
         .eq('id', id);
 

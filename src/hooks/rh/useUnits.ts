@@ -19,7 +19,7 @@ export function useUnits({ companyId }: UseUnitsProps) {
     queryKey: ['units', companyId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('units')
+        .from('core.units')
         .select(`
           *,
           parent:units!parent_id(id, nome, codigo),
@@ -40,7 +40,7 @@ export function useUnits({ companyId }: UseUnitsProps) {
     queryKey: ['units-select', companyId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('units')
+        .from('core.units')
         .select('id, codigo, nome, parent_id, nivel_hierarquico')
         .eq('company_id', companyId)
         .eq('is_active', true)
@@ -59,7 +59,7 @@ export function useUnits({ companyId }: UseUnitsProps) {
       let nivel = 1;
       if (data.parent_id) {
         const { data: parent } = await rhSupabase
-          .from('units')
+          .from('core.units')
           .select('nivel_hierarquico')
           .eq('id', data.parent_id)
           .single();
@@ -70,7 +70,7 @@ export function useUnits({ companyId }: UseUnitsProps) {
       }
 
       const { data: result, error } = await rhSupabase
-        .from('units')
+        .from('core.units')
         .insert({ ...data, nivel_hierarquico: nivel })
         .select()
         .single();
@@ -88,7 +88,7 @@ export function useUnits({ companyId }: UseUnitsProps) {
   const updateUnit = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: UnitUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('units')
+        .from('core.units')
         .update(data)
         .eq('id', id)
         .select()
@@ -108,7 +108,7 @@ export function useUnits({ companyId }: UseUnitsProps) {
     mutationFn: async (id: string) => {
       // Verificar se tem filhos
       const { data: children } = await rhSupabase
-        .from('units')
+        .from('core.units')
         .select('id')
         .eq('parent_id', id)
         .eq('is_active', true);
@@ -118,7 +118,7 @@ export function useUnits({ companyId }: UseUnitsProps) {
       }
 
       const { error } = await rhSupabase
-        .from('units')
+        .from('core.units')
         .update({ is_active: false })
         .eq('id', id);
 
@@ -137,7 +137,7 @@ export function useUnits({ companyId }: UseUnitsProps) {
       let nivel = 1;
       if (newParentId) {
         const { data: parent } = await rhSupabase
-          .from('units')
+          .from('core.units')
           .select('nivel_hierarquico')
           .eq('id', newParentId)
           .single();
@@ -148,7 +148,7 @@ export function useUnits({ companyId }: UseUnitsProps) {
       }
 
       const { error } = await rhSupabase
-        .from('units')
+        .from('core.units')
         .update({ parent_id: newParentId, nivel_hierarquico: nivel })
         .eq('id', id);
 

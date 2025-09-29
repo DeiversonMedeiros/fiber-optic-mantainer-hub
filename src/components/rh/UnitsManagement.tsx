@@ -4,12 +4,14 @@ import { Unit, UnitInsert, UnitUpdate } from '@/integrations/supabase/rh-types';
 import { UnitsTable } from './UnitsTable';
 import { UnitsForm } from './UnitsForm';
 import { FormModal } from './FormModal';
+import { OrganogramViewComponent } from './OrganogramView';
 import { Button } from '@/components/ui/button';
-import { Plus, Building2, Search, TreePine } from 'lucide-react';
+import { Plus, Building2, Search, TreePine, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface UnitsManagementProps {
   companyId: string;
@@ -169,80 +171,102 @@ export function UnitsManagement({ companyId, className = '' }: UnitsManagementPr
 
   return (
     <div className={`space-y-6 ${className}`}>
-      {/* Header com estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Unidades</CardTitle>
-            <Building2 className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{units.length}</div>
-            <p className="text-xs text-muted-foreground">Unidades ativas</p>
-          </CardContent>
-        </Card>
+      {/* Abas para diferentes visualizações */}
+      <Tabs defaultValue="organogram" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="organogram" className="flex items-center gap-2">
+            <Eye className="h-4 w-4" />
+            <span>Visualização</span>
+          </TabsTrigger>
+          <TabsTrigger value="management" className="flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            <span>Gestão de Unidades</span>
+          </TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Níveis Hierárquicos</CardTitle>
-            <TreePine className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {Math.max(...units.map(u => u.nivel_hierarquico || 1))}
-            </div>
-            <p className="text-xs text-muted-foreground">Níveis de hierarquia</p>
-          </CardContent>
-        </Card>
+        {/* Aba do Organograma Visual */}
+        <TabsContent value="organogram" className="mt-6">
+          <OrganogramViewComponent companyId={companyId} />
+        </TabsContent>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Unidades Raiz</CardTitle>
-            <Building2 className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
-              {units.filter(u => !u.parent_id).length}
-            </div>
-            <p className="text-xs text-muted-foreground">Unidades principais</p>
-          </CardContent>
-        </Card>
-      </div>
+        {/* Aba de Gestão de Unidades */}
+        <TabsContent value="management" className="mt-6">
+          {/* Header com estatísticas */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total de Unidades</CardTitle>
+                <Building2 className="h-4 w-4 text-blue-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{units.length}</div>
+                <p className="text-xs text-muted-foreground">Unidades ativas</p>
+              </CardContent>
+            </Card>
 
-      {/* Filtros e ações */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <CardTitle>Organograma</CardTitle>
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar unidades..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 w-full sm:w-64"
-                />
-              </div>
-              <Button onClick={() => setIsCreateModalOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Unidade
-              </Button>
-            </div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Níveis Hierárquicos</CardTitle>
+                <TreePine className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {Math.max(...units.map(u => u.nivel_hierarquico || 1))}
+                </div>
+                <p className="text-xs text-muted-foreground">Níveis de hierarquia</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Unidades Raiz</CardTitle>
+                <Building2 className="h-4 w-4 text-orange-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-600">
+                  {units.filter(u => !u.parent_id).length}
+                </div>
+                <p className="text-xs text-muted-foreground">Unidades principais</p>
+              </CardContent>
+            </Card>
           </div>
-        </CardHeader>
-        <CardContent>
-          <UnitsTable
-            units={treeUnits}
-            onEdit={handleEditClick}
-            onDelete={handleDelete}
-            onView={handleView}
-            onMove={handleMove}
-            isLoading={isLoading}
-            unitsForSelect={unitsForSelect}
-          />
-        </CardContent>
-      </Card>
+
+          {/* Filtros e ações */}
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                <CardTitle>Gestão de Unidades</CardTitle>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar unidades..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-8 w-full sm:w-64"
+                    />
+                  </div>
+                  <Button onClick={() => setIsCreateModalOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nova Unidade
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <UnitsTable
+                units={treeUnits}
+                onEdit={handleEditClick}
+                onDelete={handleDelete}
+                onView={handleView}
+                onMove={handleMove}
+                isLoading={isLoading}
+                unitsForSelect={unitsForSelect}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Modais */}
       <FormModal

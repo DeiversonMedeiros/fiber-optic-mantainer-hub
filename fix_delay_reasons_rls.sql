@@ -45,3 +45,44 @@ CREATE POLICY "Permitir exclusão para usuários autenticados" ON rh.delay_reaso
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

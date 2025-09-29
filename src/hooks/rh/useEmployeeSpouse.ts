@@ -19,14 +19,22 @@ export const useEmployeeSpouse = (employeeId?: string) => {
     queryFn: async (): Promise<EmployeeSpouse | null> => {
       if (!employeeId) return null;
       
-      const { data, error } = await rhSupabase
-        .from('employee_spouses')
-        .select('*')
-        .eq('employee_id', employeeId)
-        .single();
-      
-      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows returned
-      return data || null;
+      try {
+        const { data, error } = await rhSupabase
+          .from('rh.employee_spouses')
+          .select('*')
+          .eq('employee_id', employeeId)
+          .maybeSingle(); // Use maybeSingle() instead of single()
+        
+        if (error) throw error;
+        return data || null;
+      } catch (error: any) {
+        // Se for erro de permissão ou tabela não existe, retorna null
+        if (error.code === 'PGRST116' || error.code === '42P01') {
+          return null;
+        }
+        throw error;
+      }
     },
     enabled: !!employeeId,
   });
@@ -34,7 +42,7 @@ export const useEmployeeSpouse = (employeeId?: string) => {
   const createSpouse = useMutation({
     mutationFn: async (newSpouse: EmployeeSpouseInsert) => {
       const { data, error } = await rhSupabase
-        .from('employee_spouses')
+        .from('rh.employee_spouses')
         .insert(newSpouse)
         .select()
         .single();
@@ -49,7 +57,7 @@ export const useEmployeeSpouse = (employeeId?: string) => {
   const updateSpouse = useMutation({
     mutationFn: async ({ id, ...updates }: EmployeeSpouseUpdate & { id: string }) => {
       const { data, error } = await rhSupabase
-        .from('employee_spouses')
+        .from('rh.employee_spouses')
         .update(updates)
         .eq('id', id)
         .select()
@@ -65,7 +73,7 @@ export const useEmployeeSpouse = (employeeId?: string) => {
   const deleteSpouse = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('employee_spouses')
+        .from('rh.employee_spouses')
         .delete()
         .eq('id', id);
       if (error) throw error;

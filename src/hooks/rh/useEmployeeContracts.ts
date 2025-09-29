@@ -5,7 +5,7 @@ import {
   EmploymentContractInsert, 
   EmploymentContractUpdate,
   Position,
-  WorkSchedule
+  WorkShift
 } from '@/integrations/supabase/rh-types';
 
 export function useEmployeeContracts(employeeId: string) {
@@ -20,7 +20,7 @@ export function useEmployeeContracts(employeeId: string) {
     queryKey: ['employee-contracts', employeeId],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('employment_contracts')
+        .from('rh.employment_contracts')
         .select('*')
         .eq('employee_id', employeeId)
         .eq('is_active', true)
@@ -37,7 +37,7 @@ export function useEmployeeContracts(employeeId: string) {
     queryKey: ['positions'],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('positions')
+        .from('rh.positions')
         .select('*')
         .eq('is_active', true)
         .order('nome');
@@ -47,18 +47,19 @@ export function useEmployeeContracts(employeeId: string) {
     },
   });
 
-  // Buscar escalas de trabalho
-  const { data: workSchedules = [] } = useQuery({
-    queryKey: ['work-schedules'],
+  // Buscar turnos de trabalho
+  const { data: workShifts = [] } = useQuery({
+    queryKey: ['work-shifts'],
     queryFn: async () => {
       const { data, error } = await rhSupabase
-        .from('work_schedules')
+        .schema('rh')
+        .from('rh.work_shifts')
         .select('*')
         .eq('is_active', true)
         .order('nome');
 
       if (error) throw error;
-      return data as WorkSchedule[];
+      return data as WorkShift[];
     },
   });
 
@@ -66,7 +67,7 @@ export function useEmployeeContracts(employeeId: string) {
   const createContract = useMutation({
     mutationFn: async (data: EmploymentContractInsert) => {
       const { data: result, error } = await rhSupabase
-        .from('employment_contracts')
+        .from('rh.employment_contracts')
         .insert(data)
         .select()
         .single();
@@ -83,7 +84,7 @@ export function useEmployeeContracts(employeeId: string) {
   const updateContract = useMutation({
     mutationFn: async ({ id, ...data }: { id: string } & EmploymentContractUpdate) => {
       const { data: result, error } = await rhSupabase
-        .from('employment_contracts')
+        .from('rh.employment_contracts')
         .update(data)
         .eq('id', id)
         .select()
@@ -101,7 +102,7 @@ export function useEmployeeContracts(employeeId: string) {
   const deleteContract = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('employment_contracts')
+        .from('rh.employment_contracts')
         .update({ is_active: false })
         .eq('id', id);
 
@@ -115,7 +116,7 @@ export function useEmployeeContracts(employeeId: string) {
   return {
     contracts,
     positions,
-    workSchedules,
+    workShifts,
     isLoading,
     error,
     createContract,

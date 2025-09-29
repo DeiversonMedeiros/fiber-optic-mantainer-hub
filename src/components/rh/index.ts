@@ -17,8 +17,7 @@ export { WorkScheduleTable } from './WorkScheduleTable';
 export { WorkScheduleForm } from './WorkScheduleForm';
 export { WorkShiftTable } from './WorkShiftTable';
 export { WorkShiftForm } from './WorkShiftForm';
-export { BenefitsTable } from './BenefitsTable';
-export { BenefitsForm } from './BenefitsForm';
+// BenefitsTable e BenefitsForm removidos - substituídos pelo sistema unificado
 export { PayrollTable } from './PayrollTable';
 export { PayrollForm } from './PayrollForm';
 export { VacationsTable } from './VacationsTable';
@@ -45,9 +44,8 @@ export { ValidationDisplay } from './ValidationDisplay';
 export { EmployeeManagement, EmployeeManagementPage } from './EmployeeManagement';
 export { PositionManagement } from './PositionManagement';
 export { TimeRecordManagement, TimeRecordManagementPage } from './TimeRecordManagement';
-export { WorkScheduleManagement } from './WorkScheduleManagement';
 export { WorkShiftManagement } from './WorkShiftManagement';
-export { BenefitsManagement } from './BenefitsManagement';
+// BenefitsManagement removido - substituído pelo sistema unificado
 export { VacationsManagement } from './VacationsManagement';
 export { MedicalCertificatesManagement } from './MedicalCertificatesManagement';
 export { ESocialEventsManagement } from './ESocialEventsManagement';
@@ -89,12 +87,20 @@ export { RateiosManagement } from './RateiosManagement';
 export { RateiosTable } from './RateiosTable';
 export { RateioDepartamentosTable } from './RateioDepartamentosTable';
 export { RateioForm } from './RateioForm';
-export { VrVaManagement } from './VrVaManagement';
-export { VrVaTable } from './VrVaTable';
-export { VrVaForm } from './VrVaForm';
-export { TransporteManagement } from './TransporteManagement';
-export { TransporteTable } from './TransporteTable';
-export { TransporteForm } from './TransporteForm';
+// Componentes antigos de benefícios removidos - substituídos pelo sistema unificado
+// VrVaManagement, VrVaTable, VrVaForm
+// TransporteManagement, TransporteTable, TransporteForm  
+// PremiacaoManagement, PremiacaoTable, PremiacaoForm, PremiacaoCalculator
+
+// Sistema Unificado de Benefícios
+export { UnifiedBenefitsManagement } from './UnifiedBenefitsManagement';
+export { BenefitsConfigurationTab } from './BenefitsConfigurationTab';
+export { BenefitsAssignmentsTab } from './BenefitsAssignmentsTab';
+export { BenefitsProcessingTab } from './BenefitsProcessingTab';
+export { BenefitsPaymentsTab } from './BenefitsPaymentsTab';
+export { BenefitsStatisticsTab } from './BenefitsStatisticsTab';
+export { BenefitConfigurationForm } from './BenefitConfigurationForm';
+export { BenefitsRedirect } from './BenefitsRedirect';
 
 // ===== CADASTROS AVANÇADOS =====
 export { RubricasManagement } from './RubricasManagement';
@@ -130,10 +136,8 @@ export { FgtsConfigManagement } from './FgtsConfigManagement';
 export { FgtsConfigForm } from './FgtsConfigForm';
 
 // ===== SISTEMA DE LOCAÇÃO DE EQUIPAMENTOS =====
-export { EquipmentRentalManagement } from './EquipmentRentalManagement';
-export { EquipmentRentalTable } from './EquipmentRentalTable';
-export { EquipmentRentalForm } from './EquipmentRentalForm';
-export { EquipmentRentalPayments } from './EquipmentRentalPayments';
+// Componentes antigos de Equipment Rental removidos - substituídos pelo sistema unificado
+// EquipmentRentalManagement, EquipmentRentalTable, EquipmentRentalForm, EquipmentRentalPayments
 
 // ===== DASHBOARD PRINCIPAL =====
 export { HRDashboard, HRDashboardPage } from './HRDashboard';

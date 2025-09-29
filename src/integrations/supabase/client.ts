@@ -24,3 +24,4 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
 // Funções auxiliares para acessar diferentes schemas
 export const coreSupabase = supabase.schema('core');
 export const rhSupabase = supabase.schema('rh');
+export const financeiroSupabase = supabase.schema('financeiro');

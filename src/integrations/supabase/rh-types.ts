@@ -1,6 +1,20 @@
 // Tipos para o módulo de Recursos Humanos (RH)
 
 // =====================================================
+// TIPOS PARA SISTEMA DE ESCALAS REORGANIZADO
+// =====================================================
+
+// Feriados
+export type Holiday = RhDatabase['rh']['Tables']['holidays']['Row'];
+export type HolidayInsert = RhDatabase['rh']['Tables']['holidays']['Insert'];
+export type HolidayUpdate = RhDatabase['rh']['Tables']['holidays']['Update'];
+
+// Entradas de Escala (programação visual)
+export type ScheduleEntry = RhDatabase['rh']['Tables']['schedule_entries']['Row'];
+export type ScheduleEntryInsert = RhDatabase['rh']['Tables']['schedule_entries']['Insert'];
+export type ScheduleEntryUpdate = RhDatabase['rh']['Tables']['schedule_entries']['Update'];
+
+// =====================================================
 // TIPOS PARA BENEFÍCIOS AVANÇADOS
 // =====================================================
 
@@ -656,6 +670,13 @@ export type RhDatabase = {
           naturalidade: string | null
           nome_mae: string | null
           nome_pai: string | null
+          precisa_registrar_ponto: boolean
+          tipo_banco_horas: 'compensatorio' | 'banco_horas' | 'horas_extras' | 'nao_aplicavel' | null
+          is_pcd: boolean
+          deficiency_type: 'fisica' | 'visual' | 'auditiva' | 'intelectual' | 'mental' | 'multipla' | null
+          deficiency_degree: 'leve' | 'moderada' | 'severa' | 'profunda' | null
+          periculosidade: boolean
+          insalubridade: boolean
           created_at: string
         }
         Insert: {
@@ -684,6 +705,13 @@ export type RhDatabase = {
           naturalidade?: string | null
           nome_mae?: string | null
           nome_pai?: string | null
+          precisa_registrar_ponto?: boolean
+          tipo_banco_horas?: 'compensatorio' | 'banco_horas' | 'horas_extras' | 'nao_aplicavel' | null
+          is_pcd?: boolean
+          deficiency_type?: 'fisica' | 'visual' | 'auditiva' | 'intelectual' | 'mental' | 'multipla' | null
+          deficiency_degree?: 'leve' | 'moderada' | 'severa' | 'profunda' | null
+          periculosidade?: boolean
+          insalubridade?: boolean
           created_at?: string
         }
         Update: {
@@ -712,6 +740,13 @@ export type RhDatabase = {
           naturalidade?: string | null
           nome_mae?: string | null
           nome_pai?: string | null
+          precisa_registrar_ponto?: boolean
+          tipo_banco_horas?: 'compensatorio' | 'banco_horas' | 'horas_extras' | 'nao_aplicavel' | null
+          is_pcd?: boolean
+          deficiency_type?: 'fisica' | 'visual' | 'auditiva' | 'intelectual' | 'mental' | 'multipla' | null
+          deficiency_degree?: 'leve' | 'moderada' | 'severa' | 'profunda' | null
+          periculosidade?: boolean
+          insalubridade?: boolean
           created_at?: string
         }
         Relationships: [
@@ -1225,7 +1260,7 @@ export type RhDatabase = {
           id: string
           company_id: string | null
           nome: string
-          tipo: 'valor_fixo' | 'percentual' | 'flexivel'
+          tipo: 'VR' | 'VA' | 'transporte' | 'convenio_medico' | 'convenio_odontologico' | 'seguro_vida' | 'PLR' | 'outros'
           valor: number | null
           percentual: number | null
           is_active: boolean | null
@@ -1235,7 +1270,7 @@ export type RhDatabase = {
           id?: string
           company_id?: string | null
           nome: string
-          tipo: 'valor_fixo' | 'percentual' | 'flexivel'
+          tipo: 'VR' | 'VA' | 'transporte' | 'convenio_medico' | 'convenio_odontologico' | 'seguro_vida' | 'PLR' | 'outros'
           valor?: number | null
           percentual?: number | null
           is_active?: boolean | null
@@ -1245,7 +1280,7 @@ export type RhDatabase = {
           id?: string
           company_id?: string | null
           nome?: string
-          tipo?: 'valor_fixo' | 'percentual' | 'flexivel'
+          tipo?: 'VR' | 'VA' | 'transporte' | 'convenio_medico' | 'convenio_odontologico' | 'seguro_vida' | 'PLR' | 'outros'
           valor?: number | null
           percentual?: number | null
           is_active?: boolean | null
@@ -1489,6 +1524,10 @@ export type RhDatabase = {
           status: 'solicitado' | 'aprovado' | 'rejeitado' | 'em_andamento' | 'concluido' | null
           aprovado_por: string | null
           created_at: string
+          tipo_fracionamento: 'integral' | 'fracionado' | null
+          total_periodos: number | null
+          observacoes: string | null
+          data_aprovacao: string | null
         }
         Insert: {
           id?: string
@@ -1503,6 +1542,10 @@ export type RhDatabase = {
           status?: 'solicitado' | 'aprovado' | 'rejeitado' | 'em_andamento' | 'concluido' | null
           aprovado_por?: string | null
           created_at?: string
+          tipo_fracionamento?: 'integral' | 'fracionado' | null
+          total_periodos?: number | null
+          observacoes?: string | null
+          data_aprovacao?: string | null
         }
         Update: {
           id?: string
@@ -1517,6 +1560,10 @@ export type RhDatabase = {
           status?: 'solicitado' | 'aprovado' | 'rejeitado' | 'em_andamento' | 'concluido' | null
           aprovado_por?: string | null
           created_at?: string
+          tipo_fracionamento?: 'integral' | 'fracionado' | null
+          total_periodos?: number | null
+          observacoes?: string | null
+          data_aprovacao?: string | null
         }
         Relationships: [
           {
@@ -1531,6 +1578,51 @@ export type RhDatabase = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "rh.employees"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+
+      vacation_periods: {
+        Row: {
+          id: string
+          vacation_id: string
+          data_inicio: string
+          data_fim: string
+          dias_ferias: number
+          dias_abono: number | null
+          periodo_numero: number
+          observacoes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          vacation_id: string
+          data_inicio: string
+          data_fim: string
+          dias_ferias: number
+          dias_abono?: number | null
+          periodo_numero: number
+          observacoes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          vacation_id?: string
+          data_inicio?: string
+          data_fim?: string
+          dias_ferias?: number
+          dias_abono?: number | null
+          periodo_numero?: number
+          observacoes?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vacation_periods_vacation_id_fkey"
+            columns: ["vacation_id"]
+            isOneToOne: false
+            referencedRelation: "vacations"
             referencedColumns: ["id"]
           }
         ]
@@ -1919,6 +2011,88 @@ export type RhDatabase = {
             columns: ["employee_dependent_id"]
             isOneToOne: false
             referencedRelation: "rh.employee_dependents"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+
+      employee_discounts: {
+        Row: {
+          id: string
+          employee_id: string
+          company_id: string
+          tipo_desconto: 'multa_transito' | 'emprestimo' | 'avaria_equipamento' | 'perda_equipamento' | 'outros'
+          descricao: string
+          valor_total: number
+          valor_parcela: number
+          quantidade_parcelas: number
+          parcela_atual: number
+          data_inicio: string
+          data_vencimento: string
+          status: 'ativo' | 'suspenso' | 'cancelado' | 'quitado'
+          observacoes: string | null
+          valor_maximo_parcela: number | null
+          salario_base_funcionario: number | null
+          created_at: string
+          updated_at: string
+          created_by: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          employee_id: string
+          company_id: string
+          tipo_desconto: 'multa_transito' | 'emprestimo' | 'avaria_equipamento' | 'perda_equipamento' | 'outros'
+          descricao: string
+          valor_total: number
+          valor_parcela: number
+          quantidade_parcelas: number
+          parcela_atual?: number
+          data_inicio: string
+          data_vencimento: string
+          status?: 'ativo' | 'suspenso' | 'cancelado' | 'quitado'
+          observacoes?: string | null
+          valor_maximo_parcela?: number | null
+          salario_base_funcionario?: number | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          employee_id?: string
+          company_id?: string
+          tipo_desconto?: 'multa_transito' | 'emprestimo' | 'avaria_equipamento' | 'perda_equipamento' | 'outros'
+          descricao?: string
+          valor_total?: number
+          valor_parcela?: number
+          quantidade_parcelas?: number
+          parcela_atual?: number
+          data_inicio?: string
+          data_vencimento?: string
+          status?: 'ativo' | 'suspenso' | 'cancelado' | 'quitado'
+          observacoes?: string | null
+          valor_maximo_parcela?: number | null
+          salario_base_funcionario?: number | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_discounts_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "rh.employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_discounts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "core.companies"
             referencedColumns: ["id"]
           }
         ]
@@ -2533,6 +2707,52 @@ export type Vacation = RhTablesRow<"vacations">
 export type VacationInsert = RhTablesInsert<"vacations">
 export type VacationUpdate = RhTablesUpdate<"vacations">
 
+// Tipos para férias fracionadas
+export type VacationPeriod = RhTablesRow<"vacation_periods">
+export type VacationPeriodInsert = RhTablesInsert<"vacation_periods">
+export type VacationPeriodUpdate = RhTablesUpdate<"vacation_periods">
+
+// Tipos para férias fracionadas com períodos
+export interface FractionedVacation extends Vacation {
+  periodos: VacationPeriod[]
+}
+
+export interface FractionedVacationInsert extends Omit<VacationInsert, 'data_inicio' | 'data_fim' | 'dias_ferias' | 'dias_abono'> {
+  periodos: Omit<VacationPeriodInsert, 'vacation_id'>[]
+}
+
+// Tipos para validação de férias fracionadas
+export interface VacationValidation {
+  valido: boolean
+  mensagem: string
+  total_dias: number
+  tem_periodo_14_dias: boolean
+}
+
+// Tipos para período de férias no frontend
+export interface VacationPeriodForm {
+  id?: string
+  dataInicio: string
+  dataFim: string
+  diasFerias: number
+  diasAbono: number
+  observacoes?: string
+}
+
+export interface FractionedVacationForm {
+  tipoFracionamento: 'integral' | 'fracionado'
+  ano: number
+  periodos: VacationPeriodForm[]
+  observacoes?: string
+}
+
+// Tipos para anos de férias disponíveis
+export interface VacationYear {
+  ano: number
+  dias_disponiveis: number
+  status: string
+}
+
 export type EmploymentContract = RhTablesRow<"employment_contracts">
 export type EmploymentContractInsert = RhTablesInsert<"employment_contracts">
 export type EmploymentContractUpdate = RhTablesUpdate<"employment_contracts">
@@ -2611,6 +2831,11 @@ export type FuncionarioConvenio = RhTablesRow<"funcionario_convenios">
 export type FuncionarioConvenioInsert = RhTablesInsert<"funcionario_convenios">
 export type FuncionarioConvenioUpdate = RhTablesUpdate<"funcionario_convenios">
 
+// ===== DESCONTOS DE FUNCIONÁRIOS =====
+export type EmployeeDiscount = RhTablesRow<"employee_discounts">
+export type EmployeeDiscountInsert = RhTablesInsert<"employee_discounts">
+export type EmployeeDiscountUpdate = RhTablesUpdate<"employee_discounts">
+
 export type FuncionarioConvenioDependente = RhTablesRow<"funcionario_convenio_dependentes">
 export type FuncionarioConvenioDependenteInsert = RhTablesInsert<"funcionario_convenio_dependentes">
 export type FuncionarioConvenioDependenteUpdate = RhTablesUpdate<"funcionario_convenio_dependentes">
@@ -2673,8 +2898,26 @@ export const RhTypes = {
     terceirizado: 'terceirizado'
   },
   benefit: {
-    valor_fixo: 'valor_fixo',
-    percentual: 'percentual',
-    flexivel: 'flexivel'
+    VR: 'VR',
+    VA: 'VA',
+    transporte: 'transporte',
+    convenio_medico: 'convenio_medico',
+    convenio_odontologico: 'convenio_odontologico',
+    seguro_vida: 'seguro_vida',
+    PLR: 'PLR',
+    outros: 'outros'
+  },
+  discount: {
+    multa_transito: 'multa_transito',
+    emprestimo: 'emprestimo',
+    avaria_equipamento: 'avaria_equipamento',
+    perda_equipamento: 'perda_equipamento',
+    outros: 'outros'
+  },
+  discount_status: {
+    ativo: 'ativo',
+    suspenso: 'suspenso',
+    cancelado: 'cancelado',
+    quitado: 'quitado'
   }
 } as const

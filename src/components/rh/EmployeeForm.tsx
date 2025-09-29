@@ -14,7 +14,9 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Employee, EmployeeInsert, EmployeeUpdate } from '@/integrations/supabase/rh-types';
-import { usePositions, useWorkSchedules, useDepartments } from '@/hooks/rh';
+import { usePositions, useWorkShifts, useDepartments } from '@/hooks/rh';
+import { useCostCenters } from '@/hooks/useCostCenters';
+import { useProjects } from '@/hooks/useProjects';
 
 // Schema de validação
 const employeeSchema = z.object({
@@ -30,7 +32,7 @@ const employeeSchema = z.object({
   project_id: z.string().optional(),
   // Novos campos
   position_id: z.string().optional(),
-  work_schedule_id: z.string().optional(),
+  work_shift_id: z.string().optional(),
   department_id: z.string().optional(),
   manager_id: z.string().optional(),
   salario_base: z.number().min(0, 'Salário deve ser positivo').optional(),
@@ -75,18 +77,20 @@ export function EmployeeForm({
   );
 
   const { positions = [] } = usePositions(companyId);
-  const { workSchedules = [] } = useWorkSchedules(companyId);
+  const { workShifts = [] } = useWorkShifts(companyId);
   const { departments = [] } = useDepartments(companyId);
+  const { data: costCenters = [], isLoading: costCentersLoading } = useCostCenters(companyId);
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isValid },
+    formState: { errors, isValid, isDirty },
     setValue,
     watch,
     reset,
   } = useForm<EmployeeFormData>({
     resolver: zodResolver(employeeSchema),
+    mode: 'onChange', // Adicionar validação em tempo real
     defaultValues: {
       nome: employee?.nome || '',
       matricula: employee?.matricula || '',
@@ -97,7 +101,7 @@ export function EmployeeForm({
       project_id: employee?.project_id || '',
       // Novos campos
       position_id: employee?.position_id || '',
-      work_schedule_id: employee?.work_schedule_id || '',
+      work_shift_id: employee?.work_shift_id || '',
       department_id: employee?.department_id || '',
       manager_id: employee?.manager_id || '',
       salario_base: employee?.salario_base || undefined,
@@ -110,6 +114,9 @@ export function EmployeeForm({
       nome_pai: employee?.nome_pai || '',
     },
   });
+
+  // Hook de projetos que depende do watch - deve vir após a inicialização do useForm
+  const { data: projects = [], isLoading: projectsLoading } = useProjects(companyId, watch('cost_center_id'));
 
   const watchedStatus = watch('status');
 
@@ -421,18 +428,18 @@ export function EmployeeForm({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="work_schedule_id">Escala de Trabalho</Label>
+                <Label htmlFor="work_shift_id">Turno de Trabalho</Label>
                 <Select
-                  value={watch('work_schedule_id')}
-                  onValueChange={(value) => setValue('work_schedule_id', value)}
+                  value={watch('work_shift_id')}
+                  onValueChange={(value) => setValue('work_shift_id', value)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione a escala" />
+                    <SelectValue placeholder="Selecione o turno" />
                   </SelectTrigger>
                   <SelectContent>
-                    {workSchedules.map((schedule) => (
-                      <SelectItem key={schedule.id} value={schedule.id}>
-                        {schedule.nome}
+                    {workShifts.map((shift) => (
+                      <SelectItem key={shift.id} value={shift.id}>
+                        {shift.nome}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -502,20 +509,77 @@ export function EmployeeForm({
 
               <div className="space-y-2">
                 <Label htmlFor="cost_center_id">Centro de Custo</Label>
-                <Input
-                  id="cost_center_id"
-                  {...register('cost_center_id')}
-                  placeholder="ID do centro de custo"
-                />
+                <div className="flex gap-2">
+                  <Select
+                    value={watch('cost_center_id') || undefined}
+                    onValueChange={(value) => setValue('cost_center_id', value)}
+                    disabled={costCentersLoading}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder={costCentersLoading ? 'Carregando...' : 'Selecionar centro de custo'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {costCenters.map((costCenter) => (
+                        <SelectItem key={costCenter.id} value={costCenter.id}>
+                          {costCenter.codigo} - {costCenter.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {watch('cost_center_id') && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setValue('cost_center_id', '');
+                        setValue('project_id', ''); // Limpar projeto também
+                      }}
+                      className="px-3"
+                    >
+                      Limpar
+                    </Button>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="project_id">Projeto</Label>
-                <Input
-                  id="project_id"
-                  {...register('project_id')}
-                  placeholder="ID do projeto"
-                />
+                <div className="flex gap-2">
+                  <Select
+                    value={watch('project_id') || undefined}
+                    onValueChange={(value) => setValue('project_id', value)}
+                    disabled={projectsLoading || !watch('cost_center_id')}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder={
+                        !watch('cost_center_id') 
+                          ? 'Selecione um centro de custo primeiro' 
+                          : projectsLoading 
+                            ? 'Carregando...' 
+                            : 'Selecionar projeto'
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.codigo} - {project.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {watch('project_id') && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setValue('project_id', '')}
+                      className="px-3"
+                    >
+                      Limpar
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -535,7 +599,7 @@ export function EmployeeForm({
               )}
               <Button
                 type="submit"
-                disabled={!isValid || loading}
+                disabled={(!isValid && !isDirty) || loading}
                 className="min-w-[100px]"
               >
                 {loading ? (
@@ -675,8 +739,8 @@ export function EmployeeDetails({ employee }: { employee: Employee }) {
             </div>
             
             <div>
-              <Label className="text-sm font-medium text-muted-foreground">Escala de Trabalho</Label>
-              <p className="text-lg">{employee.work_schedule_id || '-'}</p>
+              <Label className="text-sm font-medium text-muted-foreground">Turno de Trabalho</Label>
+              <p className="text-lg">{employee.work_shift_id || '-'}</p>
             </div>
             
             <div>

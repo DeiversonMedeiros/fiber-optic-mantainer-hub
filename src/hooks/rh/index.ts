@@ -2,7 +2,7 @@
 export { useEmployees } from './useEmployees';
 export { usePositions } from './usePositions';
 export { useDepartments } from './useDepartments';
-export { useBenefits } from './useBenefits';
+// useBenefits removido - substituído pelo sistema unificado
 export { usePayroll } from './usePayroll';
 export { useVacations } from './useVacations';
 export { useTimeRecords } from './useTimeRecords';
@@ -17,7 +17,7 @@ export { useRecruitment } from './useRecruitment';
 export { useTraining } from './useTraining';
 
 // Hooks de benefícios e relacionamentos
-export { useEmployeeBenefits } from './useEmployeeBenefits';
+// useEmployeeBenefits removido - substituído pelo sistema unificado
 export { useEmployeeShifts } from './useEmployeeShifts';
 export { useEmploymentContracts } from './useEmploymentContracts';
 
@@ -32,8 +32,7 @@ export { useEmployeeContracts } from './useEmployeeContracts';
 
 // Hooks de benefícios avançados
 export { useConveniosEmpresas, useConveniosPlanos, useFuncionarioConvenios } from './useConvenios';
-export { useVrVaConfigs } from './useVrVaConfigs';
-export { useTransporteConfigs } from './useTransporteConfigs';
+// useVrVaConfigs e useTransporteConfigs removidos - substituídos pelo sistema unificado
 
 // Hooks de elegibilidade de benefícios
 export { useBeneficioTipos } from './useBeneficioTipos';

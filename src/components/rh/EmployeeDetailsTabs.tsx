@@ -15,9 +15,13 @@ import {
   Users,
   Gift,
   FileSignature,
-  Calculator
+  Calculator,
+  Clock,
+  Shield, 
+  Bus,
+  Minus
 } from 'lucide-react';
-import { Employee } from '@/integrations/supabase/rh-types';
+import { Employee, EmployeeUpdate, EmployeeDiscount } from '@/integrations/supabase/rh-types';
 import { EmployeeForm } from './EmployeeForm';
 import { EmployeeDocuments } from './EmployeeDocuments';
 import { EmployeeAddresses } from './EmployeeAddresses';
@@ -25,8 +29,18 @@ import { EmployeeSpouse } from './EmployeeSpouse';
 import { EmployeeBankAccounts } from './EmployeeBankAccounts';
 import { EmployeeEducation } from './EmployeeEducation';
 import { EmployeeDependents } from './EmployeeDependents';
-import { EmployeeBenefits } from './EmployeeBenefits';
 import { EmployeeContracts } from './EmployeeContracts';
+import { EmployeeFiscal } from './EmployeeFiscal';
+import { EmployeeConvenios } from './EmployeeConvenios';
+import { EmployeeVrVa } from './EmployeeVrVa';
+import { EmployeeTransporte } from './EmployeeTransporte';
+// EmployeeBenefitAssignments removido - substituído pelo sistema unificado
+// EmployeeBenefits removido - substituído pelo sistema unificado
+import { EmployeeEditInfo } from './EmployeeEditInfo';
+import { EmployeeHistory } from './EmployeeHistory';
+import { EmployeeDiscountsTable } from './EmployeeDiscountsTable';
+import { EmployeeDiscountsForm } from './EmployeeDiscountsForm';
+import { EmployeeDiscountViewModal } from './EmployeeDiscountViewModal';
 import { 
   useEmployeeDocuments, 
   useEmployeeAddresses, 
@@ -34,15 +48,17 @@ import {
   useEmployeeBankAccounts, 
   useEmployeeEducation,
   useEmployeeDependents,
-  useEmployeeBenefits,
-  useEmployeeContracts
+  useEmployeeContracts,
+  // useEmployeeBenefits removido - substituído pelo sistema unificado
 } from '@/hooks/rh';
+import { useEmployeeDiscounts } from '@/hooks/rh/useEmployeeDiscounts';
+import { useWorkShifts } from '@/hooks/rh/useWorkShifts';
 
 export interface EmployeeDetailsTabsProps {
   employee: Employee;
-  companyId?: string;
-  onUpdateEmployee: (data: any) => Promise<void>;
-  onDeleteEmployee?: (id: string) => Promise<void>;
+  companyId: string;
+  onUpdateEmployee: (employee: EmployeeUpdate) => void;
+  onDeleteEmployee: (employeeId: string) => void;
   loading?: boolean;
   className?: string;
 }
@@ -57,84 +73,36 @@ export function EmployeeDetailsTabs({
 }: EmployeeDetailsTabsProps) {
   const [activeTab, setActiveTab] = useState('personal');
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingDiscount, setIsEditingDiscount] = useState(false);
+  const [selectedDiscount, setSelectedDiscount] = useState<EmployeeDiscount | null>(null);
+  const [viewingDiscount, setViewingDiscount] = useState<EmployeeDiscount | null>(null);
 
-  // Debug: verificar se o componente está sendo renderizado
-  console.log('EmployeeDetailsTabs renderizado com employee:', employee?.nome);
-
-  // Hooks para as diferentes seções
+  // Hooks para dados relacionados
+  const { documents } = useEmployeeDocuments(employee.id);
+  const { addresses } = useEmployeeAddresses(employee.id);
+  const { spouse } = useEmployeeSpouse(employee.id);
+  const { bankAccounts } = useEmployeeBankAccounts(employee.id);
+  const { education } = useEmployeeEducation(employee.id);
   const { 
-    documents, 
-    isLoading: documentsLoading, 
-    createDocument, 
-    updateDocument, 
-    deleteDocument 
-  } = useEmployeeDocuments(employee.id);
-
-  const { 
-    addresses, 
-    residentialAddress, 
-    isLoading: addressesLoading, 
-    createAddress, 
-    updateAddress, 
-    deleteAddress 
-  } = useEmployeeAddresses(employee.id);
-
-  const { 
-    spouse, 
-    isLoading: spouseLoading, 
-    createSpouse, 
-    updateSpouse, 
-    deleteSpouse 
-  } = useEmployeeSpouse(employee.id);
-
-  const { 
-    bankAccounts, 
-    primaryAccount, 
-    isLoading: bankLoading, 
-    createBankAccount, 
-    updateBankAccount, 
-    deleteBankAccount 
-  } = useEmployeeBankAccounts(employee.id);
-
-  const { 
-    education, 
-    highestEducation, 
-    isLoading: educationLoading, 
-    createEducation, 
-    updateEducation, 
-    deleteEducation 
-  } = useEmployeeEducation(employee.id);
-
-  const { 
-    dependents = [], 
-    dependentTypes = [], 
-    kinshipDegrees = [], 
-    deficiencyTypes = [], 
-    deficiencyDegrees = [],
-    isLoading: dependentsLoading, 
-    createDependent, 
-    updateDependent, 
-    deleteDependent 
+    dependents, 
+    dependentTypes, 
+    kinshipDegrees, 
+    deficiencyTypes, 
+    deficiencyDegrees 
   } = useEmployeeDependents(employee.id);
-
+  const { contracts } = useEmployeeContracts(employee.id);
+  // benefits removido - substituído pelo sistema unificado
+  const benefits: any[] = [];
   const { 
-    benefits = [], 
-    benefitTypes = [],
-    isLoading: benefitsLoading, 
-    createBenefit, 
-    updateBenefit, 
-    deleteBenefit 
-  } = useEmployeeBenefits(employee.id);
-
-  const { 
-    contracts = [], 
-    positions = [], 
-    workSchedules = [],
-    isLoading: contractsLoading, 
-    createContract, 
-    updateContract, 
-    deleteContract 
-  } = useEmployeeContracts(employee.id);
+    discounts, 
+    isLoading: discountsLoading, 
+    createDiscount, 
+    updateDiscount, 
+    deleteDiscount 
+  } = useEmployeeDiscounts(employee.id, companyId);
+  
+  // Buscar turnos de trabalho disponíveis
+  const { workShifts = [], isLoading: workShiftsLoading } = useWorkShifts(companyId);
 
   const handleUpdateEmployee = async (data: any) => {
     try {
@@ -145,12 +113,48 @@ export function EmployeeDetailsTabs({
     }
   };
 
+  const handleCreateDiscount = async (data: any) => {
+    try {
+      await createDiscount.mutateAsync(data);
+      setIsEditingDiscount(false);
+      setSelectedDiscount(null);
+    } catch (error) {
+      console.error('Erro ao criar desconto:', error);
+    }
+  };
+
+  const handleUpdateDiscount = async (data: any) => {
+    try {
+      await updateDiscount.mutateAsync(data);
+      setIsEditingDiscount(false);
+      setSelectedDiscount(null);
+    } catch (error) {
+      console.error('Erro ao atualizar desconto:', error);
+    }
+  };
+
+  const handleDeleteDiscount = async (id: string) => {
+    try {
+      await deleteDiscount.mutateAsync(id);
+    } catch (error) {
+      console.error('Erro ao excluir desconto:', error);
+    }
+  };
+
+  const handleEditDiscount = (discount: EmployeeDiscount) => {
+    setSelectedDiscount(discount);
+    setIsEditingDiscount(true);
+  };
+
+  const handleViewDiscount = (discount: EmployeeDiscount) => {
+    setViewingDiscount(discount);
+  };
+
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'ativo': return 'bg-green-100 text-green-800';
-      case 'inativo': return 'bg-gray-100 text-gray-800';
-      case 'demitido': return 'bg-red-100 text-red-800';
-      case 'aposentado': return 'bg-blue-100 text-blue-800';
+      case 'inativo': return 'bg-red-100 text-red-800';
+      case 'ferias': return 'bg-blue-100 text-blue-800';
       case 'licenca': return 'bg-yellow-100 text-yellow-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -172,15 +176,13 @@ export function EmployeeDetailsTabs({
                   <Badge className={getStatusColor(employee.status || 'ativo')}>
                     {employee.status || 'ativo'}
                   </Badge>
-                  {employee.matricula && (
-                    <span className="text-sm text-muted-foreground">
-                      Matrícula: {employee.matricula}
-                    </span>
-                  )}
+                  <span className="text-sm text-muted-foreground">
+                    ID: {employee.id}
+                  </span>
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -205,6 +207,9 @@ export function EmployeeDetailsTabs({
         </CardHeader>
       </Card>
 
+      {/* Informações sobre Edição */}
+      <EmployeeEditInfo isEditing={isEditing} />
+
       {/* Formulário de Edição */}
       {isEditing && (
         <Card className="mb-6">
@@ -215,7 +220,7 @@ export function EmployeeDetailsTabs({
               onSubmit={handleUpdateEmployee}
               onCancel={() => setIsEditing(false)}
               loading={loading}
-              showButtons={false} // Não mostra botões no modal de edição
+              showButtons={true}
             />
           </CardContent>
         </Card>
@@ -223,7 +228,7 @@ export function EmployeeDetailsTabs({
 
       {/* Abas de Detalhes */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10 gap-1">
+        <TabsList className="grid w-full grid-cols-8 lg:grid-cols-15 gap-1">
           <TabsTrigger value="personal" className="flex items-center gap-1 text-xs">
             <User className="h-3 w-3" />
             <span className="hidden sm:inline">Pessoal</span>
@@ -252,9 +257,21 @@ export function EmployeeDetailsTabs({
             <Users className="h-3 w-3" />
             <span className="hidden sm:inline">Dep.</span>
           </TabsTrigger>
+          <TabsTrigger value="convenios" className="flex items-center gap-1 text-xs">
+            <Shield className="h-3 w-3" />
+            <span className="hidden sm:inline">Convênios</span>
+          </TabsTrigger>
+          <TabsTrigger value="additional-benefits" className="flex items-center gap-1 text-xs">
+            <Gift className="h-3 w-3" />
+            <span className="hidden sm:inline">Benef. Adic.</span>
+          </TabsTrigger>
           <TabsTrigger value="benefits" className="flex items-center gap-1 text-xs">
             <Gift className="h-3 w-3" />
-            <span className="hidden sm:inline">Benef.</span>
+            <span className="hidden sm:inline">Benefícios</span>
+          </TabsTrigger>
+          <TabsTrigger value="discounts" className="flex items-center gap-1 text-xs">
+            <Minus className="h-3 w-3" />
+            <span className="hidden sm:inline">Descontos</span>
           </TabsTrigger>
           <TabsTrigger value="contracts" className="flex items-center gap-1 text-xs">
             <FileSignature className="h-3 w-3" />
@@ -264,6 +281,10 @@ export function EmployeeDetailsTabs({
             <Calculator className="h-3 w-3" />
             <span className="hidden sm:inline">Fiscal</span>
           </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center gap-1 text-xs">
+            <Clock className="h-3 w-3" />
+            <span className="hidden sm:inline">Histórico</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="personal" className="mt-6">
@@ -272,82 +293,117 @@ export function EmployeeDetailsTabs({
               <CardTitle>Informações Pessoais</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Seção básica simplificada */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium border-b pb-2">Dados Básicos</h3>
-                  <div className="space-y-2">
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">Nome:</span>
-                      <p className="text-lg">{employee.nome}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">CPF:</span>
-                      <p className="text-lg font-mono">
-                        {employee.cpf ? employee.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '-'}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">RG:</span>
-                      <p className="text-lg">{employee.rg || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">Telefone:</span>
-                      <p className="text-lg">{employee.telefone || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">Email:</span>
-                      <p className="text-lg">{employee.email || '-'}</p>
-                    </div>
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Nome:</span>
+                    <p className="text-lg">{employee.nome}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Email:</span>
+                    <p className="text-lg">{employee.email || '-'}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Telefone:</span>
+                    <p className="text-lg">{employee.telefone || '-'}</p>
                   </div>
                 </div>
-
+                
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium border-b pb-2">Informações Adicionais</h3>
+                  <h3 className="text-lg font-medium border-b pb-2">Configurações de Trabalho</h3>
+                  
+                  {/* Checkbox para registrar ponto */}
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="precisa_registrar_ponto"
+                      checked={employee.precisa_registrar_ponto !== false}
+                      disabled={!isEditing}
+                      className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
+                    <label htmlFor="precisa_registrar_ponto" className="text-sm font-medium text-muted-foreground">
+                      Precisa registrar ponto
+                    </label>
+                  </div>
+                  
+                  {/* Tipo de banco de horas */}
                   <div className="space-y-2">
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">Estado Civil:</span>
-                      <p className="text-lg capitalize">{employee.estado_civil || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">Nacionalidade:</span>
-                      <p className="text-lg">{employee.nacionalidade || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">Naturalidade:</span>
-                      <p className="text-lg">{employee.naturalidade || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">Nome da Mãe:</span>
-                      <p className="text-lg">{employee.nome_mae || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">Nome do Pai:</span>
-                      <p className="text-lg">{employee.nome_pai || '-'}</p>
-                    </div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Tipo de Banco de Horas
+                    </label>
+                    <select
+                      disabled={!isEditing}
+                      value={employee.tipo_banco_horas || 'compensatorio'}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                    >
+                      <option value="compensatorio">Compensatório</option>
+                      <option value="banco_horas">Banco de Horas</option>
+                      <option value="horas_extras">Horas Extras</option>
+                      <option value="nao_aplicavel">Não Aplicável</option>
+                    </select>
+                  </div>
+                  
+                  {/* Turno de trabalho */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Turno de Trabalho
+                    </label>
+                    <select
+                      disabled={!isEditing || workShiftsLoading}
+                      value={employee.work_schedule_id || ''}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                    >
+                      <option value="">Selecione o turno</option>
+                      {workShifts.map((shift) => (
+                        <option key={shift.id} value={shift.id}>
+                          {shift.nome} ({shift.hora_inicio} - {shift.hora_fim})
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
-
+              
+              {/* Informações de PCD */}
+              {employee.is_pcd && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium border-b pb-2">Informações de PCD</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Tipo de Deficiência:</span>
+                      <p className="text-lg">{employee.deficiency_type || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Grau:</span>
+                      <p className="text-lg">{employee.deficiency_degree || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Adicionais */}
               <div className="space-y-4">
-                <h3 className="text-lg font-medium border-b pb-2">Datas</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <h3 className="text-lg font-medium border-b pb-2">Adicionais e Complementos</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <span className="text-sm font-medium text-muted-foreground">Data de Nascimento:</span>
-                    <p className="text-lg">
-                      {employee.data_nascimento ? new Date(employee.data_nascimento).toLocaleDateString('pt-BR') : '-'}
-                    </p>
+                    <span className="text-sm font-medium text-muted-foreground">Periculosidade:</span>
+                    <p className="text-lg">{employee.periculosidade ? 'Sim' : 'Não'}</p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-muted-foreground">Data de Admissão:</span>
-                    <p className="text-lg">
-                      {employee.data_admissao ? new Date(employee.data_admissao).toLocaleDateString('pt-BR') : '-'}
-                    </p>
+                    <span className="text-sm font-medium text-muted-foreground">Insalubridade:</span>
+                    <p className="text-lg">{employee.insalubridade ? 'Sim' : 'Não'}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Adicional Noturno:</span>
+                    <p className="text-sm text-blue-600">Calculado automaticamente</p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-muted-foreground">Data de Demissão:</span>
-                    <p className="text-lg">
-                      {employee.data_demissao ? new Date(employee.data_demissao).toLocaleDateString('pt-BR') : '-'}
-                    </p>
+                    <span className="text-sm font-medium text-muted-foreground">Adicional FDS:</span>
+                    <p className="text-sm text-blue-600">Calculado automaticamente</p>
                   </div>
                 </div>
               </div>
@@ -359,9 +415,7 @@ export function EmployeeDetailsTabs({
           <EmployeeDocuments
             employeeId={employee.id}
             documents={documents}
-            onSubmit={createDocument.mutateAsync}
-            onDelete={deleteDocument.mutateAsync}
-            loading={documentsLoading || createDocument.isPending || deleteDocument.isPending}
+            onSubmit={async () => {}}
           />
         </TabsContent>
 
@@ -369,9 +423,7 @@ export function EmployeeDetailsTabs({
           <EmployeeAddresses
             employeeId={employee.id}
             addresses={addresses}
-            onSubmit={createAddress.mutateAsync}
-            onDelete={deleteAddress.mutateAsync}
-            loading={addressesLoading || createAddress.isPending || deleteAddress.isPending}
+            onSubmit={async () => {}}
           />
         </TabsContent>
 
@@ -379,9 +431,7 @@ export function EmployeeDetailsTabs({
           <EmployeeSpouse
             employeeId={employee.id}
             spouse={spouse}
-            onSubmit={spouse ? updateSpouse.mutateAsync : createSpouse.mutateAsync}
-            onDelete={spouse ? deleteSpouse.mutateAsync : undefined}
-            loading={spouseLoading || createSpouse.isPending || updateSpouse.isPending || deleteSpouse.isPending}
+            onSubmit={async () => {}}
           />
         </TabsContent>
 
@@ -389,9 +439,7 @@ export function EmployeeDetailsTabs({
           <EmployeeBankAccounts
             employeeId={employee.id}
             bankAccounts={bankAccounts}
-            onSubmit={createBankAccount.mutateAsync}
-            onDelete={deleteBankAccount.mutateAsync}
-            loading={bankLoading || createBankAccount.isPending || deleteBankAccount.isPending}
+            onSubmit={async () => {}}
           />
         </TabsContent>
 
@@ -399,26 +447,40 @@ export function EmployeeDetailsTabs({
           <EmployeeEducation
             employeeId={employee.id}
             education={education}
-            onSubmit={createEducation.mutateAsync}
-            onDelete={deleteEducation.mutateAsync}
-            loading={educationLoading || createEducation.isPending || deleteEducation.isPending}
+            onSubmit={async () => {}}
           />
         </TabsContent>
 
         <TabsContent value="dependents" className="mt-6">
+          <EmployeeDependents
+            employeeId={employee.id}
+            dependents={dependents}
+            dependentTypes={dependentTypes}
+            kinshipDegrees={kinshipDegrees}
+            deficiencyTypes={deficiencyTypes}
+            deficiencyDegrees={deficiencyDegrees}
+            onSubmit={async () => {}}
+          />
+        </TabsContent>
+
+
+        <TabsContent value="convenios" className="mt-6">
+          <EmployeeConvenios
+            employeeId={employee.id}
+            companyId={companyId}
+          />
+        </TabsContent>
+
+        <TabsContent value="additional-benefits" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Dependentes
-              </CardTitle>
+              <CardTitle>Benefícios Adicionais</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Módulo de dependentes em desenvolvimento</p>
-                <p className="text-sm">Em breve você poderá gerenciar dependentes do funcionário</p>
-              </div>
+              <p className="text-muted-foreground">
+                A gestão de benefícios adicionais foi movida para o sistema unificado. 
+                Acesse a página de <a href="/rh/beneficios-unificados" className="text-primary hover:underline">Gestão de Benefícios</a> para gerenciar os benefícios deste funcionário.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
@@ -426,57 +488,106 @@ export function EmployeeDetailsTabs({
         <TabsContent value="benefits" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Gift className="h-5 w-5" />
-                Benefícios
-              </CardTitle>
+              <CardTitle>Benefícios do Funcionário</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Gift className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Módulo de benefícios em desenvolvimento</p>
-                <p className="text-sm">Em breve você poderá gerenciar benefícios do funcionário</p>
-              </div>
+              <p className="text-muted-foreground">
+                A gestão de benefícios foi movida para o sistema unificado. 
+                Acesse a página de <a href="/rh/beneficios-unificados" className="text-primary hover:underline">Gestão de Benefícios</a> para gerenciar os benefícios deste funcionário.
+              </p>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="discounts" className="mt-6">
+          <div className="space-y-6">
+            {/* Cabeçalho com botão de adicionar */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Descontos do Funcionário</h3>
+                <p className="text-sm text-muted-foreground">
+                  Gerencie os descontos aplicados na folha de pagamento
+                </p>
+              </div>
+              <Button
+                onClick={() => {
+                  setSelectedDiscount(null);
+                  setIsEditingDiscount(true);
+                }}
+                disabled={discountsLoading}
+              >
+                <Minus className="h-4 w-4 mr-2" />
+                Novo Desconto
+              </Button>
+            </div>
+
+            {/* Formulário de edição/criação */}
+            {isEditingDiscount && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {selectedDiscount ? 'Editar Desconto' : 'Novo Desconto'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <EmployeeDiscountsForm
+                    initialData={selectedDiscount || undefined}
+                    onSubmit={selectedDiscount ? handleUpdateDiscount : handleCreateDiscount}
+                    onCancel={() => {
+                      setIsEditingDiscount(false);
+                      setSelectedDiscount(null);
+                    }}
+                    isLoading={createDiscount.isPending || updateDiscount.isPending}
+                    employeeId={employee.id}
+                    companyId={companyId}
+                    employeeSalary={employee.salario_base || 0}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Tabela de descontos */}
+            <EmployeeDiscountsTable
+              discounts={discounts}
+              onEdit={handleEditDiscount}
+              onDelete={handleDeleteDiscount}
+              onView={handleViewDiscount}
+              isLoading={discountsLoading}
+            />
+          </div>
         </TabsContent>
 
         <TabsContent value="contracts" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileSignature className="h-5 w-5" />
-                Contratos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <FileSignature className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Módulo de contratos em desenvolvimento</p>
-                <p className="text-sm">Em breve você poderá gerenciar contratos do funcionário</p>
-              </div>
-            </CardContent>
-          </Card>
+          <EmployeeContracts
+            employeeId={employee.id}
+            contracts={contracts}
+            onSubmit={async () => {}}
+          />
         </TabsContent>
 
         <TabsContent value="tax" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calculator className="h-5 w-5" />
-                Informações Fiscais
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Calculator className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Módulo de informações fiscais em desenvolvimento</p>
-                <p className="text-sm">Em breve você poderá gerenciar cálculos de IR, INSS, FGTS e outros impostos</p>
-              </div>
-            </CardContent>
-          </Card>
+          <EmployeeFiscal
+            employeeId={employee.id}
+            employee={employee}
+          />
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-6">
+          <EmployeeHistory
+            employeeId={employee.id}
+            employeeName={employee.nome}
+            companyId={employee.company_id}
+          />
         </TabsContent>
       </Tabs>
+
+      {/* Modal de visualização de desconto */}
+      <EmployeeDiscountViewModal
+        discount={viewingDiscount}
+        isOpen={!!viewingDiscount}
+        onClose={() => setViewingDiscount(null)}
+        onEdit={handleEditDiscount}
+      />
     </div>
   );
 }

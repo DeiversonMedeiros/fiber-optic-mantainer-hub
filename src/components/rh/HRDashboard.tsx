@@ -122,18 +122,10 @@ export function HRDashboard({ companyId, className = '' }: HRDashboardProps) {
           <Button 
             variant="outline" 
             className="w-full justify-start"
-            onClick={() => navigate('/rh/work-schedules')}
+            onClick={() => navigate('/rh/work-shifts')}
           >
             <Calendar className="h-4 w-4 mr-2" />
             Escalas de Trabalho
-          </Button>
-          <Button 
-            variant="outline" 
-            className="w-full justify-start"
-            onClick={() => navigate('/rh/benefits')}
-          >
-            <Gift className="h-4 w-4 mr-2" />
-            Benefícios
           </Button>
           <Button 
             variant="outline" 
@@ -182,14 +174,6 @@ export function HRDashboard({ companyId, className = '' }: HRDashboardProps) {
           >
             <BookOpen className="h-4 w-4 mr-2" />
             Treinamentos
-          </Button>
-          <Button 
-            variant="outline" 
-            className="w-full justify-start"
-            onClick={() => navigate('/rh/equipment-rental')}
-          >
-            <Package className="h-4 w-4 mr-2" />
-            Locação de Equipamentos
           </Button>
         </CardContent>
       </Card>

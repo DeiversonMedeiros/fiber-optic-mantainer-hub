@@ -55,10 +55,12 @@ import {
   Calculator,
   CreditCard,
   Bus,
+  Award,
   Percent,
   Package,
   RefreshCw,
-  Upload
+  Upload,
+  AlertTriangle
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
@@ -70,6 +72,8 @@ interface MenuItem {
   href: string;
   badge?: number;
   children?: MenuItem[];
+  isSeparator?: boolean;
+  isSectionHeader?: boolean;
 }
 
 interface UserProfile {
@@ -104,256 +108,368 @@ export default function AppSidebar() {
   // Definir menuItems ANTES de qualquer uso
   const menuItems: MenuItem[] = [
     {
+      id: 'portal-colaborador',
+      label: 'Portal do Colaborador',
+      icon: <User className="h-4 w-4" />,
+      href: '/portal-colaborador',
+    },
+    {
+      id: 'portal-gestor',
+      label: 'Portal do Gestor',
+      icon: <Users className="h-4 w-4" />,
+      href: '/portal-gestor',
+    },
+    {
       id: 'rh',
       label: 'Recursos Humanos',
       icon: <Users className="h-4 w-4" />,
       href: '/rh',
       children: [
+        // 1. DASHBOARD
         {
           id: 'rh-dashboard',
           label: 'Dashboard RH',
           icon: <BarChart3 className="h-4 w-4" />,
           href: '/rh'
         },
+        
+        // 2. CADASTROS - ESTRUTURA ORGANIZACIONAL
         {
-          id: 'rh-employees',
-          label: 'Funcionários',
-          icon: <User className="h-4 w-4" />,
-          href: '/rh/employees'
+          id: 'rh-separator-estrutura',
+          label: 'Estrutura Organizacional',
+          icon: <Building2 className="h-4 w-4" />,
+          href: '#',
+          isSectionHeader: true,
+          children: [
+            {
+              id: 'rh-employees',
+              label: 'Gestão de Funcionários',
+              icon: <User className="h-4 w-4" />,
+              href: '/rh/employees'
+            },
+            {
+              id: 'rh-positions',
+              label: 'Cargos',
+              icon: <Briefcase className="h-4 w-4" />,
+              href: '/rh/positions'
+            },
+            {
+              id: 'rh-units',
+              label: 'Organograma',
+              icon: <Building2 className="h-4 w-4" />,
+              href: '/rh/units'
+            },
+            {
+              id: 'rh-work-shifts',
+              label: 'Turnos de Trabalho',
+              icon: <Clock className="h-4 w-4" />,
+              href: '/rh/work-shifts'
+            },
+            {
+              id: 'rh-employment-contracts',
+              label: 'Contratos de Trabalho',
+              icon: <FileText className="h-4 w-4" />,
+              href: '/rh/employment-contracts'
+            }
+          ]
         },
+        
+        // 3. CADASTROS - BENEFÍCIOS
         {
-          id: 'rh-positions',
-          label: 'Cargos',
-          icon: <Briefcase className="h-4 w-4" />,
-          href: '/rh/positions'
-        },
-        {
-          id: 'rh-time-records',
-          label: 'Registro de Ponto',
-          icon: <Clock className="h-4 w-4" />,
-          href: '/rh/time-records'
-        },
-        {
-          id: 'rh-work-schedules',
-          label: 'Escalas de Trabalho',
-          icon: <Calendar className="h-4 w-4" />,
-          href: '/rh/work-schedules'
-        },
-        {
-          id: 'rh-benefits',
+          id: 'rh-separator-beneficios',
           label: 'Benefícios',
           icon: <Gift className="h-4 w-4" />,
-          href: '/rh/benefits'
+          href: '#',
+          isSectionHeader: true,
+          children: [
+            {
+              id: 'rh-convenios',
+              label: 'Convênios Médicos',
+              icon: <Stethoscope className="h-4 w-4" />,
+              href: '/rh/convenios'
+            },
+            {
+              id: 'rh-beneficios-unificados',
+              label: 'Gestão de Benefícios',
+              icon: <Settings className="h-4 w-4" />,
+              href: '/rh/beneficios-unificados'
+            },
+            {
+              id: 'rh-unions',
+              label: 'Sindicatos',
+              icon: <Building2 className="h-4 w-4" />,
+              href: '/rh/unions'
+            },
+            {
+              id: 'rh-pagamentos',
+              label: 'Gestão de Pagamentos',
+              icon: <CreditCard className="h-4 w-4" />,
+              href: '/rh/pagamentos'
+            }
+          ]
         },
+        
+        // 4. CADASTROS - CONFIGURAÇÕES TRIBUTÁRIAS
         {
-          id: 'rh-equipment-rental',
-          label: 'Locação de Equipamentos',
-          icon: <Package className="h-4 w-4" />,
-          href: '/rh/equipment-rental'
-        },
-        {
-          id: 'rh-convenios',
-          label: 'Convênios Médicos',
-          icon: <Stethoscope className="h-4 w-4" />,
-          href: '/rh/convenios'
-        },
-        {
-          id: 'rh-vr-va',
-          label: 'VR/VA',
-          icon: <CreditCard className="h-4 w-4" />,
-          href: '/rh/vr-va'
-        },
-        {
-          id: 'rh-transporte',
-          label: 'Transporte',
-          icon: <Bus className="h-4 w-4" />,
-          href: '/rh/transporte'
-        },
-        {
-          id: 'rh-elegibilidade',
-          label: 'Elegibilidade',
-          icon: <Target className="h-4 w-4" />,
-          href: '/rh/elegibilidade'
-        },
-        {
-          id: 'rh-rateios',
-          label: 'Rateios',
-          icon: <Percent className="h-4 w-4" />,
-          href: '/rh/rateios'
-        },
-        {
-          id: 'rh-payroll',
-          label: 'Folha de Pagamento',
+          id: 'rh-separator-tributario',
+          label: 'Configurações Tributárias',
           icon: <Calculator className="h-4 w-4" />,
-          href: '/rh/payroll'
+          href: '#',
+          isSectionHeader: true,
+          children: [
+            {
+              id: 'rh-inss-brackets',
+              label: 'Faixas INSS',
+              icon: <Calculator className="h-4 w-4" />,
+              href: '/rh/inss-brackets'
+            },
+            {
+              id: 'rh-irrf-brackets',
+              label: 'Faixas IRRF',
+              icon: <Calculator className="h-4 w-4" />,
+              href: '/rh/irrf-brackets'
+            },
+            {
+              id: 'rh-fgts-config',
+              label: 'Configurações FGTS',
+              icon: <Settings className="h-4 w-4" />,
+              href: '/rh/fgts-config'
+            }
+          ]
         },
+        
+        // 5. CADASTROS - PARÂMETROS
         {
-          id: 'rh-event-consolidation',
-          label: 'Consolidação de Eventos',
-          icon: <RefreshCw className="h-4 w-4" />,
-          href: '/rh/event-consolidation'
-        },
-        {
-          id: 'rh-payroll-calculation',
-          label: 'Motor de Cálculo',
-          icon: <Calculator className="h-4 w-4" />,
-          href: '/rh/payroll-calculation'
-        },
-        {
-          id: 'rh-esocial-integration',
-          label: 'Integração eSocial',
-          icon: <Upload className="h-4 w-4" />,
-          href: '/rh/esocial-integration'
-        },
-        {
-          id: 'rh-financial-integration',
-          label: 'Integração Financeira',
-          icon: <CreditCard className="h-4 w-4" />,
-          href: '/rh/financial-integration'
-        },
-        {
-          id: 'rh-analytics',
-          label: 'Analytics & Relatórios',
-          icon: <BarChart3 className="h-4 w-4" />,
-          href: '/rh/analytics'
-        },
-        {
-          id: 'rh-vacations',
-          label: 'Férias',
-          icon: <Calendar className="h-4 w-4" />,
-          href: '/rh/vacations'
-        },
-        {
-          id: 'rh-medical-certificates',
-          label: 'Atestados Médicos',
-          icon: <Stethoscope className="h-4 w-4" />,
-          href: '/rh/medical-certificates'
-        },
-        {
-          id: 'rh-esocial',
-          label: 'eSocial',
-          icon: <Target className="h-4 w-4" />,
-          href: '/rh/esocial'
-        },
-        {
-          id: 'rh-recruitment',
-          label: 'Recrutamento',
-          icon: <UserPlus className="h-4 w-4" />,
-          href: '/rh/recruitment'
-        },
-        {
-          id: 'rh-training',
-          label: 'Treinamentos',
-          icon: <GraduationCap className="h-4 w-4" />,
-          href: '/rh/training'
-        },
-        {
-          id: 'rh-time-bank',
-          label: 'Banco de Horas',
-          icon: <Timer className="h-4 w-4" />,
-          href: '/rh/time-bank'
-        },
-        {
-          id: 'rh-compensation-requests',
-          label: 'Solicitações de Compensação',
-          icon: <FileText className="h-4 w-4" />,
-          href: '/rh/compensation-requests'
-        },
-        {
-          id: 'rh-periodic-exams',
-          label: 'Exames Periódicos',
-          icon: <Stethoscope className="h-4 w-4" />,
-          href: '/rh/periodic-exams'
-        },
-        {
-          id: 'rh-unions',
-          label: 'Sindicatos',
-          icon: <Building2 className="h-4 w-4" />,
-          href: '/rh/unions'
-        },
-        {
-          id: 'rh-work-shifts',
-          label: 'Turnos de Trabalho',
-          icon: <Clock className="h-4 w-4" />,
-          href: '/rh/work-shifts'
-        },
-        {
-          id: 'rh-employment-contracts',
-          label: 'Contratos de Trabalho',
-          icon: <FileText className="h-4 w-4" />,
-          href: '/rh/employment-contracts'
-        },
-        {
-          id: 'rh-employee-shifts',
-          label: 'Turnos de Funcionários',
-          icon: <Users className="h-4 w-4" />,
-          href: '/rh/employee-shifts'
-        },
-        {
-          id: 'rh-payroll-config',
-          label: 'Configurações de Folha',
-          icon: <Cog className="h-4 w-4" />,
-          href: '/rh/payroll-config'
-        },
-        {
-          id: 'rh-rubricas',
-          label: 'Rubricas',
-          icon: <Tag className="h-4 w-4" />,
-          href: '/rh/rubricas'
-        },
-        {
-          id: 'rh-units',
-          label: 'Organograma',
-          icon: <Building2 className="h-4 w-4" />,
-          href: '/rh/units'
-        },
-        {
-          id: 'rh-deficiency-types',
-          label: 'Tipos de Deficiência',
-          icon: <Accessibility className="h-4 w-4" />,
-          href: '/rh/deficiency-types'
-        },
-        {
-          id: 'rh-delay-reasons',
-          label: 'Motivos de Atraso',
-          icon: <Clock className="h-4 w-4" />,
-          href: '/rh/delay-reasons'
-        },
-        {
-          id: 'rh-cid-codes',
-          label: 'Códigos CID',
-          icon: <FileText className="h-4 w-4" />,
-          href: '/rh/cid-codes'
-        },
-        {
-          id: 'rh-absence-types',
-          label: 'Tipos de Afastamento',
-          icon: <Calendar className="h-4 w-4" />,
-          href: '/rh/absence-types'
-        },
-        {
-          id: 'rh-allowance-types',
-          label: 'Tipos de Adicionais',
-          icon: <DollarSign className="h-4 w-4" />,
-          href: '/rh/allowance-types'
-        },
-        {
-          id: 'rh-inss-brackets',
-          label: 'Faixas INSS',
-          icon: <Calculator className="h-4 w-4" />,
-          href: '/rh/inss-brackets'
-        },
-        {
-          id: 'rh-irrf-brackets',
-          label: 'Faixas IRRF',
-          icon: <Calculator className="h-4 w-4" />,
-          href: '/rh/irrf-brackets'
-        },
-        {
-          id: 'rh-fgts-config',
-          label: 'Configurações FGTS',
+          id: 'rh-separator-parametros',
+          label: 'Parâmetros',
           icon: <Settings className="h-4 w-4" />,
-          href: '/rh/fgts-config'
+          href: '#',
+          isSectionHeader: true,
+          children: [
+            {
+              id: 'rh-rubricas',
+              label: 'Rubricas',
+              icon: <Tag className="h-4 w-4" />,
+              href: '/rh/rubricas'
+            },
+            {
+              id: 'rh-delay-reasons',
+              label: 'Motivos de Atraso',
+              icon: <Clock className="h-4 w-4" />,
+              href: '/rh/delay-reasons'
+            },
+            {
+              id: 'rh-cid-codes',
+              label: 'Códigos CID',
+              icon: <FileText className="h-4 w-4" />,
+              href: '/rh/cid-codes'
+            },
+            {
+              id: 'rh-absence-types',
+              label: 'Tipos de Afastamento',
+              icon: <Calendar className="h-4 w-4" />,
+              href: '/rh/absence-types'
+            },
+            {
+              id: 'rh-allowance-types',
+              label: 'Tipos de Adicionais',
+              icon: <DollarSign className="h-4 w-4" />,
+              href: '/rh/allowance-types'
+            },
+            {
+              id: 'rh-deficiency-types',
+              label: 'Tipos de Deficiência',
+              icon: <Accessibility className="h-4 w-4" />,
+              href: '/rh/deficiency-types'
+            }
+          ]
+        },
+        
+        // 6. ROTINAS - PROCESSAMENTO
+        {
+          id: 'rh-separator-processamento',
+          label: 'Processamento',
+          icon: <RefreshCw className="h-4 w-4" />,
+          href: '#',
+          isSectionHeader: true,
+          children: [
+            {
+              id: 'rh-payroll',
+              label: 'Folha de Pagamento',
+              icon: <Calculator className="h-4 w-4" />,
+              href: '/rh/payroll'
+            },
+            {
+              id: 'rh-payroll-calculation',
+              label: 'Motor de Cálculo',
+              icon: <Calculator className="h-4 w-4" />,
+              href: '/rh/payroll-calculation'
+            },
+            {
+              id: 'rh-event-consolidation',
+              label: 'Consolidação de Eventos',
+              icon: <RefreshCw className="h-4 w-4" />,
+              href: '/rh/event-consolidation'
+            }
+          ]
+        },
+        
+        // 7. ROTINAS - INTEGRAÇÕES
+        {
+          id: 'rh-separator-integracao',
+          label: 'Integrações',
+          icon: <Upload className="h-4 w-4" />,
+          href: '#',
+          isSectionHeader: true,
+          children: [
+            {
+              id: 'rh-esocial-integration',
+              label: 'Integração eSocial',
+              icon: <Upload className="h-4 w-4" />,
+              href: '/rh/esocial-integration'
+            },
+            {
+              id: 'rh-financial-integration',
+              label: 'Integração Financeira',
+              icon: <CreditCard className="h-4 w-4" />,
+              href: '/rh/financial-integration'
+            }
+          ]
+        },
+        
+        // 8. ROTINAS - GESTÃO OPERACIONAL
+        {
+          id: 'rh-separator-operacional',
+          label: 'Gestão Operacional',
+          icon: <Users className="h-4 w-4" />,
+          href: '#',
+          isSectionHeader: true,
+          children: [
+            {
+              id: 'rh-vacations',
+              label: 'Férias',
+              icon: <Calendar className="h-4 w-4" />,
+              href: '/rh/vacations'
+            },
+            {
+              id: 'rh-medical-certificates',
+              label: 'Atestados Médicos',
+              icon: <Stethoscope className="h-4 w-4" />,
+              href: '/rh/medical-certificates'
+            },
+            {
+              id: 'rh-time-bank',
+              label: 'Banco de Horas',
+              icon: <Timer className="h-4 w-4" />,
+              href: '/rh/time-bank'
+            },
+            {
+              id: 'rh-compensation-requests',
+              label: 'Solicitações de Compensação',
+              icon: <FileText className="h-4 w-4" />,
+              href: '/rh/compensation-requests'
+            },
+            {
+              id: 'rh-periodic-exams',
+              label: 'Exames Periódicos',
+              icon: <Stethoscope className="h-4 w-4" />,
+              href: '/rh/periodic-exams'
+            },
+            {
+              id: 'rh-recruitment',
+              label: 'Recrutamento',
+              icon: <UserPlus className="h-4 w-4" />,
+              href: '/rh/recruitment'
+            },
+            {
+              id: 'rh-training',
+              label: 'Treinamentos',
+              icon: <GraduationCap className="h-4 w-4" />,
+              href: '/rh/training'
+            },
+            {
+              id: 'rh-esocial',
+              label: 'eSocial',
+              icon: <Target className="h-4 w-4" />,
+              href: '/rh/esocial'
+            },
+            {
+              id: 'rh-time-records',
+              label: 'Registro de Ponto',
+              icon: <Clock className="h-4 w-4" />,
+              href: '/rh/time-records'
+            },
+            {
+              id: 'rh-acoes-disciplinares',
+              label: 'Ações Disciplinares',
+              icon: <AlertTriangle className="h-4 w-4" />,
+              href: '/rh/acoes-disciplinares'
+            }
+          ]
+        },
+        
+        // 9. ROTINAS - PLANEJAMENTO
+        {
+          id: 'rh-separator-planejamento',
+          label: 'Planejamento',
+          icon: <Calendar className="h-4 w-4" />,
+          href: '#',
+          isSectionHeader: true,
+          children: [
+            {
+              id: 'rh-employee-shifts',
+              label: 'Turnos de Funcionários',
+              icon: <Users className="h-4 w-4" />,
+              href: '/rh/employee-shifts'
+            },
+            {
+              id: 'rh-holidays',
+              label: 'Feriados',
+              icon: <Calendar className="h-4 w-4" />,
+              href: '/rh/holidays'
+            },
+            {
+              id: 'rh-schedule-planning',
+              label: 'Programação de Escalas',
+              icon: <Calendar className="h-4 w-4" />,
+              href: '/rh/schedule-planning'
+            },
+            {
+              id: 'rh-payroll-config',
+              label: 'Configurações de Folha',
+              icon: <Cog className="h-4 w-4" />,
+              href: '/rh/payroll-config'
+            },
+            {
+              id: 'rh-elegibilidade',
+              label: 'Elegibilidade',
+              icon: <Target className="h-4 w-4" />,
+              href: '/rh/elegibilidade'
+            },
+            {
+              id: 'rh-rateios',
+              label: 'Rateios',
+              icon: <Percent className="h-4 w-4" />,
+              href: '/rh/rateios'
+            }
+          ]
+        },
+        
+        // 10. RELATÓRIOS
+        {
+          id: 'rh-separator-relatorios',
+          label: 'Relatórios',
+          icon: <BarChart3 className="h-4 w-4" />,
+          href: '#',
+          isSectionHeader: true,
+          children: [
+            {
+              id: 'rh-analytics',
+              label: 'Analytics & Relatórios',
+              icon: <BarChart3 className="h-4 w-4" />,
+              href: '/rh/analytics'
+            }
+          ]
         }
       ]
     },
@@ -533,12 +649,6 @@ export default function AppSidebar() {
           icon: <Shield className="h-4 w-4" />,
           href: '/settings/entity-permissions'
         },
-        {
-          id: 'settings-access',
-          label: 'Acessos',
-          icon: <Users className="h-4 w-4" />,
-          href: '/settings/access'
-        }
       ]
     }
   ];
@@ -550,7 +660,7 @@ export default function AppSidebar() {
       if (!user?.id) return null;
       // 1) Tentar obter perfil via user_companies (empresa primária)
       const uc = await coreSupabase
-        .from('user_companies')
+        .from('core.user_companies')
         .select('profile_id, is_primary, profiles:profile_id (nome, permissoes_gerais)')
         .eq('user_id', user.id)
         .order('is_primary', { ascending: false })
@@ -588,7 +698,7 @@ export default function AppSidebar() {
       
       // Buscar permissões de módulos
       const { data: modulePermissions, error: moduleError } = await coreSupabase
-        .from('module_permissions')
+        .from('core.module_permissions')
         .select('module_name, can_read, can_create, can_edit, can_delete')
         .eq('profile_id', userProfile.profile_id);
 
@@ -596,7 +706,7 @@ export default function AppSidebar() {
 
       // Buscar permissões de entidades
       const { data: entityPermissions, error: entityError } = await coreSupabase
-        .from('entity_permissions')
+        .from('core.entity_permissions')
         .select('entity_name, can_read, can_create, can_edit, can_delete')
         .eq('profile_id', userProfile.profile_id);
 
@@ -792,6 +902,54 @@ export default function AppSidebar() {
     const active = isActive(item.href);
     const hasChildren = item.children && item.children.length > 0;
     const isExpanded = expandedItems.has(item.id);
+    
+
+    // Se for um separador, renderiza de forma diferente
+    if (item.isSeparator) {
+      return (
+        <SidebarMenuItem key={item.id}>
+          <div className="px-2 py-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-sidebar-border pb-2">
+              {item.icon}
+              <span>{item.label}</span>
+            </div>
+          </div>
+        </SidebarMenuItem>
+      );
+    }
+
+    // Se for um cabeçalho de seção colapsável
+    if (item.isSectionHeader) {
+      console.log('🔍 Rendering section header:', item.id, 'hasChildren:', hasChildren, 'isExpanded:', isExpanded);
+      return (
+        <SidebarMenuItem key={item.id}>
+          <SidebarMenuButton
+            onClick={() => toggleExpanded(item.id)}
+            tooltip={item.label}
+            className="justify-between w-full"
+          >
+            <div className="flex items-center gap-2 flex-1">
+              {item.icon}
+              <span className="text-xs font-semibold text-muted-foreground">
+                {item.label}
+              </span>
+            </div>
+            <ChevronDown 
+              className={cn(
+                "h-4 w-4 transition-transform text-sidebar-foreground flex-shrink-0",
+                isExpanded && "rotate-180"
+              )} 
+            />
+          </SidebarMenuButton>
+          
+          {hasChildren && isExpanded && (
+            <SidebarMenuSub>
+              {item.children.map(child => renderMenuItem(child))}
+            </SidebarMenuSub>
+          )}
+        </SidebarMenuItem>
+      );
+    }
 
     return (
       <SidebarMenuItem key={item.id}>
@@ -825,24 +983,10 @@ export default function AppSidebar() {
         
         {hasChildren && isExpanded && (
           <SidebarMenuSub>
-            {item.children.map(child => (
-              <SidebarMenuSubItem key={child.id}>
-                <SidebarMenuSubButton
-                  isActive={isActive(child.href)}
-                  onClick={() => navigate(child.href)}
-                >
-                  {child.icon}
-                  <span>{child.label}</span>
-                  {child.badge && child.badge > 0 && (
-                    <Badge variant="secondary" className="ml-auto text-xs">
-                      {child.badge}
-                    </Badge>
-                  )}
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
-            ))}
+            {item.children.map(child => renderMenuItem(child))}
           </SidebarMenuSub>
         )}
+        
       </SidebarMenuItem>
     );
   };

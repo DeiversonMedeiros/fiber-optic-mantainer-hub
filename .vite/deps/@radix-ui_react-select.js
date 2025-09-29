@@ -1,13 +1,16 @@
 "use client";
 import {
-  useDirection
-} from "./chunk-I6WTOLMB.js";
-import {
   VisuallyHidden
 } from "./chunk-TFE7OHZH.js";
 import {
+  useDirection
+} from "./chunk-I6WTOLMB.js";
+import {
   createCollection
 } from "./chunk-FTTBNHQ5.js";
+import {
+  usePrevious
+} from "./chunk-MPOEESS2.js";
 import {
   Anchor,
   Arrow,
@@ -15,6 +18,7 @@ import {
   Root2,
   createPopperScope
 } from "./chunk-75XD752Y.js";
+import "./chunk-U6HL7V4Z.js";
 import {
   Combination_default,
   FocusScope,
@@ -28,10 +32,6 @@ import {
 import {
   useId
 } from "./chunk-METXTK5B.js";
-import {
-  usePrevious
-} from "./chunk-MPOEESS2.js";
-import "./chunk-U6HL7V4Z.js";
 import {
   composeEventHandlers,
   useControllableState

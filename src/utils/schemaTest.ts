@@ -14,7 +14,7 @@ export const testSchemaAccess = async () => {
   const tests = [
     {
       name: 'Teste 1: employees (sem schema)',
-      query: () => supabase.from('employees').select('*').limit(1)
+      query: () => supabase.from('rh.employees').select('*').limit(1)
     },
     {
       name: 'Teste 2: rh.employees (com schema)',

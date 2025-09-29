@@ -88,9 +88,11 @@ export const EmploymentContractForm: React.FC<EmploymentContractFormProps> = ({
 
   // Fetch work schedules
   const { data: workSchedules = [] } = useQuery({
-    queryKey: ['work-schedules'],
+    queryKey: ['work-shifts'],
     queryFn: async () => {
-      const { data, error } = await rhTable('work_schedules')
+      const { data, error } = await rhSupabase
+        .schema('rh')
+        .from('rh.work_shifts')
         .select('id, nome')
         .eq('is_active', true)
         .order('nome');

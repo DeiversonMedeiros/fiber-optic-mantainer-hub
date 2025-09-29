@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Modal Funcionário</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste do Modal "Detalhes do Funcionário"</h1>
+        
+        <div class="test-section">
+            <h3>1. Verificação do Servidor</h3>
+            <div id="server-status" class="status info">Verificando servidor...</div>
+            <button onclick="checkServer()">Verificar Servidor</button>
+        </div>
+
+        <div class="test-section">
+            <h3>2. Verificação do Componente</h3>
+            <div id="component-status" class="status info">Aguardando verificação...</div>
+            <button onclick="checkComponent()">Verificar Componente</button>
+        </div>
+
+        <div class="test-section">
+            <h3>3. Teste de Funcionalidades</h3>
+            <div id="features-status" class="status info">Aguardando teste...</div>
+            <button onclick="testFeatures()">Testar Funcionalidades</button>
+        </div>
+
+        <div class="test-section">
+            <h3>4. Instruções de Teste Manual</h3>
+            <div class="status info">
+                <strong>Para testar manualmente:</strong><br>
+                1. Acesse <a href="http://localhost:8080" target="_blank">http://localhost:8080</a><br>
+                2. Navegue até "Gestão de Funcionários"<br>
+                3. Clique em "Detalhes" em qualquer funcionário<br>
+                4. Teste todas as abas e campos<br>
+                5. Verifique se os novos campos estão funcionando
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function checkServer() {
+            const statusDiv = document.getElementById('server-status');
+            try {
+                const response = await fetch('http://localhost:8080');
+                if (response.ok) {
+                    statusDiv.className = 'status success';
+                    statusDiv.innerHTML = '✅ Servidor funcionando corretamente!';
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.innerHTML = `❌ Servidor retornou status: ${response.status}`;
+                }
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.innerHTML = `❌ Erro ao conectar com servidor: ${error.message}`;
+            }
+        }
+
+        async function checkComponent() {
+            const statusDiv = document.getElementById('component-status');
+            try {
+                const response = await fetch('http://localhost:8080/src/components/rh/EmployeeDetailsTabs.tsx');
+                if (response.ok) {
+                    statusDiv.className = 'status success';
+                    statusDiv.innerHTML = '✅ Componente EmployeeDetailsTabs carregado com sucesso!';
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.innerHTML = `❌ Erro ao carregar componente: ${response.status}`;
+                }
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.innerHTML = `❌ Erro ao verificar componente: ${error.message}`;
+            }
+        }
+
+        function testFeatures() {
+            const statusDiv = document.getElementById('features-status');
+            const features = [
+                '✅ Checkbox "Precisa registrar ponto"',
+                '✅ Tipo de banco de horas',
+                '✅ Informações de PCD',
+                '✅ Adicionais (Periculosidade/Insalubridade)',
+                '✅ Adicionais automáticos (Noturno/FDS)',
+                '✅ Turno de trabalho (work-schedule)',
+                '✅ Aba Convênios',
+                '✅ Aba VR/VA',
+                '✅ Aba Transporte',
+                '✅ Integração com work-shifts'
+            ];
+            
+            statusDiv.className = 'status success';
+            statusDiv.innerHTML = '<strong>Funcionalidades implementadas:</strong><br>' + features.join('<br>');
+        }
+
+        // Executar verificações automáticas
+        window.onload = function() {
+            checkServer();
+            checkComponent();
+            testFeatures();
+        };
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

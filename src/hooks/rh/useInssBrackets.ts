@@ -52,7 +52,7 @@ export const useInssBrackets = () => {
       try {
         // Consulta simples sem filtros primeiro para testar
         const { data: allData, error: allError } = await rhSupabase
-          .from('inss_brackets')
+          .from('rh.inss_brackets')
           .select('*');
 
         if (allError) throw allError;
@@ -80,7 +80,7 @@ export const useInssBrackets = () => {
       if (!companyId) throw new Error('Company ID not found');
 
       const { data: result, error } = await rhSupabase
-        .from('inss_brackets')
+        .from('rh.inss_brackets')
         .insert([{
           ...data,
           company_id: companyId,
@@ -112,7 +112,7 @@ export const useInssBrackets = () => {
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: InssBracketUpdate }) => {
       const { data: result, error } = await rhSupabase
-        .from('inss_brackets')
+        .from('rh.inss_brackets')
         .update({
           ...data,
           updated_by: user?.id,
@@ -144,7 +144,7 @@ export const useInssBrackets = () => {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await rhSupabase
-        .from('inss_brackets')
+        .from('rh.inss_brackets')
         .update({ is_active: false, updated_by: user?.id })
         .eq('id', id);
 

@@ -125,6 +125,8 @@ export function ConveniosEmpresasTable({
       ),
     },
     {
+      id: 'created_at',
+      key: 'created_at',
       accessorKey: 'created_at',
       header: 'Criado em',
       cell: ({ row }: { row: any }) => (
@@ -135,6 +137,8 @@ export function ConveniosEmpresasTable({
     },
     {
       id: 'actions',
+      key: 'actions',
+      accessorKey: 'actions',
       header: 'Ações',
       cell: ({ row }: { row: any }) => {
         const convenio = row.original as ConvenioEmpresa;

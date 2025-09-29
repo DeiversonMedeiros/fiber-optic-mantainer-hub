@@ -197,3 +197,44 @@ COMMENT ON TABLE rh.employee_dependents IS 'Dependentes dos funcionários';
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Employee } from '@/integrations/supabase/rh-types';
 import { useEmployees } from '@/hooks/rh';
 import { ColumnDef } from '@tanstack/react-table';
+import { Eye, Edit, Trash2 } from 'lucide-react';
 
 export interface EmployeeTableProps {
   companyId: string;
@@ -162,22 +163,17 @@ export function EmployeeTable({
       actions={[
         {
           label: 'Visualizar',
-          icon: <ViewAction onClick={() => onViewEmployee?.(employee)} />,
+          icon: <Eye className="h-4 w-4" />,
           onClick: () => onViewEmployee?.(employee),
         },
         {
           label: 'Editar',
-          icon: <EditAction onClick={() => onEditEmployee?.(employee)} />,
+          icon: <Edit className="h-4 w-4" />,
           onClick: () => onEditEmployee?.(employee),
         },
         {
           label: 'Excluir',
-          icon: <DeleteAction 
-            onClick={() => handleDeleteEmployee(employee)}
-            disabled={deletingId === employee.id}
-            confirmTitle="Confirmar exclusão do funcionário"
-            confirmDescription={`Tem certeza que deseja excluir o funcionário "${employee.nome}"? Esta ação não pode ser desfeita.`}
-          />,
+          icon: <Trash2 className="h-4 w-4" />,
           onClick: () => handleDeleteEmployee(employee),
           variant: 'destructive',
           confirm: {

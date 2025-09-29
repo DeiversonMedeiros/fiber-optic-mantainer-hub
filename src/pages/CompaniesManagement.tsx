@@ -42,6 +42,7 @@ const CompaniesManagement: React.FC = () => {
     mutationFn: () => CompaniesService.create({
       razao_social: form.razao_social || '',
       nome_fantasia: form.nome_fantasia || null,
+      codigo_empresa: form.codigo_empresa || null,
       cnpj: form.cnpj || null,
       inscricao_estadual: form.inscricao_estadual || null,
       endereco: form.endereco || null,
@@ -121,6 +122,13 @@ const CompaniesManagement: React.FC = () => {
                 <div className="grid gap-2">
                   <Input placeholder="Razão social" value={form.razao_social || ''} onChange={(e) => setForm(s => ({ ...s, razao_social: e.target.value }))} />
                   <Input placeholder="Nome fantasia" value={form.nome_fantasia || ''} onChange={(e) => setForm(s => ({ ...s, nome_fantasia: e.target.value }))} />
+                  <Input 
+                    placeholder="Código da empresa (ex: 01)" 
+                    value={form.codigo_empresa || ''} 
+                    onChange={(e) => setForm(s => ({ ...s, codigo_empresa: e.target.value.replace(/\D/g, '').slice(0, 2) }))}
+                    maxLength={2}
+                    className="text-center font-mono"
+                  />
                   <Input placeholder="CNPJ" value={form.cnpj || ''} onChange={(e) => setForm(s => ({ ...s, cnpj: e.target.value }))} />
                   <Input placeholder="Inscrição estadual" value={form.inscricao_estadual || ''} onChange={(e) => setForm(s => ({ ...s, inscricao_estadual: e.target.value }))} />
                   <Input placeholder="Endereço" value={form.endereco || ''} onChange={(e) => setForm(s => ({ ...s, endereco: e.target.value }))} />
@@ -139,6 +147,7 @@ const CompaniesManagement: React.FC = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Código</TableHead>
                 <TableHead>Razão Social</TableHead>
                 <TableHead>Fantasia</TableHead>
                 <TableHead>CNPJ</TableHead>
@@ -148,12 +157,17 @@ const CompaniesManagement: React.FC = () => {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={5}>Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6}>Carregando...</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={5}>Nenhum registro encontrado</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6}>Nenhum registro encontrado</TableCell></TableRow>
               ) : (
                 filtered.map((c) => (
                   <TableRow key={c.id}>
+                    <TableCell>
+                      <span className="font-mono text-lg font-bold text-blue-600">
+                        {c.codigo_empresa || '--'}
+                      </span>
+                    </TableCell>
                     <TableCell>{c.razao_social}</TableCell>
                     <TableCell>{c.nome_fantasia}</TableCell>
                     <TableCell>{c.cnpj}</TableCell>
@@ -186,6 +200,13 @@ const CompaniesManagement: React.FC = () => {
           <div className="grid gap-2">
             <Input placeholder="Razão social" value={form.razao_social || ''} onChange={(e) => setForm(s => ({ ...s, razao_social: e.target.value }))} />
             <Input placeholder="Nome fantasia" value={form.nome_fantasia || ''} onChange={(e) => setForm(s => ({ ...s, nome_fantasia: e.target.value }))} />
+            <Input 
+              placeholder="Código da empresa (ex: 01)" 
+              value={form.codigo_empresa || ''} 
+              onChange={(e) => setForm(s => ({ ...s, codigo_empresa: e.target.value.replace(/\D/g, '').slice(0, 2) }))}
+              maxLength={2}
+              className="text-center font-mono"
+            />
             <Input placeholder="CNPJ" value={form.cnpj || ''} onChange={(e) => setForm(s => ({ ...s, cnpj: e.target.value }))} />
             <Input placeholder="Inscrição estadual" value={form.inscricao_estadual || ''} onChange={(e) => setForm(s => ({ ...s, inscricao_estadual: e.target.value }))} />
             <Input placeholder="Endereço" value={form.endereco || ''} onChange={(e) => setForm(s => ({ ...s, endereco: e.target.value }))} />

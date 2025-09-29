@@ -29,6 +29,7 @@ export const useAuthorization = () => {
 
   const checkEntity = async (entityName: string, action: PermissionAction) => {
     if (!user?.id) return false;
+
     const { data, error } = await coreSupabase.rpc('check_entity_permission', {
       user_id: user.id,
       entity_name: entityName,

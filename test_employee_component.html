@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Employee Component</title>
+</head>
+<body>
+    <h1>Teste do Componente Employee</h1>
+    <p>Testando se o servidor está funcionando...</p>
+    
+    <script>
+        // Teste simples para verificar se o servidor está respondendo
+        fetch('http://localhost:8080/src/components/rh/EmployeeDetailsTabsTest.tsx')
+            .then(response => {
+                console.log('Status:', response.status);
+                if (response.ok) {
+                    console.log('✅ Servidor funcionando!');
+                    document.body.innerHTML += '<p style="color: green;">✅ Servidor funcionando!</p>';
+                } else {
+                    console.log('❌ Erro no servidor:', response.status);
+                    document.body.innerHTML += '<p style="color: red;">❌ Erro no servidor: ' + response.status + '</p>';
+                }
+            })
+            .catch(error => {
+                console.error('❌ Erro de conexão:', error);
+                document.body.innerHTML += '<p style="color: red;">❌ Erro de conexão: ' + error.message + '</p>';
+            });
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

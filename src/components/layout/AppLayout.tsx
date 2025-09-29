@@ -21,6 +21,9 @@ export function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate();
   const { companies, activeCompanyId, setActiveCompanyId, loading } = useActiveCompany();
 
+  // Buscar dados da empresa ativa
+  const activeCompany = companies.find(c => c.id === activeCompanyId);
+
   // Buscar perfil do usuário logado usando o novo sistema
   const { data: userProfile } = useQuery({
     queryKey: ['user-profile', user?.id],
@@ -56,6 +59,36 @@ export function AppLayout({ children }: AppLayoutProps) {
             <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b px-4 bg-white">
               <div className="flex items-center gap-3">
                 <SidebarTrigger />
+                {/* Logo da Empresa Ativa */}
+                {activeCompany && (
+                  <div className="flex items-center gap-2 ml-4">
+                    {activeCompany.logo_url ? (
+                      <img
+                        src={activeCompany.logo_url}
+                        alt={`Logo ${activeCompany.nome_fantasia || activeCompany.razao_social}`}
+                        className="h-8 w-auto max-w-32 object-contain"
+                        onError={(e) => {
+                          // Se a imagem falhar ao carregar, ocultar o elemento
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="h-8 w-8 bg-gray-200 rounded flex items-center justify-center">
+                        <span className="text-xs font-medium text-gray-600">
+                          {(activeCompany.nome_fantasia || activeCompany.razao_social)
+                            .split(' ')
+                            .map(word => word.charAt(0))
+                            .join('')
+                            .toUpperCase()
+                            .slice(0, 2)}
+                        </span>
+                      </div>
+                    )}
+                    <span className="text-sm font-medium text-gray-700 hidden sm:block">
+                      {activeCompany.nome_fantasia || activeCompany.razao_social}
+                    </span>
+                  </div>
+                )}
               </div>
               
               {/* Informações do usuário */}
@@ -69,7 +102,32 @@ export function AppLayout({ children }: AppLayoutProps) {
                       </SelectTrigger>
                       <SelectContent>
                         {companies.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>{c.nome_fantasia || c.razao_social}</SelectItem>
+                          <SelectItem key={c.id} value={c.id}>
+                            <div className="flex items-center gap-2">
+                              {c.logo_url ? (
+                                <img
+                                  src={c.logo_url}
+                                  alt={`Logo ${c.nome_fantasia || c.razao_social}`}
+                                  className="h-4 w-4 object-contain"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <div className="h-4 w-4 bg-gray-200 rounded flex items-center justify-center">
+                                  <span className="text-xs font-medium text-gray-600">
+                                    {(c.nome_fantasia || c.razao_social)
+                                      .split(' ')
+                                      .map(word => word.charAt(0))
+                                      .join('')
+                                      .toUpperCase()
+                                      .slice(0, 2)}
+                                  </span>
+                                </div>
+                              )}
+                              <span>{c.nome_fantasia || c.razao_social}</span>
+                            </div>
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
