@@ -193,3 +193,4 @@ INSERT INTO rh.compensation_requests (company_id, employee_id, data_solicitacao,
 
 
 
+

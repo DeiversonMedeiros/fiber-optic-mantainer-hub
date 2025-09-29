@@ -167,3 +167,4 @@ CREATE POLICY "Permitir exclusão para usuários autenticados" ON rh.fgts_config
 
 
 
+
