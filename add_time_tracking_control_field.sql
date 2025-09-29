@@ -54,3 +54,4 @@ AND column_name = 'precisa_registrar_ponto';
 
 
 
+

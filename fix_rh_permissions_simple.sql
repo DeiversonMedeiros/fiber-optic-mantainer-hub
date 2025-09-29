@@ -126,3 +126,4 @@ SELECT COUNT(*) as total_positions FROM rh.positions;
 
 
 
+

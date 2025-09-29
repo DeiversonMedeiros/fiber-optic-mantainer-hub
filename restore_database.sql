@@ -12,3 +12,4 @@ CREATE SCHEMA IF NOT EXISTS financeiro;
 
 
 
+

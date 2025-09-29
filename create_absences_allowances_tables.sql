@@ -217,3 +217,4 @@ COMMENT ON TABLE rh.employee_allowances IS 'Adicionais dos funcionários';
 
 
 
+
