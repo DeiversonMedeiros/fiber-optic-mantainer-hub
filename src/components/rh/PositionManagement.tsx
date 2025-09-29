@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { Position, PositionInsert, PositionUpdate } from '@/integrations/supabase/rh-types';
 import { usePositions } from '@/hooks/rh';

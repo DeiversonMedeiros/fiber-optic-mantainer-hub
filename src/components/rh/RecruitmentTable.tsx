@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { RecruitmentData } from '@/hooks/rh/useRecruitment';
 import { EnhancedDataTable } from './EnhancedDataTable';

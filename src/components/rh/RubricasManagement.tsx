@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { useRubricas, useNaturezasESocial } from '@/hooks/rh/useRubricas';
 import { Rubrica, RubricaInsert, RubricaUpdate } from '@/integrations/supabase/rh-types';

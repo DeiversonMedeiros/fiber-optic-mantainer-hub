@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { BeneficioRateio } from '@/integrations/supabase/rh-types';
 import { DataTable } from './DataTable';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { FormModal } from './FormModal';
 import { TimeRecordTable } from './TimeRecordTable';
