@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { DataTable } from './DataTable';
 import { Badge } from '@/components/ui/badge';

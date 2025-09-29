@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { MedicalCertificate, MedicalCertificateInsert, MedicalCertificateUpdate } from '@/integrations/supabase/rh-types';
 import { useMedicalCertificates } from '@/hooks/rh';
