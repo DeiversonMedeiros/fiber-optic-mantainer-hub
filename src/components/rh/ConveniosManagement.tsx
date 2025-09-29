@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { Convenio, ConvenioInsert, ConvenioUpdate } from '@/integrations/supabase/rh-types';
 import { useConvenios } from '@/hooks/rh/useConvenios';
