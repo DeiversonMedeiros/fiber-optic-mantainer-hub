@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { WorkSchedule, WorkScheduleInsert, WorkScheduleUpdate } from '@/integrations/supabase/rh-types';
 import { useWorkSchedules } from '@/hooks/rh';

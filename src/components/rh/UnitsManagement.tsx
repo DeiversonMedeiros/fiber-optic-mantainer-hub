@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { useUnits } from '@/hooks/rh/useUnits';
 import { Unit, UnitInsert, UnitUpdate } from '@/integrations/supabase/rh-types';

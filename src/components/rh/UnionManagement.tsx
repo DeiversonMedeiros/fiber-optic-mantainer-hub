@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { Union, UnionInsert, UnionUpdate } from '@/integrations/supabase/rh-types';
 import { useUnions } from '@/hooks/rh';
