@@ -24,9 +24,9 @@ Deno.serve(async (req) => {
       }
     )
 
-    const { email, password, name, username, phone, userClassId, accessProfileId, managerId } = await req.json();
+    const { email, password, name, username, phone, profileId, managerId } = await req.json();
 
-    console.log('Dados recebidos na função create-user:', { email, password, name, username, phone, userClassId, accessProfileId, managerId });
+    console.log('Dados recebidos na função create-user:', { email, password, name, username, phone, profileId, managerId });
 
     console.log('Creating user with email:', email)
 
@@ -54,18 +54,17 @@ Deno.serve(async (req) => {
         name,
         username,
         phone,
-        user_class_id: userClassId,
-        access_profile_id: accessProfileId,
+        profile_id: profileId,
         manager_id: managerId
       });
       const { error: profileError } = await supabaseAdmin
-        .from('profiles')
+        .schema('core')
+        .from('users')
         .update({
           name,
           username,
           phone: phone || null,
-          user_class_id: userClassId || null,
-          access_profile_id: accessProfileId || null,
+          profile_id: profileId || null,
           manager_id: managerId || null
         })
         .eq('id', authData.user.id)

@@ -1,14 +1,16 @@
 
 import React from 'react';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { AppSidebar } from './AppSidebar';
+import AppSidebar from './AppSidebar';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { coreSupabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useActiveCompany } from '@/hooks/useActiveCompany';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -17,37 +19,22 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { companies, activeCompanyId, setActiveCompanyId, loading } = useActiveCompany();
 
-  // Buscar perfil do usuário logado
-  const { data: profile } = useQuery({
+  // Buscar perfil do usuário logado usando o novo sistema
+  const { data: userProfile } = useQuery({
     queryKey: ['user-profile', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-      if (error) throw error;
+      const { data, error } = await coreSupabase
+        .rpc('get_user_profile', { user_id: user.id });
+      if (error) {
+        console.error('Erro ao buscar perfil:', error);
+        return null;
+      }
       return data;
     },
     enabled: !!user?.id,
-  });
-
-  // Buscar perfil de acesso
-  const { data: accessProfile } = useQuery({
-    queryKey: ['access-profile', profile?.access_profile_id],
-    queryFn: async () => {
-      if (!profile?.access_profile_id) return null;
-      const { data, error } = await supabase
-        .from('access_profiles')
-        .select('id, name')
-        .eq('id', profile.access_profile_id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!profile?.access_profile_id,
   });
 
   // Função para obter as iniciais do nome
@@ -64,23 +51,36 @@ export function AppLayout({ children }: AppLayoutProps) {
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <AppSidebar />
-        <SidebarInset className="flex-1">
+        <SidebarInset className="flex-1 transition-all duration-300 ease-in-out">
           <div className="flex h-full flex-col">
             <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b px-4 bg-white">
-              <div className="flex items-center gap-2">
-                <SidebarTrigger className="-ml-1" />
+              <div className="flex items-center gap-3">
+                <SidebarTrigger />
               </div>
               
               {/* Informações do usuário */}
               {user && (
                 <div className="flex items-center gap-3">
+                  {/* Seletor de Empresa Ativa */}
+                  <div className="w-64">
+                    <Select value={activeCompanyId ?? undefined} onValueChange={(v) => setActiveCompanyId(v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={loading ? 'Carregando empresas...' : 'Selecionar empresa'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {companies.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.nome_fantasia || c.razao_social}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="flex flex-col items-end">
                     <span className="text-sm font-medium text-gray-900">
-                      {profile?.name || user.email}
+                      {userProfile?.name || user.email}
                     </span>
-                    {accessProfile && (
+                    {userProfile?.profile_name && (
                       <Badge variant="secondary" className="text-xs">
-                        {accessProfile.name}
+                        {userProfile.profile_name}
                       </Badge>
                     )}
                   </div>
@@ -94,13 +94,13 @@ export function AppLayout({ children }: AppLayoutProps) {
                   </Button>
                   <Avatar className="h-8 w-8">
                     <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                      {getInitials(profile?.name || user.email || '')}
+                      {getInitials(userProfile?.name || user.email || '')}
                     </AvatarFallback>
                   </Avatar>
                 </div>
               )}
             </header>
-            <main className="flex-1">
+            <main className="flex-1 transition-all duration-300 ease-in-out">
               {children}
             </main>
           </div>

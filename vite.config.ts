@@ -8,6 +8,15 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    cors: true,
+    proxy: {
+      '/auth': {
+        target: 'https://nhvlgnmpbihamgvdbmwa.supabase.co',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/auth/, '/auth')
+      }
+    }
   },
   plugins: [
     react(),

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
+import { coreSupabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface UserModalProps {
@@ -21,8 +21,7 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
     email: '',
     username: '',
     phone: '',
-    userClassId: '',
-    accessProfileId: '',
+    profileId: '',
     managerId: '',
     password: ''
   });
@@ -30,47 +29,33 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Buscar classes de usuário
-  const { data: userClasses = [] } = useQuery({
-    queryKey: ['user-classes-modal'],
+  // Buscar perfis
+  const { data: profiles = [] } = useQuery({
+    queryKey: ['profiles-modal'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('user_classes')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
+      const { data, error } = await coreSupabase
+        .from('profiles')
+        .select('id, nome')
+        .order('nome');
       
       if (error) throw error;
       return data;
     }
   });
 
-  // Buscar perfis de acesso
-  const { data: accessProfiles = [] } = useQuery({
-    queryKey: ['access-profiles-modal'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('access_profiles')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-      
-      if (error) throw error;
-      return data;
-    }
-  });
-
-  // Buscar gestores (usuários com access_profile_id de gestor ou gestor preventiva)
+  // Buscar gestores (usuários com perfil de gestor)
   const { data: managers = [] } = useQuery({
     queryKey: ['managers'],
     queryFn: async () => {
-      const GESTOR_PROFILE_ID = '8e720f2f-a69e-4660-8f6e-e8601892dda7';
-      const GESTOR_PREVENTIVA_PROFILE_ID = '93fa8f08-9666-4f96-bee7-c378398cfd76';
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, name')
-        .in('access_profile_id', [GESTOR_PROFILE_ID, GESTOR_PREVENTIVA_PROFILE_ID])
+      const { data, error } = await coreSupabase
+        .from('users')
+        .select(`
+          id, 
+          name,
+          profiles!inner(nome)
+        `)
         .eq('is_active', true)
+        .ilike('profiles.nome', '%gestor%')
         .order('name');
       if (error) throw error;
       return data;
@@ -84,8 +69,7 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
         email: user.email || '',
         username: user.username || '',
         phone: user.phone || '',
-        userClassId: user.user_class_id || '',
-        accessProfileId: user.access_profile_id || '',
+        profileId: user.profile_id || '',
         managerId: user.manager_id || '',
         password: ''
       });
@@ -95,8 +79,7 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
         email: '',
         username: '',
         phone: '',
-        userClassId: '',
-        accessProfileId: '',
+        profileId: '',
         managerId: '',
         password: ''
       });
@@ -109,15 +92,14 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
         // Montar payload sem campos nulos
         const updatePayload: any = {
           name: data.name,
-          username: data.username, // <-- Adicionado para garantir atualização do nome de usuário
+          username: data.username,
           phone: data.phone,
-          access_profile_id: data.accessProfileId || null,
+          profile_id: data.profileId || null,
         };
-        if (data.userClassId) updatePayload.user_class_id = data.userClassId;
         if (data.managerId) updatePayload.manager_id = data.managerId;
         console.log('Payload final do update:', updatePayload);
-        const { data: updateData, error } = await supabase
-          .from('profiles')
+        const { data: updateData, error } = await coreSupabase
+          .from('users')
           .update(updatePayload)
           .eq('id', user.id)
           .select();
@@ -136,8 +118,7 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
             name: data.name,
             username: data.username,
             phone: data.phone,
-            userClassId: data.userClassId,
-            accessProfileId: data.accessProfileId,
+            profileId: data.profileId,
             managerId: data.managerId
           });
         }
@@ -148,8 +129,7 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
             name: data.name,
             username: data.username,
             phone: data.phone,
-            userClassId: data.userClassId,
-            accessProfileId: data.accessProfileId,
+            profileId: data.profileId,
             managerId: data.managerId
           }
         });
@@ -270,31 +250,15 @@ const UserModal = ({ isOpen, onClose, user }: UserModalProps) => {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="userClass">Classe</Label>
-            <Select value={formData.userClassId} onValueChange={(value) => setFormData(prev => ({ ...prev, userClassId: value }))}>
+            <Label htmlFor="profile">Perfil</Label>
+            <Select value={formData.profileId} onValueChange={(value) => setFormData(prev => ({ ...prev, profileId: value }))}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecione uma classe" />
+                <SelectValue placeholder="Selecione um perfil" />
               </SelectTrigger>
               <SelectContent>
-                {userClasses.map((userClass) => (
-                  <SelectItem key={userClass.id} value={userClass.id}>
-                    {userClass.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="accessProfile">Perfil de Acesso</Label>
-            <Select value={formData.accessProfileId} onValueChange={(value) => setFormData(prev => ({ ...prev, accessProfileId: value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione um perfil de acesso" />
-              </SelectTrigger>
-              <SelectContent>
-                {accessProfiles.map((profile) => (
+                {profiles.map((profile) => (
                   <SelectItem key={profile.id} value={profile.id}>
-                    {profile.name}
+                    {profile.nome}
                   </SelectItem>
                 ))}
               </SelectContent>

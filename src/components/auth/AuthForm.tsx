@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { coreSupabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 const AuthForm = () => {
@@ -27,8 +27,8 @@ const AuthForm = () => {
       let emailToLogin = loginInput;
       // Se não for e-mail, buscar pelo username
       if (!/\S+@\S+\.\S+/.test(loginInput)) {
-        const { data, error } = await supabase
-          .from('profiles')
+        const { data, error } = await coreSupabase
+          .from('users')
           .select('email')
           .eq('username', loginInput)
           .single();

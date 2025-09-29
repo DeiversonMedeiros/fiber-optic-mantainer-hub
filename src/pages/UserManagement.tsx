@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Edit, Trash2, Plus, Users, ArrowLeft, Search, Key } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { coreSupabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import UserModal from '@/components/users/UserModal';
@@ -17,27 +17,20 @@ import ChangePasswordModal from '@/components/users/ChangePasswordModal';
 interface User {
   id: string;
   name: string;
-  username?: string; // ADICIONADO
+  username?: string;
   phone?: string;
   is_active: boolean;
-  user_class_id?: string;
-  access_profile_id?: string;
+  profile_id?: string;
   manager_id?: string;
 }
 
-interface UserClass {
+interface Profile {
   id: string;
-  name: string;
-}
-
-interface AccessProfile {
-  id: string;
-  name: string;
+  nome: string;
 }
 
 interface UserWithRelations extends User {
-  user_class_name?: string;
-  access_profile_name?: string;
+  profile_name?: string;
   manager_name?: string;
 }
 
@@ -48,8 +41,7 @@ const UserManagement = () => {
   const [userForPasswordChange, setUserForPasswordChange] = useState<UserWithRelations | null>(null);
   const [filters, setFilters] = useState({
     name: '',
-    userClass: '',
-    accessProfile: '',
+    profile: '',
     status: ''
   });
   
@@ -65,20 +57,17 @@ const UserManagement = () => {
       
       try {
         // Buscar usuários básicos primeiro
-        let query = supabase
-          .from('profiles')
-          .select('id, name, username, phone, is_active, user_class_id, access_profile_id, manager_id') // ADICIONADO username
+        let query = coreSupabase
+          .from('users')
+          .select('id, name, username, phone, is_active, profile_id, manager_id')
           .order('name');
 
         // Aplicar filtros
         if (filters.name) {
           query = query.ilike('name', `%${filters.name}%`);
         }
-        if (filters.userClass && filters.userClass !== 'all') {
-          query = query.eq('user_class_id', filters.userClass);
-        }
-        if (filters.accessProfile && filters.accessProfile !== 'all') {
-          query = query.eq('access_profile_id', filters.accessProfile);
+        if (filters.profile && filters.profile !== 'all') {
+          query = query.eq('profile_id', filters.profile);
         }
         if (filters.status && filters.status !== 'all') {
           query = query.eq('is_active', filters.status === 'ativo');
@@ -97,47 +86,36 @@ const UserManagement = () => {
           return [];
         }
 
-        // Buscar nomes das classes de usuário
-        const userClassIds = [...new Set(profiles.map(p => p.user_class_id).filter(Boolean))];
-        const { data: userClasses } = userClassIds.length > 0 ? 
-          await supabase
-            .from('user_classes')
-            .select('id, name')
-            .in('id', userClassIds) : { data: [] };
-
-        // Buscar nomes dos perfis de acesso
-        const accessProfileIds = [...new Set(profiles.map(p => p.access_profile_id).filter(Boolean))];
-        const { data: accessProfiles } = accessProfileIds.length > 0 ? 
-          await supabase
-            .from('access_profiles')
-            .select('id, name')
-            .in('id', accessProfileIds) : { data: [] };
+        // Buscar nomes dos perfis
+        const profileIds = [...new Set(profiles.map(p => p.profile_id).filter(Boolean))];
+        const { data: profilesData } = profileIds.length > 0 ? 
+          await coreSupabase
+            .from('profiles')
+            .select('id, nome')
+            .in('id', profileIds) : { data: [] };
 
         // Buscar nomes dos gestores
         const managerIds = [...new Set(profiles.map(p => p.manager_id).filter(Boolean))];
         const { data: managers } = managerIds.length > 0 ? 
-          await supabase
-            .from('profiles')
+          await coreSupabase
+            .from('users')
             .select('id, name')
             .in('id', managerIds) : { data: [] };
 
         // Criar mapas para lookup rápido
-        const userClassMap = new Map((userClasses || []).map(uc => [uc.id, uc.name]));
-        const accessProfileMap = new Map((accessProfiles || []).map(ap => [ap.id, ap.name]));
+        const profileMap = new Map((profilesData || []).map(p => [p.id, p.nome]));
         const managerMap = new Map((managers || []).map(m => [m.id, m.name]));
 
         // Combinar os dados
         const usersWithRelations: UserWithRelations[] = profiles.map((profile) => ({
           id: profile.id,
           name: profile.name,
-          username: profile.username, // ADICIONADO
+          username: profile.username,
           phone: profile.phone,
           is_active: profile.is_active,
-          user_class_id: profile.user_class_id,
-          access_profile_id: profile.access_profile_id,
+          profile_id: profile.profile_id,
           manager_id: profile.manager_id,
-          user_class_name: profile.user_class_id ? userClassMap.get(profile.user_class_id) : undefined,
-          access_profile_name: profile.access_profile_id ? accessProfileMap.get(profile.access_profile_id) : undefined,
+          profile_name: profile.profile_id ? profileMap.get(profile.profile_id) : undefined,
           manager_name: profile.manager_id ? managerMap.get(profile.manager_id) : undefined
         }));
 
@@ -155,30 +133,14 @@ const UserManagement = () => {
     console.error('Users query error:', usersError);
   }
 
-  // Buscar classes de usuário para filtros
-  const { data: userClasses = [] } = useQuery<UserClass[]>({
-    queryKey: ['user-classes-filter'],
+  // Buscar perfis para filtros
+  const { data: profiles = [] } = useQuery<Profile[]>({
+    queryKey: ['profiles-filter'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('user_classes')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
-      
-      if (error) throw error;
-      return data;
-    }
-  });
-
-  // Buscar perfis de acesso para filtros
-  const { data: accessProfiles = [] } = useQuery<AccessProfile[]>({
-    queryKey: ['access-profiles-filter'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('access_profiles')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
+      const { data, error } = await coreSupabase
+        .from('profiles')
+        .select('id, nome')
+        .order('nome');
       
       if (error) throw error;
       return data;
@@ -188,8 +150,8 @@ const UserManagement = () => {
   // Mutation para desativar usuário
   const toggleUserStatusMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      const { error } = await supabase
-        .from('profiles')
+      const { error } = await coreSupabase
+        .from('users')
         .update({ is_active: !isActive })
         .eq('id', id);
       
@@ -236,9 +198,8 @@ const UserManagement = () => {
   const clearFilters = () => {
     setFilters({
       name: '',
-      userClass: 'all',
-      accessProfile: 'all',
-      status: 'all'
+      profile: '',
+      status: ''
     });
   };
 
@@ -285,7 +246,7 @@ const UserManagement = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <Input
                   className="w-full"
@@ -296,31 +257,15 @@ const UserManagement = () => {
               </div>
               
               <div>
-                <Select value={filters.userClass} onValueChange={(value) => setFilters(prev => ({ ...prev, userClass: value }))}>
+                <Select value={filters.profile} onValueChange={(value) => setFilters(prev => ({ ...prev, profile: value }))}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Classe" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas as classes</SelectItem>
-                    {userClasses.map((userClass) => (
-                      <SelectItem key={userClass.id} value={userClass.id}>
-                        {userClass.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Select value={filters.accessProfile} onValueChange={(value) => setFilters(prev => ({ ...prev, accessProfile: value }))}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Perfil de Acesso" />
+                    <SelectValue placeholder="Perfil" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos os perfis</SelectItem>
-                    {accessProfiles.map((profile) => (
+                    {profiles.map((profile) => (
                       <SelectItem key={profile.id} value={profile.id}>
-                        {profile.name}
+                        {profile.nome}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -357,10 +302,9 @@ const UserManagement = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome Completo</TableHead>
-                    <TableHead>Nome de Usuário</TableHead> {/* NOVO */}
+                    <TableHead>Nome de Usuário</TableHead>
                     <TableHead>Telefone</TableHead>
-                    <TableHead>Classe</TableHead>
-                    <TableHead>Perfil de Acesso</TableHead>
+                    <TableHead>Perfil</TableHead>
                     <TableHead>Gestor</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
@@ -370,10 +314,9 @@ const UserManagement = () => {
                   {users.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell>{user.username || '-'}</TableCell> {/* NOVO */}
+                      <TableCell>{user.username || '-'}</TableCell>
                       <TableCell>{user.phone || '-'}</TableCell>
-                      <TableCell>{user.user_class_name || '-'}</TableCell>
-                      <TableCell>{user.access_profile_name || '-'}</TableCell>
+                      <TableCell>{user.profile_name || '-'}</TableCell>
                       <TableCell>{user.manager_name || '-'}</TableCell>
                       <TableCell>
                         <Badge variant={user.is_active ? "default" : "secondary"}>
@@ -418,7 +361,7 @@ const UserManagement = () => {
                   ))}
                   {users.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-4">
+                      <TableCell colSpan={6} className="text-center py-4">
                         Nenhum usuário encontrado
                       </TableCell>
                     </TableRow>
