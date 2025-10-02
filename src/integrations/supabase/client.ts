@@ -2,26 +2,16 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://nhvlgnmpbihamgvdbmwa.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5odmxnbm1wYmloYW1ndmRibXdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0MTQ3NjUsImV4cCI6MjA3MTk5MDc2NX0.NwSwIZ8MPMaJcYJzQz7mofqT2-_pQI8aisgX5HChJN8";
+const SUPABASE_URL = "https://fmnoiqzueabrmilvzezh.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtbm9pcXp1ZWFicm1pbHZ6ZXpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkxODQ2MTEsImV4cCI6MjA3NDc2MDYxMX0.mhjdd3YQ5IPQWb1iI1vK6JR9-BIVsd3qFVX7LPfntk8";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    autoRefreshToken: true,
+    storage: localStorage,
     persistSession: true,
-    detectSessionInUrl: true
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'fiber-optic-mantainer-hub'
-    }
+    autoRefreshToken: true,
   }
 });
-
-// Funções auxiliares para acessar diferentes schemas
-export const coreSupabase = supabase.schema('core');
-export const rhSupabase = supabase.schema('rh');
-export const financeiroSupabase = supabase.schema('financeiro');
