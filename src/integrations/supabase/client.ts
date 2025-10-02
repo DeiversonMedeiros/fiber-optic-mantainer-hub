@@ -15,3 +15,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   }
 });
+
+// Export aliases for backward compatibility
+export const coreSupabase = supabase;
+export const rhSupabase = supabase;

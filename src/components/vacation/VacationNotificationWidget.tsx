@@ -107,7 +107,7 @@ const NotificationCard: React.FC<{
             {typeConfig.label}
           </Badge>
           <Badge 
-            variant="solid" 
+            variant="default" 
             className={cn("text-white", priorityConfig.badgeColor)}
           >
             {notification.priority}

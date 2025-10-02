@@ -96,7 +96,7 @@ const AlertCard: React.FC<{
         <div className="flex items-center space-x-2">
           <Icon className={cn("h-4 w-4", priorityConfig.iconColor)} />
           <Badge 
-            variant="solid" 
+            variant="default" 
             className={cn("text-white", priorityConfig.badgeColor)}
           >
             {alert.priority}
@@ -218,7 +218,7 @@ export function VacationAlertsDashboard({
 
   const handleGenerateNotifications = async () => {
     try {
-      await generateNotificationsMutation.mutateAsync();
+      await generateNotificationsMutation.mutateAsync(undefined);
       if (onGenerateNotifications) {
         onGenerateNotifications();
       }
