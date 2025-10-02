@@ -14,643 +14,32 @@ export type Database = {
   }
   public: {
     Tables: {
-      time_records: {
+      user_roles: {
         Row: {
-          company_id: string
-          created_at: string | null
-          device_info: string | null
-          employee_id: string
+          created_at: string
+          created_by: string | null
           id: string
-          is_offline: boolean | null
-          is_synced: boolean | null
-          last_sync_attempt: string | null
-          location_address: string | null
-          location_lat: number | null
-          location_lng: number | null
-          record_date: string
-          record_time: string
-          record_type: string
-          sync_attempts: number | null
-          updated_at: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
         }
         Insert: {
-          company_id: string
-          created_at?: string | null
-          device_info?: string | null
-          employee_id: string
+          created_at?: string
+          created_by?: string | null
           id?: string
-          is_offline?: boolean | null
-          is_synced?: boolean | null
-          last_sync_attempt?: string | null
-          location_address?: string | null
-          location_lat?: number | null
-          location_lng?: number | null
-          record_date: string
-          record_time: string
-          record_type: string
-          sync_attempts?: number | null
-          updated_at?: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
         }
         Update: {
-          company_id?: string
-          created_at?: string | null
-          device_info?: string | null
-          employee_id?: string
+          created_at?: string
+          created_by?: string | null
           id?: string
-          is_offline?: boolean | null
-          is_synced?: boolean | null
-          last_sync_attempt?: string | null
-          location_address?: string | null
-          location_lat?: number | null
-          location_lng?: number | null
-          record_date?: string
-          record_time?: string
-          record_type?: string
-          sync_attempts?: number | null
-          updated_at?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "time_records_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "time_records_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_profiles: {
-        Row: {
-          auth_id: string | null
-          created_at: string | null
-          email: string
-          id: string
-          name: string | null
-          updated_at: string | null
-          username: string | null
-        }
-        Insert: {
-          auth_id?: string | null
-          created_at?: string | null
-          email: string
-          id?: string
-          name?: string | null
-          updated_at?: string | null
-          username?: string | null
-        }
-        Update: {
-          auth_id?: string | null
-          created_at?: string | null
-          email?: string
-          id?: string
-          name?: string | null
-          updated_at?: string | null
-          username?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_profiles_auth_id_fkey"
-            columns: ["auth_id"]
-            isOneToOne: true
-            referencedRelation: "auth_users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {
-      auth_users: {
-        Row: {
-          created_at: string | null
-          email: string | null
-          id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          email?: string | null
-          id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          email?: string | null
-          id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      companies: {
-        Row: {
-          cep: string | null
-          cidade: string | null
-          cnpj: string | null
-          created_at: string | null
-          email: string | null
-          endereco: string | null
-          estado: string | null
-          id: string | null
-          logo_bucket: string | null
-          logo_url: string | null
-          nome_fantasia: string | null
-          razao_social: string | null
-          telefone: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          cep?: string | null
-          cidade?: string | null
-          cnpj?: string | null
-          created_at?: string | null
-          email?: string | null
-          endereco?: string | null
-          estado?: string | null
-          id?: string | null
-          logo_bucket?: string | null
-          logo_url?: string | null
-          nome_fantasia?: string | null
-          razao_social?: string | null
-          telefone?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          cep?: string | null
-          cidade?: string | null
-          cnpj?: string | null
-          created_at?: string | null
-          email?: string | null
-          endereco?: string | null
-          estado?: string | null
-          id?: string | null
-          logo_bucket?: string | null
-          logo_url?: string | null
-          nome_fantasia?: string | null
-          razao_social?: string | null
-          telefone?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      cost_centers: {
-        Row: {
-          code: string | null
-          company_id: string | null
-          created_at: string | null
-          description: string | null
-          id: string | null
-          is_active: boolean | null
-          name: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          code?: string | null
-          company_id?: string | null
-          created_at?: string | null
-          description?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          name?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          code?: string | null
-          company_id?: string | null
-          created_at?: string | null
-          description?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          name?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      departments: {
-        Row: {
-          company_id: string | null
-          created_at: string | null
-          description: string | null
-          id: string | null
-          is_active: boolean | null
-          manager_id: string | null
-          name: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          company_id?: string | null
-          created_at?: string | null
-          description?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          manager_id?: string | null
-          name?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          company_id?: string | null
-          created_at?: string | null
-          description?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          manager_id?: string | null
-          name?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      employee_absences: {
-        Row: {
-          absence_date: string | null
-          absence_type: string | null
-          company_id: string | null
-          created_at: string | null
-          employee_id: string | null
-          id: string | null
-          is_justified: boolean | null
-          justification_document: string | null
-          reason: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          absence_date?: string | null
-          absence_type?: string | null
-          company_id?: string | null
-          created_at?: string | null
-          employee_id?: string | null
-          id?: string | null
-          is_justified?: boolean | null
-          justification_document?: string | null
-          reason?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          absence_date?: string | null
-          absence_type?: string | null
-          company_id?: string | null
-          created_at?: string | null
-          employee_id?: string | null
-          id?: string | null
-          is_justified?: boolean | null
-          justification_document?: string | null
-          reason?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      employee_shifts: {
-        Row: {
-          company_id: string | null
-          created_at: string | null
-          employee_id: string | null
-          end_date: string | null
-          id: string | null
-          is_active: boolean | null
-          start_date: string | null
-          updated_at: string | null
-          work_shift_id: string | null
-        }
-        Insert: {
-          company_id?: string | null
-          created_at?: string | null
-          employee_id?: string | null
-          end_date?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          start_date?: string | null
-          updated_at?: string | null
-          work_shift_id?: string | null
-        }
-        Update: {
-          company_id?: string | null
-          created_at?: string | null
-          employee_id?: string | null
-          end_date?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          start_date?: string | null
-          updated_at?: string | null
-          work_shift_id?: string | null
-        }
-        Relationships: []
-      }
-      employees: {
-        Row: {
-          company_id: string | null
-          cpf: string | null
-          created_at: string | null
-          data_admissao: string | null
-          data_demissao: string | null
-          email: string | null
-          id: string | null
-          matricula: string | null
-          nome: string | null
-          status: string | null
-          telefone: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          company_id?: string | null
-          cpf?: string | null
-          created_at?: string | null
-          data_admissao?: string | null
-          data_demissao?: string | null
-          email?: string | null
-          id?: string | null
-          matricula?: string | null
-          nome?: string | null
-          status?: string | null
-          telefone?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          company_id?: string | null
-          cpf?: string | null
-          created_at?: string | null
-          data_admissao?: string | null
-          data_demissao?: string | null
-          email?: string | null
-          id?: string | null
-          matricula?: string | null
-          nome?: string | null
-          status?: string | null
-          telefone?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      periodic_exams: {
-        Row: {
-          arquivo_anexo: string | null
-          company_id: string | null
-          created_at: string | null
-          created_by: string | null
-          data_agendada: string | null
-          data_realizacao: string | null
-          employee_id: string | null
-          id: string | null
-          medico_responsavel: string | null
-          observacoes: string | null
-          resultado: string | null
-          status:
-            | "ativo"
-            | "inativo"
-            | "pendente"
-            | "aprovado"
-            | "reprovado"
-            | "cancelado"
-            | "concluido"
-            | "agendado"
-            | "realizado"
-            | "em_andamento"
-            | null
-          tipo_exame: string | null
-          updated_at: string | null
-          updated_by: string | null
-        }
-        Insert: {
-          arquivo_anexo?: string | null
-          company_id?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          data_agendada?: string | null
-          data_realizacao?: string | null
-          employee_id?: string | null
-          id?: string | null
-          medico_responsavel?: string | null
-          observacoes?: string | null
-          resultado?: string | null
-          status?:
-            | "ativo"
-            | "inativo"
-            | "pendente"
-            | "aprovado"
-            | "reprovado"
-            | "cancelado"
-            | "concluido"
-            | "agendado"
-            | "realizado"
-            | "em_andamento"
-            | null
-          tipo_exame?: string | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Update: {
-          arquivo_anexo?: string | null
-          company_id?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          data_agendada?: string | null
-          data_realizacao?: string | null
-          employee_id?: string | null
-          id?: string | null
-          medico_responsavel?: string | null
-          observacoes?: string | null
-          resultado?: string | null
-          status?:
-            | "ativo"
-            | "inativo"
-            | "pendente"
-            | "aprovado"
-            | "reprovado"
-            | "cancelado"
-            | "concluido"
-            | "agendado"
-            | "realizado"
-            | "em_andamento"
-            | null
-          tipo_exame?: string | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Relationships: []
-      }
-      positions: {
-        Row: {
-          company_id: string | null
-          created_at: string | null
-          department_id: string | null
-          description: string | null
-          id: string | null
-          is_active: boolean | null
-          name: string | null
-          salary_max: number | null
-          salary_min: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          company_id?: string | null
-          created_at?: string | null
-          department_id?: string | null
-          description?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          name?: string | null
-          salary_max?: number | null
-          salary_min?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          company_id?: string | null
-          created_at?: string | null
-          department_id?: string | null
-          description?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          name?: string | null
-          salary_max?: number | null
-          salary_min?: number | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      test_view: {
-        Row: {
-          message: string | null
-        }
-        Relationships: []
-      }
-      user_auth: {
-        Row: {
-          created_at: string | null
-          email: string | null
-          email_confirmed_at: string | null
-          encrypted_password: string | null
-          id: string | null
-          is_anonymous: boolean | null
-          is_sso_user: boolean | null
-          is_super_admin: boolean | null
-          last_sign_in_at: string | null
-          raw_app_meta_data: Json | null
-          raw_user_meta_data: Json | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          email?: string | null
-          email_confirmed_at?: string | null
-          encrypted_password?: string | null
-          id?: string | null
-          is_anonymous?: boolean | null
-          is_sso_user?: boolean | null
-          is_super_admin?: boolean | null
-          last_sign_in_at?: string | null
-          raw_app_meta_data?: Json | null
-          raw_user_meta_data?: Json | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          email?: string | null
-          email_confirmed_at?: string | null
-          encrypted_password?: string | null
-          id?: string | null
-          is_anonymous?: boolean | null
-          is_sso_user?: boolean | null
-          is_super_admin?: boolean | null
-          last_sign_in_at?: string | null
-          raw_app_meta_data?: Json | null
-          raw_user_meta_data?: Json | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      users: {
-        Row: {
-          company_id: string | null
-          created_at: string | null
-          email: string | null
-          id: string | null
-          manager_id: string | null
-          name: string | null
-          phone: string | null
-          profile_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          company_id?: string | null
-          created_at?: string | null
-          email?: string | null
-          id?: string | null
-          manager_id?: string | null
-          name?: string | null
-          phone?: string | null
-          profile_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          company_id?: string | null
-          created_at?: string | null
-          email?: string | null
-          id?: string | null
-          manager_id?: string | null
-          name?: string | null
-          phone?: string | null
-          profile_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      vacations: {
-        Row: {
-          aprovado_por: string | null
-          company_id: string | null
-          created_at: string | null
-          data_aprovacao: string | null
-          data_fim: string | null
-          data_inicio: string | null
-          dias_abono: number | null
-          dias_ferias: number | null
-          employee_id: string | null
-          id: string | null
-          observacoes: string | null
-          status: string | null
-          tipo_fracionamento: string | null
-          total_periodos: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          aprovado_por?: string | null
-          company_id?: string | null
-          created_at?: string | null
-          data_aprovacao?: string | null
-          data_fim?: string | null
-          data_inicio?: string | null
-          dias_abono?: number | null
-          dias_ferias?: number | null
-          employee_id?: string | null
-          id?: string | null
-          observacoes?: string | null
-          status?: string | null
-          tipo_fracionamento?: string | null
-          total_periodos?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          aprovado_por?: string | null
-          company_id?: string | null
-          created_at?: string | null
-          data_aprovacao?: string | null
-          data_fim?: string | null
-          data_inicio?: string | null
-          dias_abono?: number | null
-          dias_ferias?: number | null
-          employee_id?: string | null
-          id?: string | null
-          observacoes?: string | null
-          status?: string | null
-          tipo_fracionamento?: string | null
-          total_periodos?: number | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       work_shifts: {
         Row: {
           break_duration: number | null
@@ -732,6 +121,17 @@ export type Database = {
         Args: { user_id: string }
         Returns: Json
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_super_admin: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       sign: {
         Args: { algorithm?: string; payload: Json; secret: string }
         Returns: string
@@ -762,7 +162,13 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role:
+        | "super_admin"
+        | "admin"
+        | "gestor_rh"
+        | "gestor_financeiro"
+        | "tecnico"
+        | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -889,6 +295,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: [
+        "super_admin",
+        "admin",
+        "gestor_rh",
+        "gestor_financeiro",
+        "tecnico",
+        "user",
+      ],
+    },
   },
 } as const
